@@ -47,8 +47,14 @@ if [[ "$BBG_MODE" != "160000" || "$BBG_TYPE" != "commit" || "$BBG_PATH" != "Base
 fi
 
 BBG_DIR="$SRC_DIR/Baseband-guard"
+# A checkout may leave an empty directory for an uninitialized gitlink.
+# Remove only that empty placeholder; refuse to overwrite any real content.
+if [[ -d "$BBG_DIR" && ! -L "$BBG_DIR" ]] && \
+   [[ -z "$(find "$BBG_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+  rmdir "$BBG_DIR"
+fi
 if [[ -e "$BBG_DIR" ]]; then
-  echo "Baseband-guard path already exists: $BBG_DIR" >&2
+  echo "Baseband-guard path already exists and is not empty: $BBG_DIR" >&2
   exit 4
 fi
 
