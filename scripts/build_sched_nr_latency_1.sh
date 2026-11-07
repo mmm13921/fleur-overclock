@@ -29,11 +29,41 @@ fi
 
 mkdir -p "$(dirname "$SRC_DIR")" "$ARTIFACT_DIR"
 git clone --depth=1 --branch "$SOURCE_REF" "$SOURCE_URL" "$SRC_DIR"
-# Fleux v5 has a stale Baseband-guard gitlink that is not registered in
-# .gitmodules. Initialize only the declared KernelSU submodule; recursive
-# update would fail on the unregistered Baseband-guard path.
+# Fleux v5 has a Baseband-guard gitlink but no matching .gitmodules
+# URL. Resolve the exact gitlink SHA from the pinned Fleux commit instead of
+# silently omitting the dependency or following an unpinned upstream branch.
 git -C "$SRC_DIR" submodule sync -- KernelSU
 git -C "$SRC_DIR" submodule update --init --depth=1 -- KernelSU
+
+BBG_ENTRY="$(git -C "$SRC_DIR" ls-tree HEAD -- Baseband-guard)"
+if [[ -z "$BBG_ENTRY" ]]; then
+  echo "Fleux source is missing the expected Baseband-guard gitlink." >&2
+  exit 4
+fi
+read -r BBG_MODE BBG_TYPE BBG_COMMIT BBG_PATH <<< "$BBG_ENTRY"
+if [[ "$BBG_MODE" != "160000" || "$BBG_TYPE" != "commit" || "$BBG_PATH" != "Baseband-guard" ]]; then
+  echo "Unexpected Baseband-guard tree entry: $BBG_ENTRY" >&2
+  exit 4
+fi
+
+BBG_DIR="$SRC_DIR/Baseband-guard"
+if [[ -e "$BBG_DIR" ]]; then
+  echo "Baseband-guard path already exists: $BBG_DIR" >&2
+  exit 4
+fi
+
+git clone --quiet https://github.com/vc-teahouse/Baseband-guard.git "$BBG_DIR"
+git -C "$BBG_DIR" fetch --quiet --depth=1 origin "$BBG_COMMIT"
+git -C "$BBG_DIR" checkout --quiet --detach "$BBG_COMMIT"
+ACTUAL_BBG_COMMIT="$(git -C "$BBG_DIR" rev-parse HEAD)"
+if [[ "$ACTUAL_BBG_COMMIT" != "$BBG_COMMIT" ]]; then
+  echo "Baseband-guard gitlink mismatch: expected $BBG_COMMIT, got $ACTUAL_BBG_COMMIT" >&2
+  exit 4
+fi
+
+# Restore the upstream BBG integration (security symlink, Kconfig/Makefile,
+# and Linux 4.19 SELinux compatibility changes) at the exact gitlink revision.
+sh "$BBG_DIR/setup.sh" "$BBG_COMMIT"
 
 SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 if [[ "$SOURCE_REF" == "v5" && "$SOURCE_COMMIT" != "$EXPECTED_V5_COMMIT" ]]; then
