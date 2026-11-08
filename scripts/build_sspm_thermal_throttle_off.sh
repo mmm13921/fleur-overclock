@@ -175,18 +175,18 @@ def replace_once(old, new, label):
     source = source.replace(old, new, 1)
 
 replace_once(
-    "static void lvts_enable_rgu_reset(void)\\n{\\n\\tstruct wd_api *wd_api;",
-    "static void lvts_enable_rgu_reset(void)\\n{\\n\\tstruct wd_api *wd_api;\\n\\tpr_info(\"[LVTS-DIAG] enabling RGU direct-reset protection\\n\");",
+    "static void lvts_enable_rgu_reset(void)\n{\n\tstruct wd_api *wd_api;",
+    "static void lvts_enable_rgu_reset(void)\n{\n\tstruct wd_api *wd_api;\n\tpr_info(\"[LVTS-DIAG] enabling RGU direct-reset protection\n\");",
     "RGU enable"
 )
 replace_once(
-    "void lvts_config_all_tc_hw_protect(int temperature, int temperature2)\\n{\\n\\tint i = 0;",
-    "void lvts_config_all_tc_hw_protect(int temperature, int temperature2)\\n{\\n\\tint i = 0;\\n\\tpr_info(\"[LVTS-DIAG] HW trip setup: primary=%d secondary=%d\\n\", temperature, temperature2);",
+    "void lvts_config_all_tc_hw_protect(int temperature, int temperature2)\n{\n\tint i = 0;",
+    "void lvts_config_all_tc_hw_protect(int temperature, int temperature2)\n{\n\tint i = 0;\n\tpr_info(\"[LVTS-DIAG] HW trip setup: primary=%d secondary=%d\n\", temperature, temperature2);",
     "LVTS trip setup"
 )
 replace_once(
-    "\\t\\t/* Move thermal HW protection ahead... */\\n\\t\\tlvts_set_tc_trigger_hw_protect(temperature, temperature2, i);",
-    "\\t\\t/* Move thermal HW protection ahead... */\\n\\t\\tpr_info(\"[LVTS-DIAG] programming TC=%d primary=%d secondary=%d\\n\", i, temperature, temperature2);\\n\\t\\tlvts_set_tc_trigger_hw_protect(temperature, temperature2, i);",
+    "\t\t/* Move thermal HW protection ahead... */\n\t\tlvts_set_tc_trigger_hw_protect(temperature, temperature2, i);",
+    "\t\t/* Move thermal HW protection ahead... */\n\t\tpr_info(\"[LVTS-DIAG] programming TC=%d primary=%d secondary=%d\n\", i, temperature, temperature2);\n\t\tlvts_set_tc_trigger_hw_protect(temperature, temperature2, i);",
     "per-controller trip"
 )
 if source.count("[LVTS-DIAG]") != 3:
