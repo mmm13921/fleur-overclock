@@ -1,34 +1,20 @@
-# Fleux SSPM Thermal-Throttle-OFF Diagnostic Test
+# Fleux LVTS Diagnostic + SSPM Thermal-Throttle-OFF Test
 
-This is a diagnostic-only MT6781 build based on the pinned Fleux v5 source.
+Diagnostic-only MT6781 build based on pinned Fleux v5.
 
-## Exact change
+## Changes
+- Sends `THERMAL_IPI_SET_DIS_THERMAL_THROTTLE` to SSPM with argument 0 set to 1 during LVTS initialization; `tscpu_sspm_thermal_throttle` is initialized to 1.
+- Adds `[LVTS-DIAG]` kernel log markers for programmed LVTS primary/secondary trip thresholds, per-controller threshold programming, and the RGU direct-reset enable path.
 
-During MT6781 LVTS initialization, the kernel sends
-`THERMAL_IPI_SET_DIS_THERMAL_THROTTLE` to SSPM with argument 0 set to 1.
-The exported state `tscpu_sspm_thermal_throttle` is initialized to 1 so the
-procfs state matches the requested setting.
+## Protections deliberately preserved
+- LVTS sensor acquisition and hardware trip programming.
+- LVTS/RGU direct hardware thermal reset.
+- AP-side thermal policy, cooling devices, MediaTek software SYSRST cooler, and watchdog.
+- CPU/GPU/CCI OPP tables and voltages.
 
-## Protections deliberately left unchanged
-
-- AP-side thermal policy and cooling devices.
-- LVTS hardware temperature sensing and trip programming.
-- LVTS/RGU direct hardware thermal reset path.
-- The MediaTek software SYSRST cooler and its reset path.
-- Watchdogs, CPU/GPU/CCI OPP tables, and voltages.
-
-This does **not** disable all thermal protection and does **not** guarantee that
-a temperature-triggered hardware reset will stop. Disabling SSPM thermal
-throttling can increase SoC temperature and cause the preserved emergency
-protection to trigger sooner.
+This build does **not** disable LVTS hardware protection or the RGU emergency reset. It disables the SSPM thermal-throttle action only, while recording LVTS setup events. A temperature-triggered hardware reset can still occur.
 
 ## Test limitation
+Use only for brief, low-load diagnostic comparison. Do not run stress tests, benchmarks, or games to heat the device. Stop if temperature rises unusually, instability appears, or battery/charging temperature becomes abnormal. Keep a known-good boot image available for immediate recovery.
 
-Use only for a brief, low-load diagnostic comparison. Do not run stress tests,
-benchmarks, or games to heat the device with this build. Stop the test if
-temperature rises unusually, the device becomes unstable, or charging/battery
-temperature becomes abnormal. Keep a known-good boot image available so the
-device can be restored immediately.
-
-The build is separate from the scheduler NR1 build and does not change
-`sched_nr_latency`.
+The separate DTBO partition is not replaced. This is not a performance build and does not change scheduler settings.
