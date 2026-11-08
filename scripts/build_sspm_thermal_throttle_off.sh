@@ -165,7 +165,34 @@ if source.count("THERMAL_IPI_SET_DIS_THERMAL_THROTTLE") != 2:
     raise SystemExit("Expected the original helper plus one boot-time SSPM disable IPI")
 if "lvts_enable_rgu_reset();" not in source:
     raise SystemExit("LVTS/RGU hardware reset enable path is missing")
-print("SSPM TEST PATCH PASSED: SSPM throttle disabled after LVTS init; LVTS/RGU hard protection retained")
+
+# Add low-overhead kernel log markers around LVTS threshold programming and
+# the RGU direct-reset enable path. This observes the path; it does not bypass it.
+def replace_once(old, new, label):
+    global source
+    if source.count(old) != 1:
+        raise SystemExit(f"Expected one {label} anchor, found {source.count(old)}")
+    source = source.replace(old, new, 1)
+
+replace_once(
+    "static void lvts_enable_rgu_reset(void)\\n{\\n\\tstruct wd_api *wd_api;",
+    "static void lvts_enable_rgu_reset(void)\\n{\\n\\tpr_info(\"[LVTS-DIAG] enabling RGU direct-reset protection\\n\");\\n\\tstruct wd_api *wd_api;",
+    "RGU enable"
+)
+replace_once(
+    "void lvts_config_all_tc_hw_protect(int temperature, int temperature2)\\n{\\n\\tint i = 0;",
+    "void lvts_config_all_tc_hw_protect(int temperature, int temperature2)\\n{\\n\\tint i = 0;\\n\\tpr_info(\"[LVTS-DIAG] HW trip setup: primary=%d secondary=%d\\n\", temperature, temperature2);",
+    "LVTS trip setup"
+)
+replace_once(
+    "\\t\\t/* Move thermal HW protection ahead... */\\n\\t\\tlvts_set_tc_trigger_hw_protect(temperature, temperature2, i);",
+    "\\t\\t/* Move thermal HW protection ahead... */\\n\\t\\tpr_info(\"[LVTS-DIAG] programming TC=%d primary=%d secondary=%d\\n\", i, temperature, temperature2);\\n\\t\\tlvts_set_tc_trigger_hw_protect(temperature, temperature2, i);",
+    "per-controller trip"
+)
+if source.count("[LVTS-DIAG]") != 3:
+    raise SystemExit("LVTS diagnostic log markers did not validate")
+source_path.write_text(source)
+print("SSPM TEST PATCH PASSED: SSPM throttle disabled; LVTS thresholds and RGU path instrumented; emergency protection retained")
 PY
 
 git -C "$SRC_DIR" diff --check
@@ -259,11 +286,11 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "source_commit=$SOURCE_COMMIT"
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
-  echo "build_profile=sspm_thermal_throttle_off_test"
+  echo "build_profile=lvts_diagnostic_sspm_throttle_off_test"
   echo "sspm_thermal_throttle=disabled_at_boot"
   echo "disable_command=THERMAL_IPI_SET_DIS_THERMAL_THROTTLE(arg0=1)"
   echo "ap_thermal_policy=unchanged"
-  echo "lvts_rgu_hardware_protection=unchanged"
+  echo "lvts_diagnostics=trip_thresholds_and_rgu_enable_logged"\n  echo "lvts_rgu_hardware_protection=unchanged"
   echo "software_sysrst_path=unchanged"
   echo "watchdog=unchanged"
   echo "cpu_gpu_cci_dvfs_and_voltages=unchanged"
