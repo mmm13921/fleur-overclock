@@ -69,7 +69,7 @@ fi
 
 # Restore the upstream BBG integration (security symlink, Kconfig/Makefile,
 # and Linux 4.19 SELinux compatibility changes) at the exact gitlink revision.
-sh "$BBG_DIR/setup.sh" "$BBG_COMMIT"
+( cd "$SRC_DIR" && sh "$BBG_DIR/setup.sh" "$BBG_COMMIT" )
 
 SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 if [[ "$SOURCE_REF" == "v5" && "$SOURCE_COMMIT" != "$EXPECTED_V5_COMMIT" ]]; then
