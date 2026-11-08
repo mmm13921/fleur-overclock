@@ -84,7 +84,8 @@ jobs:
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
           cp scripts/anykernel_sched_nr_latency_1.sh "$AK_DIR/anykernel.sh"
-          cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
+          cp artifacts/Image.gz "$AK_DIR/Image.gz"
+          cp artifacts/dtb.img "$AK_DIR/dtb.img"
           cp docs/sched-nr-latency-1-changelog.md "$AK_DIR/NR1-CHANGELOG.txt"
           cp artifacts/kernel.config "$AK_DIR/kernel.config"
           cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
@@ -92,12 +93,12 @@ jobs:
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-Scheduler-NR1-AnyKernel3.zip" \
-              META-INF tools LICENSE anykernel.sh Image.gz-dtb \
+              META-INF tools LICENSE anykernel.sh Image.gz dtb.img \
               NR1-CHANGELOG.txt kernel.config build-manifest.txt sched-nr-latency-1-source.patch
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-Scheduler-NR1-AnyKernel3.zip"
           unzip -l "$GITHUB_WORKSPACE/artifacts/Fleux-Scheduler-NR1-AnyKernel3.zip" \
-            | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz-dtb|LICENSE'
+            | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz|dtb.img|LICENSE'
           sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-Scheduler-NR1-AnyKernel3.zip" \
             | tee artifacts/NR1-SHA256.txt
 
