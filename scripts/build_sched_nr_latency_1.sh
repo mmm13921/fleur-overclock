@@ -89,6 +89,10 @@ def keep_one(path: Path, entry: str) -> None:
         output.append(line)
     if not seen:
         raise SystemExit(f"Baseband-guard integration entry missing: {path}: {entry}")
+    # Avoid carrying the setup script's extra terminal blank line into the
+    # tracked source diff (git diff --check treats it as an error).
+    while output and not output[-1].strip():
+        output.pop()
     path.write_text("\n".join(output) + "\n")
 
 keep_one(Path(sys.argv[1]), "obj-$(CONFIG_BBG) += baseband-guard/")
