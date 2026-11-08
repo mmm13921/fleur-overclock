@@ -1,5 +1,5 @@
-name: Fleux SSPM Thermal Throttle OFF (diagnostic test)
-run-name: Fleux SSPM thermal-throttle-off test (${{ github.event_name }})
+name: Fleux LVTS Diagnostic + SSPM Throttle OFF (test)
+run-name: Fleux LVTS diagnostic + SSPM throttle-off test (${{ github.event_name }})
 
 on:
   push:
@@ -23,11 +23,11 @@ permissions:
 
 concurrency:
   group: fleux-sspm-thermal-throttle-off-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-package:
-    name: Build Fleux v5 SSPM throttle-off diagnostic test
+    name: Build Fleux v5 LVTS diagnostic + SSPM throttle-off test
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -67,7 +67,7 @@ jobs:
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
 
-      - name: Build Fleux with SSPM thermal throttle disabled for test
+      - name: Build Fleux with LVTS diagnostics and SSPM throttle disabled
         run: bash scripts/build_sspm_thermal_throttle_off.sh "$SOURCE_REF"
 
       - name: Package flashable AnyKernel3 ZIP
@@ -91,7 +91,7 @@ jobs:
           cp artifacts/sspm-thermal-throttle-off.patch "$AK_DIR/sspm-thermal-throttle-off.patch"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-SSPM-Thermal-Throttle-Off-Test-AnyKernel3.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-LVTS-Diagnostic-SSPM-Throttle-Off-Test-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz dtb.img \
               SSPM-THERMAL-THROTTLE-OFF-TEST.txt kernel.config build-manifest.txt \
               sspm-thermal-throttle-off.patch
@@ -99,12 +99,12 @@ jobs:
           ZIP="$GITHUB_WORKSPACE/artifacts/Fleux-SSPM-Thermal-Throttle-Off-Test-AnyKernel3.zip"
           unzip -t "$ZIP"
           unzip -l "$ZIP" | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz|dtb.img|SSPM-THERMAL|build-manifest.txt|sspm-thermal-throttle-off.patch'
-          sha256sum "$ZIP" | tee "$GITHUB_WORKSPACE/artifacts/SSPM-TEST-SHA256.txt"
+          sha256sum "$ZIP" | tee "$GITHUB_WORKSPACE/artifacts/LVTS-SSPM-TEST-SHA256.txt"
 
       - name: Upload SSPM diagnostic test ZIP and build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: fleux-sspm-thermal-throttle-off-test
+          name: fleux-lvts-diagnostic-sspm-throttle-off-test
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
