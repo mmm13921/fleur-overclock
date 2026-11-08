@@ -1,0 +1,110 @@
+name: Fleux SSPM Thermal Throttle OFF (diagnostic test)
+run-name: Fleux SSPM thermal-throttle-off test (${{ github.event_name }})
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build-sspm-thermal-throttle-off.yml'
+      - 'scripts/build_sspm_thermal_throttle_off.sh'
+      - 'scripts/anykernel_sspm_thermal_throttle_off.sh'
+      - 'docs/sspm-thermal-throttle-off-test.md'
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Fleux source branch or tag
+        required: true
+        default: v5
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fleux-sspm-thermal-throttle-off-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-package:
+    name: Build Fleux v5 SSPM throttle-off diagnostic test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: ${{ inputs.source_ref || 'v5' }}
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+
+      - name: Validate source ref
+        shell: bash
+        run: |
+          case "$SOURCE_REF" in
+            ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*)
+              echo "Invalid source ref: $SOURCE_REF" >&2
+              exit 2
+              ;;
+          esac
+
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+
+      - name: Build Fleux with SSPM thermal throttle disabled for test
+        run: bash scripts/build_sspm_thermal_throttle_off.sh "$SOURCE_REF"
+
+      - name: Package flashable AnyKernel3 ZIP
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_sspm_thermal_throttle_off.sh "$AK_DIR/anykernel.sh"
+          cp artifacts/Image.gz "$AK_DIR/Image.gz"
+          cp artifacts/dtb.img "$AK_DIR/dtb.img"
+          cp docs/sspm-thermal-throttle-off-test.md "$AK_DIR/SSPM-THERMAL-THROTTLE-OFF-TEST.txt"
+          cp artifacts/kernel.config "$AK_DIR/kernel.config"
+          cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
+          cp artifacts/sspm-thermal-throttle-off.patch "$AK_DIR/sspm-thermal-throttle-off.patch"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-SSPM-Thermal-Throttle-Off-Test-AnyKernel3.zip" \
+              META-INF tools LICENSE anykernel.sh Image.gz dtb.img \
+              SSPM-THERMAL-THROTTLE-OFF-TEST.txt kernel.config build-manifest.txt \
+              sspm-thermal-throttle-off.patch
+          )
+          ZIP="$GITHUB_WORKSPACE/artifacts/Fleux-SSPM-Thermal-Throttle-Off-Test-AnyKernel3.zip"
+          unzip -t "$ZIP"
+          unzip -l "$ZIP" | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz|dtb.img|SSPM-THERMAL|build-manifest.txt|sspm-thermal-throttle-off.patch'
+          sha256sum "$ZIP" | tee "$GITHUB_WORKSPACE/artifacts/SSPM-TEST-SHA256.txt"
+
+      - name: Upload SSPM diagnostic test ZIP and build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleux-sspm-thermal-throttle-off-test
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
