@@ -176,7 +176,7 @@ def replace_once(old, new, label):
 
 replace_once(
     "static void lvts_enable_rgu_reset(void)\\n{\\n\\tstruct wd_api *wd_api;",
-    "static void lvts_enable_rgu_reset(void)\\n{\\n\\tpr_info(\"[LVTS-DIAG] enabling RGU direct-reset protection\\n\");\\n\\tstruct wd_api *wd_api;",
+    "static void lvts_enable_rgu_reset(void)\\n{\\n\\tstruct wd_api *wd_api;\\n\\tpr_info(\"[LVTS-DIAG] enabling RGU direct-reset protection\\n\");",
     "RGU enable"
 )
 replace_once(
