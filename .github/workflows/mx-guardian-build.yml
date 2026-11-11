@@ -1,0 +1,64 @@
+name: MX Guardian kernel build
+
+on:
+  push:
+    branches: [mx-guardian-governors]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout MX Guardian build scripts
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential cpio curl flex git libelf-dev libncurses-dev libssl-dev lz4 python3 unzip zip
+
+      - name: Download Fleux-matched Android Clang
+        run: |
+          mkdir -p "$RUNNER_TEMP/tc21"
+          curl -L --fail --retry 3 "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" -o "$RUNNER_TEMP/clang.tar.gz"
+          tar -xzf "$RUNNER_TEMP/clang.tar.gz" -C "$RUNNER_TEMP/tc21"
+          test -x "$RUNNER_TEMP/tc21/bin/clang"
+          echo "$RUNNER_TEMP/tc21/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch Fleux kernel and governor sources
+        run: |
+          git clone --depth=1 --branch lineage-24.0 --recurse-submodules https://gitlab.com/daliboss/fleux.git kernel
+          git clone --depth=1 --branch master https://github.com/Oct-mm/cpufreq.git governor-sources
+
+      - name: Integrate available governors
+        run: |
+          python3 scripts/enable_mx_guardian_governors.py "$GITHUB_WORKSPACE/kernel" "$GITHUB_WORKSPACE/governor-sources"
+
+      - name: Configure and compile
+        working-directory: kernel
+        env:
+          ARCH: arm64
+          SUBARCH: arm64
+          KBUILD_BUILD_USER: mxguardian
+          KBUILD_BUILD_HOST: github-actions
+        run: |
+          set -o pipefail
+          make O=out fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
+          make -j2 O=out CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee "$RUNNER_TEMP/mx-guardian-build.log"
+
+      - name: Upload kernel image and build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MX-Guardian-kernel-build
+          path: |
+            kernel/out/arch/arm64/boot/Image.gz-dtb
+            ${{ runner.temp }}/mx-guardian-build.log
+          if-no-files-found: warn
+          retention-days: 14
