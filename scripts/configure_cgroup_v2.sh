@@ -48,7 +48,7 @@ grep -Eq '\.dfl_cftypes[[:space:]]*=[[:space:]]*cpu_files' "$SRC_DIR/kernel/sche
 grep -Eq '\.dfl_cftypes[[:space:]]*=[[:space:]]*blkcg_files' "$SRC_DIR/block/blk-cgroup.c"
 grep -Eq '\.dfl_cftypes[[:space:]]*=[[:space:]]*memory_files' "$SRC_DIR/mm/memcontrol.c"
 grep -Eq '\.dfl_cftypes[[:space:]]*=[[:space:]]*pids_files' "$SRC_DIR/kernel/cgroup/pids.c"
-grep -Eq '\.dfl_cftypes[[:space:]]*=[[:space:]]*rdma_files' "$SRC_DIR/kernel/cgroup/rdma.c"
+grep -Eq '\.dfl_cftypes[[:space:]]*=[[:space:]]*rdmacg_files' "$SRC_DIR/kernel/cgroup/rdma.c"
 echo "Cgroup v2 build configuration verified."
 echo "Native v2 controllers enabled: cpu, io, memory, pids, rdma."
 echo "CPU controls include cpu.weight and cpu.max; memory swap accounting is enabled."
