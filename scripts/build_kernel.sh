@@ -11,6 +11,7 @@ ARTIFACT_DIR="${ARTIFACT_DIR:-$WORKSPACE/artifacts}"
 TOOLCHAIN_DIR="${TOOLCHAIN_DIR:-}"
 
 case "$SOURCE_REF" in
+  v∞) ;;
   ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*)
     echo "Invalid source ref: $SOURCE_REF" >&2
     exit 2
