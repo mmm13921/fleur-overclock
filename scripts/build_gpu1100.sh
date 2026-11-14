@@ -11,7 +11,7 @@ if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
   echo "TOOLCHAIN_DIR must point to Android Clang r563880c" >&2
   exit 2
 fi
-case "$SOURCE_REF" in ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*) echo "Invalid source ref" >&2; exit 2;; esac
+case "$SOURCE_REF" in v∞) ;; ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*) echo "Invalid source ref" >&2; exit 2;; esac
 mkdir -p "$ARTIFACT_DIR"
 git clone --depth=1 --branch "$SOURCE_REF" https://gitlab.com/daliboss/fleux.git "$SRC_DIR"
 git -C "$SRC_DIR" submodule sync --recursive
