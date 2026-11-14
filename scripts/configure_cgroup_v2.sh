@@ -11,6 +11,7 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable CGROUPS \
   --enable MEMCG \
   --enable MEMCG_SWAP \
+  --enable SWAP \
   --enable BLK_CGROUP \
   --enable CGROUP_SCHED \
   --enable FAIR_GROUP_SCHED \
@@ -25,6 +26,7 @@ required=(
   CGROUPS
   MEMCG
   MEMCG_SWAP
+  SWAP
   BLK_CGROUP
   CGROUP_SCHED
   FAIR_GROUP_SCHED
