@@ -154,6 +154,8 @@ export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
+
 # Build the device's kernel-plus-DTB target as a reference container, then
 # split it into the two Boot Image v2 components used by fleur:
 # Image.gz (kernel payload) and dtb.img (concatenated FDT blobs).
@@ -233,6 +235,11 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "source_url=$SOURCE_URL"
   echo "source_ref=$SOURCE_REF"
   echo "source_commit=$SOURCE_COMMIT"
+  echo "cgroup_mode=unified_v2_kernel_support"
+  echo "cgroup_v2_controllers=cpu,io,memory,pids,rdma"
+  echo "cgroup_v2_bpf=enabled"
+  echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
+  echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
   echo "build_profile=baseline_sched_nr_latency_1"
