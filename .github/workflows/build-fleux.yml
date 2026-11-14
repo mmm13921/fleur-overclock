@@ -1,10 +1,10 @@
-name: Fleux baseline kernel build
+name: Fleux latest-source kernel build (cgroup v2)
 
 on:
   workflow_dispatch:
     inputs:
       source_ref:
-        description: Fleux source branch or tag
+        description: Fleux upstream branch or tag; lineage-24.0 tracks the current source
         required: true
         default: lineage-24.0
         type: string
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build fleur_defconfig
+    name: Build fleur_defconfig with cgroup v2
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     env:
@@ -58,13 +58,13 @@ jobs:
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
 
-      - name: Build kernel
+      - name: Build Fleux kernel with cgroup v2 support
         run: bash scripts/build_kernel.sh "$SOURCE_REF"
 
       - name: Upload baseline image and manifest
         uses: actions/upload-artifact@v4
         with:
-          name: fleux-baseline
+          name: fleux-cgroup-v2
           path: artifacts/
           if-no-files-found: error
           retention-days: 14
