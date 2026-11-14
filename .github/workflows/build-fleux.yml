@@ -61,7 +61,7 @@ jobs:
       - name: Build Fleux kernel with cgroup v2 support
         run: bash scripts/build_kernel.sh "$SOURCE_REF"
 
-      - name: Upload baseline image and manifest
+      - name: Upload kernel image and cgroup v2 manifest
         uses: actions/upload-artifact@v4
         with:
           name: fleux-cgroup-v2
