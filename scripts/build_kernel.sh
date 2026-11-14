@@ -63,6 +63,8 @@ export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
+
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 \
   CLANG_TRIPLE=aarch64-linux-gnu- \
@@ -302,6 +304,11 @@ esac
   fi
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
+  echo "cgroup_mode=unified_v2_kernel_support"
+  echo "cgroup_v2_controllers=cpu,io,memory,pids,rdma"
+  echo "cgroup_v2_bpf=enabled"
+  echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
+  echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
   if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
     echo "flashable_zip=AnyKernel3"
