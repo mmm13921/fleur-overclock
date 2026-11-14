@@ -23,6 +23,7 @@ export ARCH=arm64 SUBARCH=arm64
 export KBUILD_BUILD_USER=fleux-gpu-builder
 export KBUILD_BUILD_HOST=reproducible-runner
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
 test -s "$IMAGE"
@@ -34,6 +35,11 @@ git -C "$SRC_DIR" diff --binary > "$ARTIFACT_DIR/gpu1100-source.patch"
   echo "source_url=https://gitlab.com/daliboss/fleux.git"
   echo "source_ref=$SOURCE_REF"
   echo "source_commit=$(git -C "$SRC_DIR" rev-parse HEAD)"
+  echo "cgroup_mode=unified_v2_kernel_support"
+  echo "cgroup_v2_controllers=cpu,io,memory,pids,rdma"
+  echo "cgroup_v2_bpf=enabled"
+  echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
+  echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "build_profile=gpu1100"
   echo "device=fleur/MT6781"
   echo "gpu=Mali-G57 MC2"
