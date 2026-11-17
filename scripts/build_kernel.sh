@@ -302,7 +302,7 @@ esac
   echo "build_profile=$BUILD_PROFILE"
   echo "filesystem_profile=hyperos-safe"
   echo "filesystem_reference=mt6781-sea/android_kernel_xiaomi_mt6781@lineage-23.2 (4.19.325)"
-  echo "filesystem_interceptors=nomount,ksu_susfs disabled"
+  echo "filesystem_interceptors=nomount disabled; susfs feature flags disabled; inline hook retained"
   if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     echo "modem_pm_compatibility=MT6781 CCCI/DPMAIF suspend-resume restored"
     echo "modem_pm_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume"
