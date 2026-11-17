@@ -509,6 +509,37 @@ def apply_fleux_fuse_v2_compat(src):
     require("pto->" not in passthrough_c.read_text(),
             "FUSE V1 passthrough payload access remains")
 
+def apply_fleux_419325_fuse_readahead_compat(src):
+    # Linux 4.19.191 FUSE used VM_MAX_READAHEAD (128 kbytes) from mm.h.
+    # Fleux 4.19.325 no longer exports that legacy macro; keep the same
+    # FUSE default locally instead of changing the public MM header.
+    mm_header = (src / "include/linux/mm.h").read_text()
+    fuse_inode = src / "fs/fuse/inode.c"
+    fuse_text = fuse_inode.read_text()
+    if "VM_MAX_READAHEAD" in mm_header:
+        require("VM_MAX_READAHEAD" in fuse_text,
+                "FUSE readahead use disappeared unexpectedly")
+        return
+    fallback = (
+        '#ifndef VM_MAX_READAHEAD\n'
+        '#define VM_MAX_READAHEAD 128 /* kbytes; Linux 4.19 default */\n'
+        '#endif'
+    )
+    if fallback not in fuse_text:
+        anchor = '#include "fuse_i.h"\n'
+        require(fuse_text.count(anchor) == 1,
+                "FUSE inode include anchor is missing or ambiguous")
+        require(fuse_text.count(
+            "sb->s_bdi->ra_pages = (VM_MAX_READAHEAD * 1024) / PAGE_SIZE;"
+        ) == 1, "legacy FUSE 128-KiB readahead assignment changed")
+        fuse_text = fuse_text.replace(
+            anchor, anchor + "\n" + fallback + "\n", 1
+        )
+        fuse_inode.write_text(fuse_text)
+    require(fallback in fuse_inode.read_text(),
+            "FUSE 128-KiB VM_MAX_READAHEAD fallback was not installed")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -653,6 +684,7 @@ def main():
     # after verifying the imported Xiaomi donor files byte-for-byte.
     apply_fleux_419325_ext4_vm_fault_compat(src)
     apply_fleux_fuse_v2_compat(src)
+    apply_fleux_419325_fuse_readahead_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.

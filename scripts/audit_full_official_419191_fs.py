@@ -115,6 +115,12 @@ require("TRACE_EVENT(erofs" in erofs_trace_text or
         "DECLARE_EVENT_CLASS(erofs" in erofs_trace_text,
         "matching official EROFS trace header is missing")
 
+fuse_inode_source = (source / "fs/fuse/inode.c").read_text()
+require("#ifndef VM_MAX_READAHEAD\n#define VM_MAX_READAHEAD 128 /* kbytes; Linux 4.19 default */\n#endif" in fuse_inode_source,
+        "FUSE legacy 128-KiB readahead fallback is missing")
+require("sb->s_bdi->ra_pages = (VM_MAX_READAHEAD * 1024) / PAGE_SIZE;" in fuse_inode_source,
+        "FUSE readahead sizing no longer uses the official 128-KiB cap")
+
 exec_source = (source / "fs/exec.c").read_text()
 open_source = (source / "fs/open.c").read_text()
 read_write_source = (source / "fs/read_write.c").read_text()
@@ -217,6 +223,7 @@ lines = [
     "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
     "erofs_makefile=drivers/staging/Makefile builds official EROFS",
     "erofs_trace_header=official include/trace/events/erofs.h",
+    "fuse_readahead=legacy Linux 4.19 128-KiB cap restored locally for Fleux 4.19.325",
     "fleuxsu_hooks=execveat,faccessat,sys_read,stat restored and source-checked",
     "vfs_mount=official legacy bind-remount and superblock remount paths",
     "filesystem_features=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
