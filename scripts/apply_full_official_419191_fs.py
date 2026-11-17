@@ -363,7 +363,7 @@ def main():
         official_fs_makefile = target_fs / "Makefile"
         fs_make_text = official_fs_makefile.read_text()
         if susfs_make_rule not in fs_make_text:
-            fs_make_text = fs_make_text.rstrip() + "\\n" + susfs_make_rule + "\\n"
+            fs_make_text = fs_make_text.rstrip() + "\n" + susfs_make_rule + "\n"
             official_fs_makefile.write_text(fs_make_text)
 
         donor_erofs = tmp / "drivers/staging/erofs"
