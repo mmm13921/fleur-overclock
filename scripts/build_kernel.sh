@@ -331,7 +331,7 @@ esac
     echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@6f6b84e0e2fa8d474db66798a051ec1835257729"
     echo "filesystem_scope=entire fs/ directory plus matching F2FS UAPI and F2FS/EROFS trace headers"
     echo "filesystem_erofs=official 4.19.191 drivers/staging/erofs with Kconfig/Makefile registration"
-    echo "filesystem_interceptors=official donor fs tree; Fleux fs/susfs.c and EXT4 inode.c/ext4.h vm_fault_t compatibility overlay retained; inline hooks restored in exec/open/read_write/stat"
+    echo "filesystem_interceptors=official donor fs tree; Fleux fs/susfs.c and EXT4 inode.c/ext4.h vm_fault_t and super.c vmalloc compatibility overlays retained; inline hooks restored in exec/open/read_write/stat"
   else
     echo "filesystem_profile=hyperos-safe"
     echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official 4.19.191)"
