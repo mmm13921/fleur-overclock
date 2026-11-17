@@ -19,7 +19,6 @@ grep -q '^config F2FS_FS_COMPRESSION$' "$SRC_DIR/fs/f2fs/Kconfig" || {
 }
 bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable EXT4_FS \
-  --enable EXT4_FS_XATTR \
   --enable EXT4_FS_POSIX_ACL \
   --enable EXT4_FS_SECURITY \
   --enable EXT4_FS_ENCRYPTION \
@@ -52,7 +51,6 @@ make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 required=(
   EXT4_FS
-  EXT4_FS_XATTR
   EXT4_FS_POSIX_ACL
   EXT4_FS_SECURITY
   EXT4_FS_ENCRYPTION
@@ -98,6 +96,7 @@ done
   echo "reference_kernel_version=4.19.325"
   echo "reference_commit=ae44e42c393b44b1534a7fcd7065366abe6bfe65"
   echo "enabled_filesystems=ext4,f2fs,erofs,fuse,overlayfs,exfat,vfat"
+  echo "ext4_xattr_support=built-in (no separate Kconfig symbol in this Fleux tree)"
   echo "f2fs_features=xattr,acl,security,encryption,compression-lzo-lz4-zstd"
   echo "inline_fs_encryption=enabled"
   echo "disabled_interceptors=nomount,ksu_susfs"
