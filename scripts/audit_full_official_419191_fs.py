@@ -26,7 +26,7 @@ require(config.is_file(), "kernel config is missing")
 require(fs_report.is_file(), "full official filesystem replacement report is missing")
 
 raw = image.read_bytes()
-require(raw[:2] == b"\\x1f\\x8b", "Image.gz-dtb is not gzip-compressed")
+require(raw[:2] == b"\x1f\x8b", "Image.gz-dtb is not gzip-compressed")
 decoder = zlib.decompressobj(31)
 kernel = decoder.decompress(raw)
 require(bool(kernel), "gzip kernel payload is empty")
@@ -84,8 +84,8 @@ require("TRACE_EVENT(f2fs" in f2fs_trace or "DECLARE_EVENT_CLASS(f2fs" in f2fs_t
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
 dpmaif = dpmaif_path.read_text()
-resume = re.search(r"static void dpmaif_sysresume\\(void\\)\\s*\\{.*?\\n\\}", dpmaif, re.S)
-suspend = re.search(r"static int dpmaif_syssuspend\\(void\\)\\s*\\{.*?\\n\\}", dpmaif, re.S)
+resume = re.search(r"static void dpmaif_sysresume\(void\)\s*\{.*?\n\}", dpmaif, re.S)
+suspend = re.search(r"static int dpmaif_syssuspend\(void\)\s*\{.*?\n\}", dpmaif, re.S)
 require(resume is not None and suspend is not None,
         "MT6781 DPMAIF suspend/resume callbacks are missing")
 resume_fn = resume.group(0)
