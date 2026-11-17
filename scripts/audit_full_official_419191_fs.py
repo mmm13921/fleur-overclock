@@ -127,6 +127,14 @@ require("struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root, u64
 require("kernfs_id_ino(id)" in kernfs_mount_source and
         "kernfs_gen(kn) != kernfs_id_gen(id)" in kernfs_mount_source,
         "kernfs generation/ino validation is incomplete")
+kernfs_inode_source = (source / "fs/kernfs/inode.c").read_text()
+require("inode->i_generation = kernfs_gen(kn)" in kernfs_inode_source and
+        "iget_locked(sb, kernfs_ino(kn))" in kernfs_inode_source,
+        "Fleux kernfs packed-u64 inode helpers are missing")
+require("int kernfs_xattr_get(struct kernfs_node *kn" in kernfs_inode_source and
+        "int kernfs_xattr_set(struct kernfs_node *kn" in kernfs_inode_source and
+        "simple_xattr_set(&attrs->xattrs, name, value, size, flags, NULL)" in kernfs_inode_source,
+        "Fleux kernfs xattr API compatibility is incomplete")
 
 exec_source = (source / "fs/exec.c").read_text()
 open_source = (source / "fs/open.c").read_text()
@@ -231,7 +239,7 @@ lines = [
     "erofs_makefile=drivers/staging/Makefile builds official EROFS",
     "erofs_trace_header=official include/trace/events/erofs.h",
     "fuse_readahead=legacy Linux 4.19 128-KiB cap restored locally for Fleux 4.19.325",
-    "kernfs_generation=packed u64 generation:ino ABI from Fleux 4.19.325",
+    "kernfs_reference=entire Fleux 4.19.325 fs/kernfs tree preserved for kernfs/xattr API compatibility",
     "fleuxsu_hooks=execveat,faccessat,sys_read,stat restored and source-checked",
     "vfs_mount=official legacy bind-remount and superblock remount paths",
     "filesystem_features=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",

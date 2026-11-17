@@ -540,46 +540,6 @@ def apply_fleux_419325_fuse_readahead_compat(src):
             "FUSE 128-KiB VM_MAX_READAHEAD fallback was not installed")
 
 
-def apply_fleux_419325_kernfs_id_compat(src):
-    # Fleux 4.19.325 stores kernfs IDs as a packed u64 (generation:ino).
-    # The 4.19.191 donor mount.c expects an obsolete union pointer ABI.
-    mount_c = src / "fs/kernfs/mount.c"
-    text = mount_c.read_text()
-    old = """struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root,
-\tconst union kernfs_node_id *id)
-{
-\tstruct kernfs_node *kn;
-
-\tkn = kernfs_find_and_get_node_by_ino(root, id->ino);
-\tif (!kn)
-\t\treturn NULL;
-\tif (kn->id.generation != id->generation) {
-\t\tkernfs_put(kn);
-\t\treturn NULL;
-\t}
-\treturn kn;
-}"""
-    modern = """struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root, u64 id)
-{
-\tstruct kernfs_node *kn;
-
-\tkn = kernfs_find_and_get_node_by_ino(root, kernfs_id_ino(id));
-\tif (!kn)
-\t\treturn NULL;
-\tif (kernfs_gen(kn) != kernfs_id_gen(id)) {
-\t\tkernfs_put(kn);
-\t\treturn NULL;
-\t}
-\treturn kn;
-}"""
-    if old in text:
-        text = text.replace(old, modern, 1)
-        mount_c.write_text(text)
-    require(modern in mount_c.read_text(),
-            "kernfs_get_node_by_id does not match Fleux packed-u64 ID ABI")
-    return
-
-
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -627,6 +587,16 @@ def main():
     require(fleux_susfs_path.is_file(),
             "Fleux SUSFS implementation fs/susfs.c is missing before replacement")
     fleux_susfs_source = fleux_susfs_path.read_bytes()
+    fleux_kernfs_path = src / "fs/kernfs"
+    require(fleux_kernfs_path.is_dir(),
+            "Fleux fs/kernfs directory is missing before replacement")
+    fleux_kernfs_files = sorted(
+        p.relative_to(src).as_posix()
+        for p in fleux_kernfs_path.rglob("*")
+        if p.is_file() or p.is_symlink()
+    )
+    require(fleux_kernfs_files,
+            "Fleux fs/kernfs source tree is empty")
     susfs_header_path = src / "include/linux/susfs.h"
     require(susfs_header_path.is_file() and
             '#define SUSFS_VERSION "v2.3.0"' in susfs_header_path.read_text(),
@@ -655,6 +625,8 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="official-419191-fs-") as tmp_name:
         tmp = Path(tmp_name)
+        fleux_kernfs_backup = tmp / "fleux-kernfs"
+        shutil.copytree(fleux_kernfs_path, fleux_kernfs_backup, symlinks=True)
         archive = run_git(
             src,
             ["archive", "--format=tar", "FETCH_HEAD", "fs",
@@ -675,6 +647,14 @@ def main():
         if target_fs.exists():
             shutil.rmtree(target_fs)
         shutil.copytree(donor_fs, target_fs, symlinks=True)
+
+        # kernfs is a shared pseudo-filesystem subsystem, not the Android
+        # userdata filesystem. Keep Fleux's complete 4.19.325 implementation
+        # so it remains aligned with Fleux include/linux/kernfs.h and xattr API.
+        target_kernfs = target_fs / "kernfs"
+        if target_kernfs.exists():
+            shutil.rmtree(target_kernfs)
+        shutil.copytree(fleux_kernfs_backup, target_kernfs, symlinks=True)
 
         # Keep only the dedicated SUSFS implementation from Fleux. The
         # Makefile link is added after donor byte-verification below.
@@ -699,16 +679,23 @@ def main():
         for p in (src / "fs").rglob("*")
         if p.is_file() or p.is_symlink()
     )
-    expected_files = sorted(official_files + ["fs/susfs.c"])
+    official_files_without_kernfs = [
+        rel for rel in official_files if not rel.startswith("fs/kernfs/")
+    ]
+    expected_files = sorted(
+        official_files_without_kernfs + fleux_kernfs_files + ["fs/susfs.c"]
+    )
     require(actual_files == expected_files,
-            "installed fs/ file list differs from the official donor plus the single retained SUSFS file")
+            "installed fs/ file list differs from official donor plus preserved Fleux kernfs and SUSFS")
     require((src / "fs/susfs.c").read_bytes() == fleux_susfs_source,
             "retained Fleux fs/susfs.c changed during filesystem replacement")
     # Verify every installed fs/ file against the official Git blob object.
     for rel in official_files:
+        if rel.startswith("fs/kernfs/"):
+            continue
         expected = run_git(src, ["rev-parse", "FETCH_HEAD:" + rel]).stdout.decode().strip()
         actual = git_blob_sha(src / rel)
-        require(actual == expected, "installed file is not byte-identical to official donor: " + rel)
+        require(actual == expected, "installed non-kernfs file is not byte-identical to official donor: " + rel)
 
     for rel, expected in extra_blobs.items():
         require((src / rel).read_bytes() == expected,
@@ -725,7 +712,6 @@ def main():
     apply_fleux_419325_ext4_vm_fault_compat(src)
     apply_fleux_fuse_v2_compat(src)
     apply_fleux_419325_fuse_readahead_compat(src)
-    apply_fleux_419325_kernfs_id_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -797,9 +783,11 @@ def main():
         "filesystem_reference_commit=" + official_sha,
         "filesystem_scope=complete official fs/ tree installed; Fleux SUSFS and targeted EXT4 API overlays applied",
         "filesystem_source_files=" + str(len(official_files)),
-        "filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays",
+        "filesystem_verification=all official non-kernfs fs/ files checked byte-identical before explicit compatibility overlays",
+        "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
+        "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325",
+        "filesystem_compatibility_overlay=EXT4 API, FUSE passthrough V2 ABI and 128-KiB readahead fallback ported from Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
