@@ -329,7 +329,8 @@ esac
   if [[ "$BUILD_PROFILE" == "hyperos-full-fs" ]]; then
     echo "filesystem_profile=complete-official-4.19.191-fs"
     echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@6f6b84e0e2fa8d474db66798a051ec1835257729"
-    echo "filesystem_scope=entire fs/ directory plus matching F2FS UAPI and trace headers"
+    echo "filesystem_scope=entire fs/ directory plus matching F2FS UAPI and F2FS/EROFS trace headers"
+    echo "filesystem_erofs=official 4.19.191 drivers/staging/erofs with Kconfig/Makefile registration"
     echo "filesystem_interceptors=official donor fs tree; Fleux filesystem-specific hooks replaced"
   else
     echo "filesystem_profile=hyperos-safe"
