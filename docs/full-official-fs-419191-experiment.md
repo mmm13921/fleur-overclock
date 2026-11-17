@@ -51,7 +51,7 @@ This section is the running record for the isolated experiment. “Patched” me
 | EXT4 mbcache | Donor accesses removed `e_reusable` member | Map reusable state to `MBE_REUSABLE_B` in `e_flags` using bit operations | Patched; compile pending |
 | FUSE readahead | Donor references legacy `VM_MAX_READAHEAD` absent from Fleux MM headers | Add a local fallback with the official 128 KiB limit | Patched; compile pending |
 | NLS | Donor definitions are not const-correct for Fleux `load_nls(const char *)` declaration | Make `find_nls` and `load_nls` definitions const-correct | Patched; compile pending |
-| `fs/exec.c` VMA initialization | Official donor calls undefined `INIT_VMA(vma)`; Fleux 4.19.325 has no such helper or speculative-page-fault VMA fields, and its `vm_area_alloc()` already calls `vma_init(vma, mm)` | Remove the donor-only redundant `INIT_VMA(vma)` call; assert Fleux `kernel/fork.c` uses `vma_init()` and the donor call is absent | Patched in the VMA compatibility overlay; next full compile pending |
+| `fs/exec.c` VMA initialization | Official donor calls undefined `INIT_VMA(vma)`; Fleux 4.19.325 has no such helper or speculative-page-fault VMA fields, and its `vm_area_alloc()` already calls `vma_init(vma, mm)` | Remove the donor-only redundant `INIT_VMA(vma)` call; assert Fleux `kernel/fork.c` uses `vma_init()` and the donor call is absent | Compatibility overlay added; first attempt was blocked by an over-escaped source anchor in the script, corrected after Run #93; compile pending |
 
 ### CI / release process corrections
 
@@ -65,7 +65,8 @@ This section is the running record for the isolated experiment. “Patched” me
 - Branch HEAD at the time of this snapshot: `0ce8daacf7ca4ad3237effcde6e37370807209b2`.
 - Run #89: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44086083891), job `134048795343`, completed with compile failure at `fs/exec.c:317`: implicit declaration of `INIT_VMA`.
 - The failure was traced to a donor-only VMA initializer absent from Fleux 4.19.325. Fleux `vm_area_alloc()` calls `vma_init(vma, mm)`, so the extra donor call is removed by an explicit compatibility overlay and guarded by the build audit.
-- Run #92: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44087689080), same source SHA as this snapshot, was still building when the failure was recorded; it does not include the new VMA fix.
+- Run #92: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44087689080) failed at the original `INIT_VMA` compile error.
+- Run #93: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44089137400) stopped before compilation because the new compatibility script used an over-escaped Python string pattern and did not match the literal tab/newline source anchor. The pattern is corrected to Python's single escaped tab/newline form; next run must confirm the overlay and continue into compilation.
 - Dependency installation and checksum-verified Clang r563880c installation completed successfully in both runs.
 - AnyKernel3 packaging, prerelease publication, and artifact upload have not yet been validated for the latest source.
 - No successful compile, AnyKernel ZIP, release artifact, phone boot, userdata mount/read/write, radio stability, suspend/resume, or HyperOS runtime result is claimed here.

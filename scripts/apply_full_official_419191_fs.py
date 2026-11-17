@@ -637,7 +637,7 @@ def apply_fleux_419325_exec_vma_init_compat(src):
     exec_c = src / "fs/exec.c"
     replace_once(
         exec_c,
-        "\\tINIT_VMA(vma);\\n",
+        "\tINIT_VMA(vma);\n",
         "",
         "exec.c Fleux VMA initialization API compatibility",
     )
