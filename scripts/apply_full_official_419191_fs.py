@@ -347,6 +347,21 @@ def apply_fleux_419325_ext4_vm_fault_compat(src):
     )
     ext4_h.write_text(header)
 
+    # Fleux 4.19.325 removed the vmalloc page-protection argument.
+    ext4_super = src / "fs/ext4/super.c"
+    replace_once(
+        ext4_super,
+        "\t\tret = __vmalloc(size, flags, PAGE_KERNEL);",
+        "\t\tret = __vmalloc(size, flags);",
+        "EXT4 kvmalloc __vmalloc API",
+    )
+    replace_once(
+        ext4_super,
+        "\t\tret = __vmalloc(size, flags | __GFP_ZERO, PAGE_KERNEL);",
+        "\t\tret = __vmalloc(size, flags | __GFP_ZERO);",
+        "EXT4 kvzalloc __vmalloc API",
+    )
+
     final = inode_c.read_text()
     require("vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf)" in final,
             "EXT4 page_mkwrite return type was not adapted")
@@ -579,7 +594,7 @@ def main():
         "filesystem_source_files=" + str(len(official_files)),
         "filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays",
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
-        "filesystem_compatibility_overlay=fs/ext4/inode.c and ext4.h vm_fault_t callback signatures adapted for Fleux 4.19.325",
+        "filesystem_compatibility_overlay=fs/ext4/inode.c and ext4.h vm_fault_t callbacks; fs/ext4/super.c __vmalloc API adapted for Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
