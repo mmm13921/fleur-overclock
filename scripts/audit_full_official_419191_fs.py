@@ -198,6 +198,8 @@ require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
 require("filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
+require("filesystem_compatibility_overlay=EXT4 inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B mbcache flags for Fleux 4.19.325" in fs_summary,
+        "EXT4 compatibility overlay manifest is incomplete")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
 require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0" in fs_summary,
@@ -209,7 +211,7 @@ lines = [
     "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux SUSFS and EXT4 API overlays",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h v2.3.0 retained and linked",
-    "ext4_api_compat=inode.c/ext4.h vm_fault_t callbacks and super.c two-argument __vmalloc calls for Fleux 4.19.325",
+    "ext4_api_compat=inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B flags for Fleux 4.19.325",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
     "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
     "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
