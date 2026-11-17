@@ -21,6 +21,12 @@ def require(condition, message):
     if not condition:
         raise SystemExit("Full official filesystem audit failed: " + message)
 
+def strip_c_comments_and_literals(source):
+    # Audit executable C only; comments and diagnostic strings are not ABI use.
+    pattern = r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|/\*.*?\*/|//[^\n]*'
+    return re.sub(pattern, " ", source, flags=re.S)
+
+
 require(image.is_file() and image.stat().st_size > 0, "kernel image is missing")
 require(config.is_file(), "kernel config is missing")
 require(fs_report.is_file(), "full official filesystem replacement report is missing")
@@ -111,14 +117,16 @@ require("security_sb_eat_lsm_opts(data, &secdata)" in super_c and
         "security_sb_kern_mount(sb)" in super_c and
         "security_free_mnt_opts(&secdata)" in super_c,
         "legacy mount_fs LSM parsing/application is not adapted to Fleux security APIs")
+super_code = strip_c_comments_and_literals(super_c)
 require("void *secdata = NULL;" in super_c and
-        "alloc_secdata(" not in super_c and
-        "security_sb_copy_data(" not in super_c and
-        "free_secdata(" not in super_c,
+        "alloc_secdata(" not in super_code and
+        "security_sb_copy_data(" not in super_code and
+        "free_secdata(" not in super_code,
         "obsolete vendor security mount-data helpers remain")
-require("type->mount2" not in super_c and "->remount_fs2" not in super_c and
-        "root = type->mount(type, flags, name, data);" in super_c and
-        "if (sb->s_op->remount_fs)" in super_c,
+require(not re.search(r"\btype\s*->\s*mount2\b", super_code) and
+        not re.search(r"->\s*remount_fs2\b", super_code) and
+        "root = type->mount(type, flags, name, data);" in super_code and
+        "if (sb->s_op->remount_fs)" in super_code,
         "vendor-only mount2/remount_fs2 callbacks are not adapted to Fleux VFS ABI")
 require("long do_faccessat(int dfd, const char __user *filename, int mode, int flags)" in open_source and
         "long do_faccessat(int dfd, const char __user *filename, int mode, int flags);" in internal_source,
