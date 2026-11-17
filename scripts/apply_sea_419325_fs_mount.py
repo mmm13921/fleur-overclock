@@ -10,7 +10,6 @@ SEA_TREE = "ae44e42c393b44b1534a7fcd7065366abe6bfe65"
 # Focused filesystem/data patches from the exact SEA 4.19.325 tree.
 # Existing Fleux fixes are detected and skipped; no whole-directory replacement.
 PATCHES = [
-    ("fc95bb8ca2ccc6a7f2463a97b02ebc0fc928bd28", "F2FS atomic compressed-block accounting"),
     ("218cf245fc6a3aacb0ebe143a4f4a88121104559", "F2FS reject duplicate encrypted names without keys"),
     ("b101599b0a34cff2064846390ec1b72c38a12a66", "F2FS dedicated COMPRESS_RELEASED inode flag"),
     ("cd42a8093b54c329b1391698415d7ee12822a461", "F2FS quota-sync lock-order/deadlock fix"),
@@ -38,6 +37,128 @@ def run_git(src, args, *, data=None, check=True):
 def require(condition, message):
     if not condition:
         raise SystemExit("SEA 4.19.325 filesystem/mount audit failed: " + message)
+
+def replace_once(text, old, new, label):
+    count = text.count(old)
+    require(count == 1, "expected one source anchor for " + label + "; found " + str(count))
+    return text.replace(old, new, 1)
+
+def apply_f2fs_atomic_compression_counter(src):
+    h_path = src / "fs/f2fs/f2fs.h"
+    file_path = src / "fs/f2fs/file.c"
+    inode_path = src / "fs/f2fs/inode.c"
+    super_path = src / "fs/f2fs/super.c"
+    h = h_path.read_text()
+    file = file_path.read_text()
+    inode = inode_path.read_text()
+    super_c = super_path.read_text()
+
+    h = replace_once(h,
+        "u64 i_compr_blocks;\\t\\t\\t/* # of compressed blocks */",
+        "atomic_t i_compr_blocks;\\t\\t/* # of compressed blocks */",
+        "F2FS inode compression counter type")
+    h = replace_once(h,
+        "static inline u64 f2fs_disable_compressed_file(struct inode *inode)\\n{\\n\\tstruct f2fs_inode_info *fi = F2FS_I(inode);",
+        "static inline u32 f2fs_disable_compressed_file(struct inode *inode)\\n{\\n\\tstruct f2fs_inode_info *fi = F2FS_I(inode);\\n\\tu32 i_compr_blocks;",
+        "F2FS disable-compression counter read")
+    h = replace_once(h,
+        "\\t\\tif (fi->i_compr_blocks)\\n\\t\\t\\treturn fi->i_compr_blocks;",
+        "\\t\\ti_compr_blocks = atomic_read(&fi->i_compr_blocks);\\n\\t\\tif (i_compr_blocks)\\n\\t\\t\\treturn i_compr_blocks;",
+        "F2FS disable-compression atomic read")
+
+    start = h.find("static inline void f2fs_i_compr_blocks_update(")
+    end = h.find("\\n}\\n\\nstatic inline int block_unaligned_IO", start)
+    require(start >= 0 and end > start, "F2FS compression counter update helper not found")
+    old_fn = h[start:end + 2]
+    new_fn = """static inline void f2fs_i_compr_blocks_update(struct inode *inode,
+\t\t\t\t\t\t u64 blocks, bool add)
+{
+\tstruct f2fs_inode_info *fi = F2FS_I(inode);
+\tint diff = fi->i_cluster_size - blocks;
+
+\t/* don't update i_compr_blocks if saved blocks were released */
+\tif (!add && !atomic_read(&fi->i_compr_blocks))
+\t\treturn;
+
+\tif (add) {
+\t\tatomic_add(diff, &fi->i_compr_blocks);
+\t\tstat_add_compr_blocks(inode, diff);
+\t} else {
+\t\tatomic_sub(diff, &fi->i_compr_blocks);
+\t\tstat_sub_compr_blocks(inode, diff);
+\t}
+\tf2fs_mark_inode_dirty_sync(inode, true);
+}"""
+    h = h.replace(old_fn, new_fn, 1)
+
+    file = replace_once(file,
+        "bool released = !F2FS_I(dn->inode)->i_compr_blocks;",
+        "bool released = !atomic_read(&F2FS_I(dn->inode)->i_compr_blocks);",
+        "F2FS truncate compression state")
+    file = replace_once(file,
+        "blocks = F2FS_I(inode)->i_compr_blocks;",
+        "blocks = atomic_read(&F2FS_I(inode)->i_compr_blocks);",
+        "F2FS get compression blocks ioctl")
+    file = replace_once(file,
+        "if (!F2FS_I(inode)->i_compr_blocks)\\n\\t\\tgoto out;",
+        "if (!atomic_read(&F2FS_I(inode)->i_compr_blocks))\\n\\t\\tgoto out;",
+        "F2FS release compression blocks guard")
+    file = replace_once(file,
+        "} else if (released_blocks && F2FS_I(inode)->i_compr_blocks) {",
+        "} else if (released_blocks &&\\n\\t\\t\\tatomic_read(&F2FS_I(inode)->i_compr_blocks)) {",
+        "F2FS release compression error guard")
+    file = replace_once(file,
+        "\\t\\t\\t\\"iblocks=%llu, released=%u, compr_blocks=%llu, \\"",
+        "\\t\\t\\t\\"iblocks=%llu, released=%u, compr_blocks=%u, \\"",
+        "F2FS released compression warning format")
+    file = replace_once(file,
+        "\\t\\t\\tF2FS_I(inode)->i_compr_blocks);",
+        "\\t\\t\\tatomic_read(&F2FS_I(inode)->i_compr_blocks));",
+        "F2FS released compression warning value")
+    file = replace_once(file,
+        "if (F2FS_I(inode)->i_compr_blocks)\\n\\t\\tgoto out;",
+        "if (atomic_read(&F2FS_I(inode)->i_compr_blocks))\\n\\t\\tgoto out;",
+        "F2FS reserve compression guard")
+    file = replace_once(file,
+        "} else if (reserved_blocks && F2FS_I(inode)->i_compr_blocks) {",
+        "} else if (reserved_blocks &&\\n\\t\\t\\tatomic_read(&F2FS_I(inode)->i_compr_blocks)) {",
+        "F2FS reserve compression error guard")
+    file = replace_once(file,
+        "\\t\\t\\t\\"iblocks=%llu, reserved=%u, compr_blocks=%llu, \\"",
+        "\\t\\t\\t\\"iblocks=%llu, reserved=%u, compr_blocks=%u, \\"",
+        "F2FS reserved compression warning format")
+    file = replace_once(file,
+        "\\t\\t\\tF2FS_I(inode)->i_compr_blocks);",
+        "\\t\\t\\tatomic_read(&F2FS_I(inode)->i_compr_blocks));",
+        "F2FS reserved compression warning value")
+
+    inode = replace_once(inode,
+        "fi->i_compr_blocks = le64_to_cpu(ri->i_compr_blocks);",
+        "atomic_set(&fi->i_compr_blocks,\\n\\t\\t\\t\\tle64_to_cpu(ri->i_compr_blocks));",
+        "F2FS inode read compression counter")
+    inode = replace_once(inode,
+        "stat_add_compr_blocks(inode, F2FS_I(inode)->i_compr_blocks);",
+        "stat_add_compr_blocks(inode, atomic_read(&fi->i_compr_blocks));",
+        "F2FS inode read compression statistics")
+    inode = replace_once(inode,
+        "cpu_to_le64(F2FS_I(inode)->i_compr_blocks);",
+        "cpu_to_le64(atomic_read(&F2FS_I(inode)->i_compr_blocks));",
+        "F2FS inode write compression counter")
+    inode = replace_once(inode,
+        "stat_sub_compr_blocks(inode, F2FS_I(inode)->i_compr_blocks);",
+        "stat_sub_compr_blocks(inode,\\n\\t\\t\\tatomic_read(&F2FS_I(inode)->i_compr_blocks));",
+        "F2FS inode eviction compression statistics")
+
+    super_c = replace_once(super_c,
+        "atomic_set(&fi->dirty_pages, 0);",
+        "atomic_set(&fi->dirty_pages, 0);\\n\\tatomic_set(&fi->i_compr_blocks, 0);",
+        "F2FS inode compression counter initialization")
+
+    h_path.write_text(h)
+    file_path.write_text(file)
+    inode_path.write_text(inode)
+    super_path.write_text(super_c)
+    return "manual-atomic-backport"
 
 def apply_vfs_umount_helpers(src):
     namespace_path = src / "fs/namespace.c"
@@ -186,6 +307,9 @@ def main():
         )
         results.append((sha, state, title))
         print("SEA-4.19.325:", state, sha, title)
+
+    atomic_state = apply_f2fs_atomic_compression_counter(src)
+    results.append(("fc95bb8ca2ccc6a7f2463a97b02ebc0fc928bd28", atomic_state, "F2FS atomic compressed-block accounting"))
 
     mount_state = apply_vfs_umount_helpers(src)
     results.append((
