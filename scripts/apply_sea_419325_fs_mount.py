@@ -11,7 +11,6 @@ SEA_TREE = "ae44e42c393b44b1534a7fcd7065366abe6bfe65"
 # Existing Fleux fixes are detected and skipped; no whole-directory replacement.
 PATCHES = [
     ("218cf245fc6a3aacb0ebe143a4f4a88121104559", "F2FS reject duplicate encrypted names without keys"),
-    ("b101599b0a34cff2064846390ec1b72c38a12a66", "F2FS dedicated COMPRESS_RELEASED inode flag"),
     ("cd42a8093b54c329b1391698415d7ee12822a461", "F2FS quota-sync lock-order/deadlock fix"),
     ("81bbf6ad8299d1f80c2f89ff71e567751a0175c2", "F2FS avoid checkpoint quota-sem blocking"),
     ("831a504a571c35857bb1c84ee7beab97b304dda0", "F2FS validate checkpoint pack block count"),
@@ -42,6 +41,158 @@ def replace_once(text, old, new, label):
     count = text.count(old)
     require(count == 1, "expected one source anchor for " + label + "; found " + str(count))
     return text.replace(old, new, 1)
+
+def apply_f2fs_released_compression_state(src):
+    tab = chr(9)
+    nl = chr(10)
+    h_path = src / "fs/f2fs/f2fs.h"
+    file_path = src / "fs/f2fs/file.c"
+    uapi_path = src / "include/linux/f2fs_fs.h"
+    h = h_path.read_text()
+    file = file_path.read_text()
+    uapi = uapi_path.read_text()
+
+    if ("FI_COMPRESS_RELEASED" in h and
+            "F2FS_COMPRESS_RELEASED" in uapi and
+            "set_inode_flag(inode, FI_COMPRESS_RELEASED)" in file and
+            "clear_inode_flag(inode, FI_COMPRESS_RELEASED)" in file and
+            "return VM_FAULT_SIGBUS;" in file):
+        return "already-present"
+
+    require("FI_COMPRESS_RELEASED" not in h and
+            "F2FS_COMPRESS_RELEASED" not in uapi,
+            "partial F2FS COMPRESS_RELEASED state already exists")
+
+    h = replace_once(
+        h,
+        tab + "FI_MMAP_FILE," + tab + tab + "/* indicate file was mmapped */" + nl +
+        tab + "FI_MAX," + tab + tab + tab + "/* max flag, never be used */",
+        tab + "FI_MMAP_FILE," + tab + tab + "/* indicate file was mmapped */" + nl +
+        tab + "FI_COMPRESS_RELEASED," + tab + "/* compressed blocks were released */" + nl +
+        tab + "FI_MAX," + tab + tab + tab + "/* max flag, never be used */",
+        "F2FS released-compression inode flag enum",
+    )
+    h = replace_once(
+        h,
+        tab + "case FI_DATA_EXIST:" + nl +
+        tab + "case FI_INLINE_DOTS:" + nl +
+        tab + "case FI_PIN_FILE:" + nl +
+        tab + tab + "f2fs_mark_inode_dirty_sync(inode, true);",
+        tab + "case FI_DATA_EXIST:" + nl +
+        tab + "case FI_INLINE_DOTS:" + nl +
+        tab + "case FI_PIN_FILE:" + nl +
+        tab + "case FI_COMPRESS_RELEASED:" + nl +
+        tab + tab + "f2fs_mark_inode_dirty_sync(inode, true);",
+        "F2FS released-compression dirty flag handling",
+    )
+    h = replace_once(
+        h,
+        tab + "if (ri->i_inline & F2FS_PIN_FILE)" + nl +
+        tab + tab + "set_bit(FI_PIN_FILE, fi->flags);",
+        tab + "if (ri->i_inline & F2FS_PIN_FILE)" + nl +
+        tab + tab + "set_bit(FI_PIN_FILE, fi->flags);" + nl +
+        tab + "if (ri->i_inline & F2FS_COMPRESS_RELEASED)" + nl +
+        tab + tab + "set_bit(FI_COMPRESS_RELEASED, fi->flags);",
+        "F2FS released-compression inode flag load",
+    )
+    h = replace_once(
+        h,
+        tab + "if (is_inode_flag_set(inode, FI_PIN_FILE))" + nl +
+        tab + tab + "ri->i_inline |= F2FS_PIN_FILE;",
+        tab + "if (is_inode_flag_set(inode, FI_PIN_FILE))" + nl +
+        tab + tab + "ri->i_inline |= F2FS_PIN_FILE;" + nl +
+        tab + "if (is_inode_flag_set(inode, FI_COMPRESS_RELEASED))" + nl +
+        tab + tab + "ri->i_inline |= F2FS_COMPRESS_RELEASED;",
+        "F2FS released-compression inode flag persistence",
+    )
+
+    uapi = replace_once(
+        uapi,
+        "#define F2FS_PIN_FILE" + tab * 2 + "0x40" + tab * 2 + "/* file should not be gced */",
+        "#define F2FS_PIN_FILE" + tab * 2 + "0x40" + tab * 2 + "/* file should not be gced */" + nl +
+        "#define F2FS_COMPRESS_RELEASED" + tab + "0x80" + tab * 2 + "/* file released compressed blocks */",
+        "F2FS released-compression on-disk flag",
+    )
+
+    vm_start = file.find("static vm_fault_t f2fs_vm_page_mkwrite(")
+    vm_end = file.find(nl + "static ", vm_start + 1)
+    require(vm_start >= 0 and vm_end > vm_start,
+            "F2FS mmap write-fault function was not found")
+    vm_fn = file[vm_start:vm_end]
+    vm_fn = replace_once(
+        vm_fn,
+        tab + "int err = 0;",
+        tab + "int err = 0;" + nl + nl +
+        "#ifdef CONFIG_F2FS_FS_COMPRESSION" + nl +
+        tab + "if (is_inode_flag_set(inode, FI_COMPRESS_RELEASED))" + nl +
+        tab + tab + "return VM_FAULT_SIGBUS;" + nl +
+        "#endif",
+        "F2FS mmap write-fault guard for released compressed blocks",
+    )
+    file = file[:vm_start] + vm_fn + file[vm_end:]
+
+    release_start = file.find("static int f2fs_release_compress_blocks(")
+    release_end = file.find(nl + "static int reserve_compress_blocks(", release_start + 1)
+    require(release_start >= 0 and release_end > release_start,
+            "F2FS release-compression ioctl function was not found")
+    release_fn = file[release_start:release_end]
+    release_fn = replace_once(
+        release_fn,
+        "if (IS_IMMUTABLE(inode))",
+        "if (is_inode_flag_set(inode, FI_COMPRESS_RELEASED))",
+        "F2FS release-compression state validation",
+    )
+    release_fn = replace_once(
+        release_fn,
+        "F2FS_I(inode)->i_flags |= F2FS_IMMUTABLE_FL;" + nl +
+        tab + "f2fs_set_inode_flags(inode);",
+        "set_inode_flag(inode, FI_COMPRESS_RELEASED);",
+        "F2FS set released-compression state",
+    )
+    file = file[:release_start] + release_fn + file[release_end:]
+
+    reserve_start = file.find("static int f2fs_reserve_compress_blocks(")
+    reserve_end = file.find(nl + "long f2fs_ioctl(", reserve_start + 1)
+    require(reserve_start >= 0 and reserve_end > reserve_start,
+            "F2FS reserve-compression ioctl function was not found")
+    reserve_fn = file[reserve_start:reserve_end]
+    reserve_fn = replace_once(
+        reserve_fn,
+        "if (!IS_IMMUTABLE(inode))",
+        "if (!is_inode_flag_set(inode, FI_COMPRESS_RELEASED))",
+        "F2FS reserve-compression state validation",
+    )
+    reserve_fn = replace_once(
+        reserve_fn,
+        "F2FS_I(inode)->i_flags &= ~F2FS_IMMUTABLE_FL;" + nl +
+        tab + "f2fs_set_inode_flags(inode);",
+        "clear_inode_flag(inode, FI_COMPRESS_RELEASED);",
+        "F2FS clear released-compression state",
+    )
+    file = file[:reserve_start] + reserve_fn + file[reserve_end:]
+
+    write_start = file.find("static ssize_t f2fs_file_write_iter(")
+    write_end = file.find(nl + "#ifdef CONFIG_COMPAT", write_start + 1)
+    require(write_start >= 0 and write_end > write_start,
+            "F2FS file write iterator was not found")
+    write_fn = file[write_start:write_end]
+    write_fn = replace_once(
+        write_fn,
+        tab + "ret = generic_write_checks(iocb, from);",
+        tab + "if (is_inode_flag_set(inode, FI_COMPRESS_RELEASED)) {" + nl +
+        tab + tab + "inode_unlock(inode);" + nl +
+        tab + tab + "ret = -EPERM;" + nl +
+        tab + tab + "goto out;" + nl +
+        tab + "}" + nl + nl +
+        tab + "ret = generic_write_checks(iocb, from);",
+        "F2FS ordinary write guard for released compressed blocks",
+    )
+    file = file[:write_start] + write_fn + file[write_end:]
+
+    h_path.write_text(h)
+    file_path.write_text(file)
+    uapi_path.write_text(uapi)
+    return "manual-released-compression-state"
 
 def apply_f2fs_atomic_compression_counter(src):
     tab = chr(9)
@@ -378,6 +529,9 @@ def main():
         )
         results.append((sha, state, title))
         print("SEA-4.19.325:", state, sha, title)
+
+    released_state = apply_f2fs_released_compression_state(src)
+    results.append(("b101599b0a34cff2064846390ec1b72c38a12a66", released_state, "F2FS dedicated COMPRESS_RELEASED inode flag"))
 
     atomic_state = apply_f2fs_atomic_compression_counter(src)
     results.append(("fc95bb8ca2ccc6a7f2463a97b02ebc0fc928bd28", atomic_state, "F2FS atomic compressed-block accounting"))
