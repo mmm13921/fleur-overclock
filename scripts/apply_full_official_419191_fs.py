@@ -15,6 +15,7 @@ EXPECTED_KERNEL = "4.19.191"
 EXTRA_FILES = (
     "include/linux/f2fs_fs.h",
     "include/trace/events/f2fs.h",
+    "include/trace/events/erofs.h",
 )
 
 def run_git(src, args, *, check=True):
@@ -81,6 +82,16 @@ def main():
             "fs/f2fs/super.c" in official_files,
             "official VFS/F2FS core files are missing")
 
+    erofs_tree = run_git(
+        src, ["ls-tree", "-r", "--full-tree", "--name-only", "FETCH_HEAD", "--",
+              "drivers/staging/erofs"]
+    ).stdout.decode().splitlines()
+    official_erofs_files = sorted(line for line in erofs_tree if line)
+    require("drivers/staging/erofs/Kconfig" in official_erofs_files and
+            "drivers/staging/erofs/Makefile" in official_erofs_files and
+            "drivers/staging/erofs/super.c" in official_erofs_files,
+            "official 4.19.191 staging EROFS implementation is incomplete")
+
     extra_blobs = {}
     for rel in EXTRA_FILES:
         blob = run_git(src, ["show", "FETCH_HEAD:" + rel], check=False)
@@ -92,7 +103,8 @@ def main():
         tmp = Path(tmp_name)
         archive = run_git(
             src,
-            ["archive", "--format=tar", "FETCH_HEAD", "fs", *EXTRA_FILES],
+            ["archive", "--format=tar", "FETCH_HEAD", "fs",
+             "drivers/staging/erofs", *EXTRA_FILES],
         ).stdout
         require(archive, "official fs archive is empty")
         with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as tar:
@@ -109,6 +121,15 @@ def main():
         if target_fs.exists():
             shutil.rmtree(target_fs)
         shutil.copytree(donor_fs, target_fs, symlinks=True)
+
+        donor_erofs = tmp / "drivers/staging/erofs"
+        require(donor_erofs.is_dir(),
+                "official archive did not contain drivers/staging/erofs")
+        target_erofs = src / "drivers/staging/erofs"
+        if target_erofs.exists():
+            shutil.rmtree(target_erofs)
+        target_erofs.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(donor_erofs, target_erofs, symlinks=True)
 
         for rel in EXTRA_FILES:
             dest = src / rel
@@ -131,7 +152,37 @@ def main():
 
     for rel, expected in extra_blobs.items():
         require((src / rel).read_bytes() == expected,
-                "installed matching F2FS header is not byte-identical: " + rel)
+                "installed matching official trace/UAPI header is not byte-identical: " + rel)
+
+    for rel in official_erofs_files:
+        expected = run_git(src, ["rev-parse", "FETCH_HEAD:" + rel]).stdout.decode().strip()
+        actual = git_blob_sha(src / rel)
+        require(actual == expected,
+                "installed staging EROFS file is not byte-identical to official donor: " + rel)
+
+    staging_kconfig_path = src / "drivers/staging/Kconfig"
+    staging_kconfig = staging_kconfig_path.read_text()
+    erofs_kconfig_source = 'source "drivers/staging/erofs/Kconfig"'
+    if erofs_kconfig_source not in staging_kconfig:
+        anchor = "endif # STAGING"
+        require(anchor in staging_kconfig,
+                "drivers/staging/Kconfig has no STAGING end marker")
+        staging_kconfig = staging_kconfig.replace(
+            anchor, erofs_kconfig_source + "\\n\\n" + anchor, 1
+        )
+        staging_kconfig_path.write_text(staging_kconfig)
+
+    staging_makefile_path = src / "drivers/staging/Makefile"
+    staging_makefile = staging_makefile_path.read_text()
+    erofs_make_rule = "obj-$(CONFIG_EROFS_FS) += erofs/"
+    if erofs_make_rule not in staging_makefile:
+        staging_makefile = staging_makefile.rstrip() + "\\n" + erofs_make_rule + "\\n"
+        staging_makefile_path.write_text(staging_makefile)
+
+    require(erofs_kconfig_source in staging_kconfig,
+            "staging EROFS Kconfig is not sourced")
+    require(erofs_make_rule in staging_makefile,
+            "staging EROFS Makefile is not linked into the build")
 
     namespace = (src / "fs/namespace.c").read_text()
     super_c = (src / "fs/super.c").read_text()
@@ -169,6 +220,12 @@ def main():
         "filesystem_source_files=" + str(len(official_files)),
         "filesystem_verification=every fs/ file byte-identical to official Git blob",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
+        "erofs_reference=official 4.19.191 drivers/staging/erofs",
+        "erofs_source_files=" + str(len(official_erofs_files)),
+        "erofs_verification=every staging EROFS file byte-identical to official Git blob",
+        "erofs_kconfig=drivers/staging/Kconfig sources official staging EROFS",
+        "erofs_build=drivers/staging/Makefile builds official staging EROFS",
+        "erofs_trace_header=include/trace/events/erofs.h from official donor",
         "f2fs_mount_options=checkpoint_merge,nocheckpoint_merge,gc_merge,nogc_merge",
         "f2fs_checkpoint=official 4.19.191 checkpoint worker",
         "vfs_mount=official 4.19.191 namespace.c and super.c",
