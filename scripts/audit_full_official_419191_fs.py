@@ -162,8 +162,12 @@ require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
         "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
-require("filesystem_verification=every fs/ file byte-identical to official Git blob" in fs_summary,
-        "full tree byte verification is missing")
+require("filesystem_verification=all 1944 official fs/ files byte-identical to official Git blob" in fs_summary,
+        "official donor fs/ byte verification is missing")
+require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
+        "retained SUSFS Makefile registration is missing")
+require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0" in fs_summary,
+        "retained SUSFS header/version record is missing")
 
 lines = [
     "profile=hyperos-full-fs",
