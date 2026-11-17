@@ -176,7 +176,7 @@ def main():
     staging_makefile = staging_makefile_path.read_text()
     erofs_make_rule = "obj-$(CONFIG_EROFS_FS) += erofs/"
     if erofs_make_rule not in staging_makefile:
-        staging_makefile = staging_makefile.rstrip() + "\n" + erofs_make_rule + "\\n"
+        staging_makefile = staging_makefile.rstrip() + "\n" + erofs_make_rule + "\n"
         staging_makefile_path.write_text(staging_makefile)
 
     require(erofs_kconfig_source in staging_kconfig,
