@@ -104,6 +104,27 @@ require("TRACE_EVENT(erofs" in erofs_trace_text or
         "DECLARE_EVENT_CLASS(erofs" in erofs_trace_text,
         "matching official EROFS trace header is missing")
 
+exec_source = (source / "fs/exec.c").read_text()
+open_source = (source / "fs/open.c").read_text()
+read_write_source = (source / "fs/read_write.c").read_text()
+stat_source = (source / "fs/stat.c").read_text()
+for hook, body in (
+    ("ksu_handle_execveat", exec_source),
+    ("ksu_handle_faccessat", open_source),
+    ("ksu_handle_sys_read", read_write_source),
+    ("ksu_handle_stat", stat_source),
+):
+    require(hook in body, "required FleuxSU inline hook is missing: " + hook)
+require("#include <linux/susfs_def.h>" in exec_source and
+        "susfs_is_current_proc_no_su()" in exec_source,
+        "execveat SUSFS guard is missing")
+require("#include <linux/susfs_def.h>" in open_source and
+        "susfs_is_current_proc_no_su()" in open_source,
+        "faccessat SUSFS guard is missing")
+require("#include <linux/susfs_def.h>" in stat_source and
+        "susfs_is_current_proc_no_su()" in stat_source,
+        "stat SUSFS guard is missing")
+
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
 dpmaif = dpmaif_path.read_text()
@@ -141,6 +162,7 @@ lines = [
     "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
     "erofs_makefile=drivers/staging/Makefile builds official EROFS",
     "erofs_trace_header=official include/trace/events/erofs.h",
+    "fleuxsu_hooks=execveat,faccessat,sys_read,stat restored and source-checked",
     "vfs_mount=official legacy bind-remount and superblock remount paths",
     "filesystem_features=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
     "filesystem_encryption=enabled",
