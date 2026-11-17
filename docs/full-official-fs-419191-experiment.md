@@ -4,7 +4,7 @@ Target: Redmi Note 11S 4G / POCO M4 Pro 4G (fleur, MT6781).
 
 This is an isolated experiment based on Fleux Linux 4.19.325. It replaces the complete `fs/` directory with the official Xiaomi MT6781 Linux 4.19.191 `fs/` tree pinned to commit `6f6b84e0e2fa8d474db66798a051ec1835257729`. The matching official `include/linux/f2fs_fs.h` and `include/trace/events/f2fs.h` are also copied so the F2FS on-disk and trace definitions stay aligned with that donor.
 
-The replacement includes VFS core files, mount/remount handling, F2FS, EXT4, EROFS, FUSE, OverlayFS, FAT-family filesystems, and the other files under `fs/`. It deliberately does not merge Fleux's newer filesystem-specific changes back into that directory. The MT6781 DPMAIF suspend/resume guard is in `drivers/` and is kept separately.
+The replacement includes VFS core files, mount/remount handling, F2FS, EXT4, FUSE, OverlayFS, FAT-family filesystems, and the other files under `fs/`. In the official 4.19.191 donor, EROFS still lives under `drivers/staging/erofs`, not under `fs/erofs`; the experiment therefore also imports that complete official EROFS source tree, its `include/trace/events/erofs.h` header, and merges only the EROFS Kconfig/Makefile registration lines into Fleux's existing staging files. Imported EROFS files are byte-verified against the pinned donor. It deliberately does not merge Fleux's newer filesystem-specific changes back into the replaced `fs/` directory. The MT6781 DPMAIF suspend/resume guard is in `drivers/` and is kept separately.
 
 ## Important compatibility impact
 
