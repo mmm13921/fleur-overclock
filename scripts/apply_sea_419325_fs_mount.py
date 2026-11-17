@@ -42,6 +42,11 @@ def replace_once(text, old, new, label):
     require(count == 1, "expected one source anchor for " + label + "; found " + str(count))
     return text.replace(old, new, 1)
 
+def replace_first(text, old, new, label):
+    if old not in text:
+        raise SystemExit("missing source anchor for " + label)
+    return text.replace(old, new, 1)
+
 def apply_f2fs_released_compression_state(src):
     tab = chr(9)
     nl = chr(10)
@@ -288,7 +293,7 @@ def apply_f2fs_atomic_compression_counter(src):
         tab + tab + tab + '"iblocks=%llu, released=%u, compr_blocks=%u, "',
         "F2FS released compression warning format",
     )
-    file = replace_once(
+    file = replace_first(
         file,
         tab + tab + tab + "F2FS_I(inode)->i_compr_blocks);",
         tab + tab + tab + "atomic_read(&F2FS_I(inode)->i_compr_blocks));",
@@ -313,7 +318,7 @@ def apply_f2fs_atomic_compression_counter(src):
         tab + tab + tab + '"iblocks=%llu, reserved=%u, compr_blocks=%u, "',
         "F2FS reserved compression warning format",
     )
-    file = replace_once(
+    file = replace_first(
         file,
         tab + tab + tab + "F2FS_I(inode)->i_compr_blocks);",
         tab + tab + tab + "atomic_read(&F2FS_I(inode)->i_compr_blocks));",
