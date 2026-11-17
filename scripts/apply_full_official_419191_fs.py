@@ -714,6 +714,9 @@ def apply_fleux_419325_legacy_mount_api_compat(src):
         "\tif (sb->s_op->remount_fs) {" + match.group(1) + "\n\t}\n"
     )
     text = text[:match.start()] + remount + text[match.end():]
+    # Persist the remount callback conversion before replace_once() reloads
+    # fs/super.c for the separate mount_fs compatibility edits.
+    super_c.write_text(text)
 
     require(text.count("struct dentry *\nmount_fs(") == 1,
             "legacy mount_fs implementation is missing or ambiguous")
