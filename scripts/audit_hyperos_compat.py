@@ -100,7 +100,7 @@ require("int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, int sb
 require("int do_remount_sb2(" in super_c and "sb->s_op->remount_fs" in super_c,
         "legacy superblock remount_fs callback is missing")
 umount_match = re.search(
-    r"int ksys_umount\\(char __user \\*name, int flags\\)\\s*\\{.*?\\n\\}",
+    r"int ksys_umount\(char __user \*name, int flags\)\s*\{.*?\n\}",
     namespace, re.S)
 require(umount_match is not None, "legacy ksys_umount is missing")
 umount_fn = umount_match.group(0)
@@ -108,7 +108,7 @@ require(umount_fn.find("if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOU
         < umount_fn.find("user_path_mountpoint_at"),
         "umount flag validation does not precede path lookup")
 remount_match = re.search(
-    r"static int do_remount\\(struct path \\*path, int ms_flags, int sb_flags,.*?\\n\\}",
+    r"static int do_remount\(struct path \*path, int ms_flags, int sb_flags,.*?\n\}",
     namespace, re.S)
 require(remount_match is not None, "legacy Android do_remount is missing")
 remount_fn = remount_match.group(0)
@@ -118,7 +118,7 @@ require("fs_context_for_reconfigure" not in remount_fn and
         "parse_monolithic_mount_data" not in remount_fn,
         "legacy Android remount still routes through fs_context")
 change_type_match = re.search(
-    r"static int do_change_type\\(struct path \\*path, int ms_flags\\)\\s*\\{.*?\\n\\}",
+    r"static int do_change_type\(struct path \*path, int ms_flags\)\s*\{.*?\n\}",
     namespace, re.S)
 require(change_type_match is not None and
         "if (!check_mnt(mnt))" in change_type_match.group(0) and
