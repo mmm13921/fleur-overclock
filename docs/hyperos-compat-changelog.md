@@ -1,28 +1,25 @@
 # Fleux HyperOS Compatibility Candidate
 
-Target: Redmi Note 11S 4G / POCO M4 Pro 4G (fleur, MT6781), Fleux Linux 4.19.325.
+Target: Redmi Note 11S 4G / POCO M4 Pro 4G (fleur, MT6781). Build kernel: Fleux Linux 4.19.325.
 
-## SEA 4.19.325 filesystem and mount reference
+## Filesystem and /data mount reference
 
-The reference is pinned to `mt6781-sea/android_kernel_xiaomi_mt6781`, branch `lineage-23.2`, source tree commit `ae44e42c393b44b1534a7fcd7065366abe6bfe65` (Linux 4.19.325). This is not the 4.19.191 tree.
+The filesystem/mount donor is the official Xiaomi MT6781 Linux 4.19.191 source in `MiCode/Xiaomi_Kernel_OpenSource`, branch `sea-t-oss`. It is intentionally **not** the community SEA 4.19.325 tree.
 
-The build selectively backports missing SEA 4.19.325 changes instead of replacing Fleux's entire `fs/` directory. This deliberately preserves newer Fleux fixes and its Non-GKI KernelSU integration.
-
-- VFS mount lifecycle: adds the `path_umount()` helper with correct path/dentry/mount reference cleanup, validates umount flags before resolving the mount path, and rejects propagation changes for mounts outside the caller's mount namespace.
-- F2FS encrypted data: rejects creating duplicate encrypted filenames when the key is unavailable; uses atomic compressed-block accounting; tracks released compressed blocks with the dedicated `FI_COMPRESS_RELEASED` state rather than overloading the immutable inode flag.
-- F2FS integrity and mount safety: backports quota-sync lock-order/deadlock protection, checkpoint-pack bounds checks, zero-range block-address validation, and recovery destination-block validation.
-- The F2FS encrypted bio merge and cgroup writeback fixes, plus the dirent rename fix, were already present in Fleux and are left intact rather than applied twice.
-- EXT4, EROFS, FUSE, OverlayFS, EXFAT and VFAT remain enabled. F2FS xattr, ACL, security labels, encryption and LZO/LZ4/ZSTD compression remain enabled. Inline filesystem encryption and quota support remain enabled.
-- NoMount and SUSFS runtime features that rewrite or hide paths, mounts, kstat, command line, open results or mappings are disabled. KernelSU remains enabled with the inline hook integration needed by this Non-GKI 4.19 kernel.
+- The matched `fs/f2fs` source set, its on-disk F2FS header and trace-event header are taken from the official 4.19.191 source. This restores the F2FS parser and checkpoint implementation from that known-good lineage instead of layering conflicting SEA 4.19.325 patches onto Fleux.
+- F2FS mount options from that baseline are restored, including `checkpoint_merge`, `nocheckpoint_merge`, `gc_merge` and `nogc_merge`, with their matching state flags and checkpoint worker lifecycle. This avoids silently rejecting valid legacy Android fstab options with `EINVAL`.
+- The VFS legacy Android remount path is restored to the official 4.19.191 `do_remount()` flow, calling the filesystem `remount_fs` callback through `do_remount_sb2()`. The newer `fs_context` reconfiguration API remains in the tree for new mount API callers.
+- Fleux's broader VFS changes, mount namespace ownership checks, KernelSU integration and unrelated drivers are retained; this is not a wholesale replacement of the entire `fs/` directory.
+- EXT4, EROFS, FUSE, OverlayFS, EXFAT and VFAT stay enabled. F2FS compression, xattr, ACL, security labels, encryption, inline encryption and quota options are configured and audited.
 
 ## Modem suspend/resume compatibility
 
 The MT6781 DPMAIF syscore resume path is retained and guarded against restoring the interface while the modem FSM is in `GATED`, `WAITING_TO_STOP` or `INVALID`, or while DPMAIF itself is not in `PWRON`/`EXCEPTION`. The controller pointer is checked before access.
 
-This is a 4.19.325 DPMAIF guard adaptation, not a claim that the identical syscore callback exists in the official Fleur 4.14 source. It targets a plausible suspend/resume failure mode that can cause cellular data loss, but a physical-device test is required to establish whether it fixes the intermittent antenna/network drop.
+This is a guarded adaptation to the Fleux 4.19.325 DPMAIF path. It is not proof that intermittent cellular data loss or antenna drops are fixed; that requires repeated sleep/wake, idle, voice and mobile-data tests on the physical phone.
 
 ## Validation and limitations
 
-CI checks the resulting kernel config, verifies the VFS/F2FS source-level backports and modem guards, compiles the kernel, verifies the gzip kernel plus appended DTB layout, packages an AnyKernel3 ZIP and publishes the image, source patch, checksums and audit reports.
+CI verifies the official donor version, the matched F2FS source set, mount-option and checkpoint-worker symbols, the legacy VFS remount route, the modem guard, kernel config, compressed kernel plus appended DTB layout, and AnyKernel3 ZIP integrity. It then publishes the candidate and audit reports.
 
-CI cannot verify filesystem integrity on a mounted HyperOS `/data` partition, encryption/decryption under real userdata load, cellular registration, voice/data continuity or sleep/wake behaviour on the phone. This remains an experimental compatibility candidate. Keep a known-good boot image and recovery path available before flashing.
+CI cannot verify a real HyperOS `/data` mount, encryption/decryption under live userdata load, filesystem integrity, cellular registration, voice/data continuity or long-duration suspend/resume on the phone. Treat the result as an experimental compatibility candidate. Keep a known-good boot image and recovery path available before flashing.
