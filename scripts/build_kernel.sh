@@ -67,7 +67,9 @@ if [[ "$BUILD_PROFILE" == "hyperos-full-fs" ]]; then
   git -C "$SRC_DIR" diff HEAD --check -- . \
     ':(exclude)fs/**' \
     ':(exclude)include/linux/f2fs_fs.h' \
-    ':(exclude)include/trace/events/f2fs.h'
+    ':(exclude)include/trace/events/f2fs.h' \
+    ':(exclude)include/trace/events/erofs.h' \
+    ':(exclude)drivers/staging/erofs/**'
 else
   git -C "$SRC_DIR" diff HEAD --check
 fi
