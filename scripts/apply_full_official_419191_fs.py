@@ -329,11 +329,36 @@ def apply_fleux_419325_ext4_vm_fault_compat(src):
     updated = content[:begin] + page_fn + "\n" + filemap_fn + content[filemap_finish:]
     inode_c.write_text(updated)
 
+    # The callback prototypes are declared in ext4.h and must match the
+    # updated definitions, otherwise ext4/file.c still sees int return types.
+    ext4_h = src / "fs/ext4/ext4.h"
+    header = ext4_h.read_text()
+    require(header.count("extern int ext4_page_mkwrite(struct vm_fault *vmf);") == 1,
+            "EXT4 page_mkwrite int prototype is missing or ambiguous")
+    require(header.count("extern int ext4_filemap_fault(struct vm_fault *vmf);") == 1,
+            "EXT4 filemap_fault int prototype is missing or ambiguous")
+    header = header.replace(
+        "extern int ext4_page_mkwrite(struct vm_fault *vmf);",
+        "extern vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf);", 1
+    )
+    header = header.replace(
+        "extern int ext4_filemap_fault(struct vm_fault *vmf);",
+        "extern vm_fault_t ext4_filemap_fault(struct vm_fault *vmf);", 1
+    )
+    ext4_h.write_text(header)
+
     final = inode_c.read_text()
     require("vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf)" in final,
             "EXT4 page_mkwrite return type was not adapted")
     require("vm_fault_t ext4_filemap_fault(struct vm_fault *vmf)" in final,
             "EXT4 filemap_fault return type was not adapted")
+    header_final = ext4_h.read_text()
+    require("extern vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf);" in header_final and
+            "extern vm_fault_t ext4_filemap_fault(struct vm_fault *vmf);" in header_final,
+            "EXT4 vm_fault_t prototypes were not updated in ext4.h")
+    require("extern int ext4_page_mkwrite(struct vm_fault *vmf);" not in header_final and
+            "extern int ext4_filemap_fault(struct vm_fault *vmf);" not in header_final,
+            "obsolete EXT4 int callback prototype remains")
     require("int ext4_page_mkwrite(struct vm_fault *vmf)" not in final and
             "int ext4_filemap_fault(struct vm_fault *vmf)" not in final,
             "an old EXT4 vm_fault callback signature remains")
@@ -554,7 +579,7 @@ def main():
         "filesystem_source_files=" + str(len(official_files)),
         "filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays",
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
-        "filesystem_compatibility_overlay=fs/ext4/inode.c vm_fault_t callback signatures adapted for Fleux 4.19.325",
+        "filesystem_compatibility_overlay=fs/ext4/inode.c and ext4.h vm_fault_t callback signatures adapted for Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
