@@ -116,7 +116,7 @@ require("void *secdata = NULL;" in super_c and
         "security_sb_copy_data(" not in super_c and
         "free_secdata(" not in super_c,
         "obsolete vendor security mount-data helpers remain")
-require("type->mount2" not in super_c and "remount_fs2" not in super_c and
+require("type->mount2" not in super_c and "->remount_fs2" not in super_c and
         "root = type->mount(type, flags, name, data);" in super_c and
         "if (sb->s_op->remount_fs)" in super_c,
         "vendor-only mount2/remount_fs2 callbacks are not adapted to Fleux VFS ABI")
