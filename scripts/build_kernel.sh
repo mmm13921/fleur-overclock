@@ -61,7 +61,16 @@ case "$BUILD_PROFILE" in
     ;;
 esac
 
-git -C "$SRC_DIR" diff HEAD --check
+if [[ "$BUILD_PROFILE" == "hyperos-full-fs" ]]; then
+  # The pinned official 4.19.191 donor contains upstream whitespace; keep
+  # whitespace validation strict for all non-donor changes only.
+  git -C "$SRC_DIR" diff HEAD --check -- . \
+    ':(exclude)fs/**' \
+    ':(exclude)include/linux/f2fs_fs.h' \
+    ':(exclude)include/trace/events/f2fs.h'
+else
+  git -C "$SRC_DIR" diff HEAD --check
+fi
 
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
