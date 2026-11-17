@@ -141,6 +141,15 @@ require("find_nls(const char *charset)" in nls_base_source and
         "load_nls(const char *charset)" in nls_base_source,
         "NLS const-char API compatibility overlay is missing")
 
+task_mmu_source = (source / "fs/proc/task_mmu.c").read_text()
+require("vm_write_begin(vma)" not in task_mmu_source and
+        "vm_write_end(vma)" not in task_mmu_source and
+        "vma->vm_flags &= ~VM_SOFTDIRTY;" in task_mmu_source,
+        "proc clear_refs still depends on unavailable Fleux vm_sequence helpers")
+require("mmap_write_lock_killable(mm)" in task_mmu_source and
+        "mmap_write_downgrade(mm)" in task_mmu_source,
+        "proc clear_refs soft-dirty update is not protected by the Fleux mmap write lock")
+
 exec_source = (source / "fs/exec.c").read_text()
 open_source = (source / "fs/open.c").read_text()
 read_write_source = (source / "fs/read_write.c").read_text()
@@ -244,6 +253,7 @@ lines = [
     "erofs_makefile=drivers/staging/Makefile builds official EROFS",
     "erofs_trace_header=official include/trace/events/erofs.h",
     "fuse_readahead=legacy Linux 4.19 128-KiB cap restored locally for Fleux 4.19.325",
+    "procfs_soft_dirty=Fleux 4.19.325 VMA flag update under mmap_write_lock; no vm_sequence helper dependency",
     "kernfs_reference=entire Fleux 4.19.325 fs/kernfs tree preserved for kernfs/xattr API compatibility",
     "fleuxsu_hooks=execveat,faccessat,sys_read,stat restored and source-checked",
     "vfs_mount=official legacy bind-remount and superblock remount paths",
