@@ -7,7 +7,7 @@ on:
     paths:
       - .github/workflows/build-hyperos-compat.yml
       - scripts/build_kernel.sh
-      - scripts/apply_sea_419325_fs_mount.py
+      - scripts/apply_official_419191_fs_mount.py
       - scripts/configure_hyperos_fs.sh
       - scripts/apply_modem_pm_compat.py
       - scripts/audit_hyperos_compat.py
@@ -93,14 +93,14 @@ jobs:
           cp artifacts/hyperos-filesystem-audit.txt "$AK_DIR/hyperos-filesystem-audit.txt"
           cp artifacts/hyperos-compat-audit.txt "$AK_DIR/hyperos-compat-audit.txt"
           cp artifacts/hyperos-compat-source.patch "$AK_DIR/hyperos-compat-source.patch"
-          cp artifacts/sea-4.19.325-fs-mount-audit.txt "$AK_DIR/sea-4.19.325-fs-mount-audit.txt"
+          cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-HyperOS-Compat-4.19-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb \
               HYPEROS-COMPAT-CHANGELOG.txt kernel.config build-manifest.txt \
               hyperos-filesystem-audit.txt hyperos-compat-audit.txt hyperos-compat-source.patch \
-              sea-4.19.325-fs-mount-audit.txt
+              official-4.19.191-fs-mount-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-HyperOS-Compat-4.19-AnyKernel3.zip"
           unzip -l "$GITHUB_WORKSPACE/artifacts/Fleux-HyperOS-Compat-4.19-AnyKernel3.zip" \
@@ -117,7 +117,7 @@ jobs:
           command -v gh
           gh release create "$RELEASE_TAG" \
             --target "$GITHUB_SHA" \
-            --title "Fleux HyperOS Compatibility Candidate — Linux 4.19.325" \
+            --title "Fleux HyperOS Candidate — Fleux 4.19.325 / Official F2FS 4.19.191" \
             --notes-file docs/hyperos-compat-changelog.md \
             --prerelease \
             artifacts/Fleux-HyperOS-Compat-4.19-AnyKernel3.zip \
@@ -127,7 +127,7 @@ jobs:
             artifacts/hyperos-filesystem-audit.txt \
             artifacts/hyperos-compat-audit.txt \
             artifacts/hyperos-compat-source.patch \
-            artifacts/sea-4.19.325-fs-mount-audit.txt \
+            artifacts/official-4.19.191-fs-mount-audit.txt \
             artifacts/HYPEROS-COMPAT-SHA256.txt
 
       - name: Upload flashable ZIP, image and audit reports
