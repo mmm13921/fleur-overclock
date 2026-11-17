@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+import re
 import zlib
 
 parser = argparse.ArgumentParser()
@@ -29,7 +30,6 @@ require(bool(decoder.unused_data), "appended device tree data is missing")
 
 cfg = config.read_text().splitlines()
 enabled = set(line for line in cfg if line.startswith("CONFIG_") and line.endswith("=y"))
-disabled = set(line for line in cfg if line.startswith("# CONFIG_") and line.endswith(" is not set"))
 
 required = [
     "CONFIG_KSU=y",
@@ -53,6 +53,7 @@ for item in required:
 for symbol in (
     "NOMOUNT",
     "KSU_TRACEPOINT_HOOK",
+    "KSU_MANUAL_HOOK",
     "KSU_SUSFS_SUS_PATH",
     "KSU_SUSFS_SUS_MOUNT",
     "KSU_SUSFS_SUS_KSTAT",
@@ -63,28 +64,57 @@ for symbol in (
     "KSU_SUSFS_OPEN_REDIRECT",
     "KSU_SUSFS_SUS_MAP",
 ):
-    require("CONFIG_" + symbol + "=y" not in enabled, "CONFIG_" + symbol + " must be disabled")
+    require("CONFIG_" + symbol + "=y" not in enabled,
+            "CONFIG_" + symbol + " must be disabled")
 
-hif = (source / "drivers/misc/mediatek/eccci/hif/ccci_hif.c").read_text()
-platform = (source / "drivers/misc/mediatek/eccci/mt6785/md_sys1_platform.c").read_text()
-require("ops->resume(DPMAIF_HIF_ID);" in hif, "DPMAIF resume callback dispatch is absent")
-require("ops->suspend(DPMAIF_HIF_ID);" in hif, "DPMAIF suspend callback dispatch is absent")
-require("ccci_hif_resume(md->index, md->hif_flag);" in platform, "MT6781 resume callback is not wired")
-require("ccci_hif_suspend(md->index, md->hif_flag);" in platform, "MT6781 suspend callback is not wired")
-require("md_state == GATED" in platform and "md_state == WAITING_TO_STOP" in platform,
-        "modem-state guard is missing")
+dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
+require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
+dpmaif = dpmaif_path.read_text()
+
+resume_match = re.search(
+    r"static void dpmaif_sysresume\(void\)\s*\{.*?\n\}",
+    dpmaif,
+    re.S,
+)
+suspend_match = re.search(
+    r"static int dpmaif_syssuspend\(void\)\s*\{.*?\n\}",
+    dpmaif,
+    re.S,
+)
+require(resume_match is not None, "DPMAIF syscore resume function is missing")
+require(suspend_match is not None, "DPMAIF syscore suspend function is missing")
+resume_fn = resume_match.group(0)
+suspend_fn = suspend_match.group(0)
+
+require("register_syscore_ops(&dpmaif_sysops);" in dpmaif,
+        "DPMAIF syscore callbacks are not registered")
+require(".suspend = dpmaif_syssuspend" in dpmaif and
+        ".resume = dpmaif_sysresume" in dpmaif,
+        "DPMAIF syscore callback table is not wired")
+require("if (!dpmaif_ctrl)" in resume_fn and "if (!dpmaif_ctrl)" in suspend_fn,
+        "DPMAIF syscore NULL guards are missing")
+require("md_state = ccci_fsm_get_md_state(dpmaif_ctrl->md_id);" in resume_fn,
+        "modem-state lookup is missing from the real syscore resume path")
+for state in ("GATED", "WAITING_TO_STOP", "INVALID"):
+    require("md_state == " + state in resume_fn,
+            "modem-state guard for " + state + " is missing")
+require("dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON" in resume_fn and
+        "dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_EXCEPTION" in resume_fn,
+        "DPMAIF hardware-state guard is missing")
+require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
+        "DPMAIF restore callback is not invoked by syscore resume")
 
 lines = [
     "profile=hyperos-compat",
     "kernel_image=Image.gz-dtb",
     "appended_dtb=verified",
     "root_manager=KernelSU enabled",
+    "kernel_su_hook=CONFIG_KSU_SUSFS inline hook for Non-GKI 4.19",
     "filesystem_stack=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
     "filesystem_encryption=enabled",
-    "filesystem_interceptors=NoMount disabled; all SUSFS feature flags disabled",
-    "kernel_su_hook_mode=CONFIG_KSU_SUSFS inline hook retained for Non-GKI",
-    "modem_pm=MT6781 CCCI suspend/resume wired to DPMAIF ops",
-    "modem_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume",
+    "filesystem_interceptors=NoMount disabled; SUSFS runtime feature flags disabled",
+    "modem_pm=MT6781 DPMAIF syscore suspend/resume path retained",
+    "modem_resume_guard=GATED,WAITING_TO_STOP,INVALID skipped; PWRON/EXCEPTION restored",
     "hardware_validation=not performed by CI",
 ]
 report.write_text("\n".join(lines) + "\n")
