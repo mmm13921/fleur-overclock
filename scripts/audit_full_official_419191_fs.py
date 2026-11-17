@@ -137,6 +137,13 @@ require("#include <linux/susfs_def.h>" in stat_source and
         "stat SUSFS guard is missing")
 
 ext4_inode = (source / "fs/ext4/inode.c").read_text()
+ext4_header = (source / "fs/ext4/ext4.h").read_text()
+require("extern vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf);" in ext4_header and
+        "extern vm_fault_t ext4_filemap_fault(struct vm_fault *vmf);" in ext4_header,
+        "EXT4 prototypes in ext4.h are not using Fleux vm_fault_t API")
+require("extern int ext4_page_mkwrite(struct vm_fault *vmf);" not in ext4_header and
+        "extern int ext4_filemap_fault(struct vm_fault *vmf);" not in ext4_header,
+        "obsolete EXT4 int prototypes remain")
 require("vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf)" in ext4_inode,
         "EXT4 page_mkwrite callback is not using Fleux vm_fault_t API")
 require("vm_fault_t ext4_filemap_fault(struct vm_fault *vmf)" in ext4_inode,
@@ -184,7 +191,7 @@ lines = [
     "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux SUSFS and EXT4 API overlays",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h v2.3.0 retained and linked",
-    "ext4_vm_fault_api=fs/ext4/inode.c callbacks adapted to Fleux 4.19.325 vm_fault_t API",
+    "ext4_vm_fault_api=fs/ext4/inode.c definitions and ext4.h prototypes adapted to Fleux 4.19.325 vm_fault_t API",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
     "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
     "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
