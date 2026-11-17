@@ -101,6 +101,20 @@ require("int do_remount_sb2(" in super_c and "sb->s_op->remount_fs" in super_c,
         "official superblock remount callback is missing")
 require("fs_context_for_reconfigure" not in namespace,
         "the modern fs_context remount path unexpectedly remains")
+require("security_sb_eat_lsm_opts(data, &secdata)" in super_c and
+        "security_sb_set_mnt_opts(sb, secdata, 0, NULL)" in super_c and
+        "security_sb_kern_mount(sb)" in super_c and
+        "security_free_mnt_opts(&secdata)" in super_c,
+        "legacy mount_fs LSM parsing/application is not adapted to Fleux security APIs")
+require("void *secdata = NULL;" in super_c and
+        "alloc_secdata(" not in super_c and
+        "security_sb_copy_data(" not in super_c and
+        "free_secdata(" not in super_c,
+        "obsolete vendor security mount-data helpers remain")
+require("type->mount2" not in super_c and "remount_fs2" not in super_c and
+        "root = type->mount(type, flags, name, data);" in super_c and
+        "if (sb->s_op->remount_fs)" in super_c,
+        "vendor-only mount2/remount_fs2 callbacks are not adapted to Fleux VFS ABI")
 require("long do_faccessat(int dfd, const char __user *filename, int mode, int flags)" in open_source and
         "long do_faccessat(int dfd, const char __user *filename, int mode, int flags);" in internal_source,
         "Fleux four-argument faccessat function/prototype pairing is missing")
