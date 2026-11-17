@@ -261,6 +261,83 @@ def restore_fleuxsu_inline_hooks(src):
         require(symbol in (src / rel).read_text(),
                 "required FleuxSU inline hook was not restored: " + symbol)
 
+
+def apply_fleux_419325_ext4_vm_fault_compat(src):
+    # The 4.19.325 MM API uses vm_fault_t for vm_operations_struct callbacks.
+    # Adapt only the two EXT4 callbacks that changed between the donor and base.
+    inode_c = src / "fs/ext4/inode.c"
+    content = inode_c.read_text()
+
+    start = "int ext4_page_mkwrite(struct vm_fault *vmf)"
+    end = "\nint ext4_filemap_fault(struct vm_fault *vmf)"
+    require(content.count(start) == 1 and content.count(end) == 1,
+            "EXT4 vm_fault callback anchors are missing or ambiguous")
+    begin = content.index(start)
+    finish = content.index(end, begin)
+    page_fn = content[begin:finish]
+
+    replacements = (
+        ("int ext4_page_mkwrite(struct vm_fault *vmf)",
+         "vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf)"),
+        ("\tint ret;\n", "\tint err;\n\tvm_fault_t ret;\n"),
+        ("\tret = ext4_convert_inline_data(inode);",
+         "\terr = ext4_convert_inline_data(inode);"),
+        ("\tif (ret)\n\t\tgoto out_ret;",
+         "\tif (err)\n\t\tgoto out_ret;"),
+        ("\t\t\tret = block_page_mkwrite(vma, vmf,",
+         "\t\t\terr = block_page_mkwrite(vma, vmf,"),
+        ("\t\t} while (ret == -ENOSPC &&",
+         "\t\t} while (err == -ENOSPC &&"),
+        ("\tret = block_page_mkwrite(vma, vmf, get_block);",
+         "\terr = block_page_mkwrite(vma, vmf, get_block);"),
+        ("\tif (!ret && ext4_should_journal_data(inode))",
+         "\tif (!err && ext4_should_journal_data(inode))"),
+        ("\tif (ret == -ENOSPC && ext4_should_retry_alloc(inode->i_sb, &retries))",
+         "\tif (err == -ENOSPC && ext4_should_retry_alloc(inode->i_sb, &retries))"),
+        ("\tret = block_page_mkwrite_return(ret);",
+         "\tret = block_page_mkwrite_return(err);"),
+    )
+    for old, new in replacements:
+        count = page_fn.count(old)
+        require(count == 1,
+                "EXT4 page_mkwrite compatibility anchor count mismatch: " +
+                old.strip() + " (" + str(count) + ")")
+        page_fn = page_fn.replace(old, new, 1)
+
+    filemap_start = "int ext4_filemap_fault(struct vm_fault *vmf)"
+    filemap_end = "\n"
+    filemap_begin = content.index(filemap_start, finish - len(end) + 1)
+    filemap_finish = content.find("\n}\n", filemap_begin)
+    require(filemap_finish >= 0,
+            "EXT4 filemap_fault function terminator is missing")
+    filemap_finish += 3
+    filemap_fn = content[filemap_begin:filemap_finish]
+    filemap_replacements = (
+        ("int ext4_filemap_fault(struct vm_fault *vmf)",
+         "vm_fault_t ext4_filemap_fault(struct vm_fault *vmf)"),
+        ("\tint err;\n", "\tvm_fault_t ret;\n"),
+        ("\terr = filemap_fault(vmf);", "\tret = filemap_fault(vmf);"),
+        ("\treturn err;", "\treturn ret;"),
+    )
+    for old, new in filemap_replacements:
+        count = filemap_fn.count(old)
+        require(count == 1,
+                "EXT4 filemap_fault compatibility anchor count mismatch: " +
+                old.strip() + " (" + str(count) + ")")
+        filemap_fn = filemap_fn.replace(old, new, 1)
+
+    updated = content[:begin] + page_fn + filemap_fn + content[filemap_finish:]
+    inode_c.write_text(updated)
+
+    final = inode_c.read_text()
+    require("vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf)" in final,
+            "EXT4 page_mkwrite return type was not adapted")
+    require("vm_fault_t ext4_filemap_fault(struct vm_fault *vmf)" in final,
+            "EXT4 filemap_fault return type was not adapted")
+    require("int ext4_page_mkwrite(struct vm_fault *vmf)" not in final and
+            "int ext4_filemap_fault(struct vm_fault *vmf)" not in final,
+            "an old EXT4 vm_fault callback signature remains")
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -401,6 +478,10 @@ def main():
         require(actual == expected,
                 "installed staging EROFS file is not byte-identical to official donor: " + rel)
 
+    # Apply the narrow 4.19.325 MM callback API compatibility overlay only
+    # after verifying the imported Xiaomi donor files byte-for-byte.
+    apply_fleux_419325_ext4_vm_fault_compat(src)
+
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
     official_fs_makefile = src / "fs/Makefile"
@@ -473,6 +554,7 @@ def main():
         "filesystem_source_files=" + str(len(official_files)),
         "filesystem_verification=all 1944 official fs/ files byte-identical to official Git blob",
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
+        "filesystem_compatibility_overlay=fs/ext4/inode.c vm_fault_t callback signatures adapted for Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
