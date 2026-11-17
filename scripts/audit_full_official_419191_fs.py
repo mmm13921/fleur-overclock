@@ -73,6 +73,7 @@ require("obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_makefile,
 namespace = (source / "fs/namespace.c").read_text()
 open_source = (source / "fs/open.c").read_text()
 internal_source = (source / "fs/internal.h").read_text()
+stat_source = (source / "fs/stat.c").read_text()
 namei_source = (source / "fs/namei.c").read_text()
 nsfs_source = (source / "fs/nsfs.c").read_text()
 proc_ns_header = (source / "include/linux/proc_ns.h").read_text()
