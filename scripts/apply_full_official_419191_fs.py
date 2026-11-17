@@ -938,7 +938,7 @@ def main():
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
