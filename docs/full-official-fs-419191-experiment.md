@@ -51,6 +51,7 @@ This section is the running record for the isolated experiment. “Patched” me
 | EXT4 mbcache | Donor accesses removed `e_reusable` member | Map reusable state to `MBE_REUSABLE_B` in `e_flags` using bit operations | Patched; compile pending |
 | FUSE readahead | Donor references legacy `VM_MAX_READAHEAD` absent from Fleux MM headers | Add a local fallback with the official 128 KiB limit | Patched; compile pending |
 | NLS | Donor definitions are not const-correct for Fleux `load_nls(const char *)` declaration | Make `find_nls` and `load_nls` definitions const-correct | Patched; compile pending |
+| `fs/exec.c` VMA initialization | Official donor calls undefined `INIT_VMA(vma)`; Fleux 4.19.325 has no such helper or speculative-page-fault VMA fields, and its `vm_area_alloc()` already calls `vma_init(vma, mm)` | Remove the donor-only redundant `INIT_VMA(vma)` call; assert Fleux `kernel/fork.c` uses `vma_init()` and the donor call is absent | Patched in the VMA compatibility overlay; next full compile pending |
 
 ### CI / release process corrections
 
@@ -61,10 +62,12 @@ This section is the running record for the isolated experiment. “Patched” me
 ### Current validation snapshot
 
 - Last checked branch commit before the workflow concurrency-only change: `6fbcd9bab2dfd0a80da14f6cbdb407dca0c2369a`.
-- Run #89: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44086083891), job `134048795343`.
-- Dependency installation and checksum-verified Clang r563880c installation completed successfully.
-- The full Fleux build step was still running at the last poll. AnyKernel3 packaging, prerelease publication, and artifact upload had not started.
-- The workflow concurrency correction is a newer commit and therefore needs its own run; do not treat Run #89 as validation of that newer workflow commit.
+- Branch HEAD at the time of this snapshot: `0ce8daacf7ca4ad3237effcde6e37370807209b2`.
+- Run #89: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44086083891), job `134048795343`, completed with compile failure at `fs/exec.c:317`: implicit declaration of `INIT_VMA`.
+- The failure was traced to a donor-only VMA initializer absent from Fleux 4.19.325. Fleux `vm_area_alloc()` calls `vma_init(vma, mm)`, so the extra donor call is removed by an explicit compatibility overlay and guarded by the build audit.
+- Run #92: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44087689080), same source SHA as this snapshot, was still building when the failure was recorded; it does not include the new VMA fix.
+- Dependency installation and checksum-verified Clang r563880c installation completed successfully in both runs.
+- AnyKernel3 packaging, prerelease publication, and artifact upload have not yet been validated for the latest source.
 - No successful compile, AnyKernel ZIP, release artifact, phone boot, userdata mount/read/write, radio stability, suspend/resume, or HyperOS runtime result is claimed here.
 
 ### Required acceptance gates

@@ -210,6 +210,11 @@ exec_source = (source / "fs/exec.c").read_text()
 open_source = (source / "fs/open.c").read_text()
 read_write_source = (source / "fs/read_write.c").read_text()
 stat_source = (source / "fs/stat.c").read_text()
+fork_source = (source / "kernel/fork.c").read_text()
+require("vma_init(vma, mm);" in fork_source and
+        "vma_set_anonymous(vma);" in exec_source and
+        "INIT_VMA(vma);" not in exec_source,
+        "exec.c VMA initialization is not adapted to Fleux vm_area_alloc/vma_init API")
 for hook, body in (
     ("ksu_handle_execveat", exec_source),
     ("ksu_handle_faccessat", open_source),
