@@ -222,6 +222,16 @@ def restore_fleuxsu_inline_hooks(src, fleux_open_source):
 
     stat_c = src / "fs/stat.c"
     stat_text = stat_c.read_text()
+    if '#include "internal.h"' not in stat_text:
+        replace_once(
+            stat_c,
+            "#include <linux/compat.h>\\n",
+            '#include <linux/compat.h>\\n#include "internal.h"\\n',
+            "stat.c private VFS declarations include",
+        )
+        stat_text = stat_c.read_text()
+    require('#include "internal.h"' in stat_text,
+            "fs/stat.c must include fs/internal.h for filename_lookup declaration")
     if "ksu_handle_stat" not in stat_text:
         replace_once(
             stat_c,
