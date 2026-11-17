@@ -96,7 +96,7 @@ def main():
     for rel in EXTRA_FILES:
         blob = run_git(src, ["show", "FETCH_HEAD:" + rel], check=False)
         require(blob.returncode == 0 and blob.stdout,
-                "official matching F2FS header is missing: " + rel)
+                "official matching F2FS/EROFS header is missing: " + rel)
         extra_blobs[rel] = blob.stdout
 
     with tempfile.TemporaryDirectory(prefix="official-419191-fs-") as tmp_name:
@@ -168,7 +168,7 @@ def main():
         require(anchor in staging_kconfig,
                 "drivers/staging/Kconfig has no STAGING end marker")
         staging_kconfig = staging_kconfig.replace(
-            anchor, erofs_kconfig_source + "\\n\\n" + anchor, 1
+            anchor, erofs_kconfig_source + "\n\n" + anchor, 1
         )
         staging_kconfig_path.write_text(staging_kconfig)
 
@@ -176,7 +176,7 @@ def main():
     staging_makefile = staging_makefile_path.read_text()
     erofs_make_rule = "obj-$(CONFIG_EROFS_FS) += erofs/"
     if erofs_make_rule not in staging_makefile:
-        staging_makefile = staging_makefile.rstrip() + "\\n" + erofs_make_rule + "\\n"
+        staging_makefile = staging_makefile.rstrip() + "\n" + erofs_make_rule + "\\n"
         staging_makefile_path.write_text(staging_makefile)
 
     require(erofs_kconfig_source in staging_kconfig,
