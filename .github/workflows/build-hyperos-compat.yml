@@ -21,7 +21,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: fleux-hyperos-compat-${{ github.ref }}
@@ -104,6 +104,27 @@ jobs:
             | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz-dtb|LICENSE'
           sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-HyperOS-Compat-4.19-AnyKernel3.zip" \
             | tee artifacts/HYPEROS-COMPAT-SHA256.txt
+
+      - name: Publish HyperOS compatibility candidate as a GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: hyperos-compat-4.19.325-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          command -v gh
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Fleux HyperOS Compatibility Candidate — Linux 4.19.325" \
+            --notes-file docs/hyperos-compat-changelog.md \
+            --prerelease \
+            artifacts/Fleux-HyperOS-Compat-4.19-AnyKernel3.zip \
+            artifacts/Image.gz-dtb \
+            artifacts/kernel.config \
+            artifacts/build-manifest.txt \
+            artifacts/hyperos-filesystem-audit.txt \
+            artifacts/hyperos-compat-audit.txt \
+            artifacts/hyperos-compat-source.patch \
+            artifacts/HYPEROS-COMPAT-SHA256.txt
 
       - name: Upload flashable ZIP, image and audit reports
         uses: actions/upload-artifact@v4
