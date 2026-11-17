@@ -136,6 +136,15 @@ require("#include <linux/susfs_def.h>" in stat_source and
         "susfs_is_current_proc_no_su()" in stat_source,
         "stat SUSFS guard is missing")
 
+ext4_inode = (source / "fs/ext4/inode.c").read_text()
+require("vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf)" in ext4_inode,
+        "EXT4 page_mkwrite callback is not using Fleux vm_fault_t API")
+require("vm_fault_t ext4_filemap_fault(struct vm_fault *vmf)" in ext4_inode,
+        "EXT4 filemap_fault callback is not using Fleux vm_fault_t API")
+require("int ext4_page_mkwrite(struct vm_fault *vmf)" not in ext4_inode and
+        "int ext4_filemap_fault(struct vm_fault *vmf)" not in ext4_inode,
+        "obsolete EXT4 int vm_fault callback signature remains")
+
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
 dpmaif = dpmaif_path.read_text()
@@ -156,13 +165,13 @@ require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
         "DPMAIF restore path is missing")
 
 fs_summary = fs_report.read_text()
-require("filesystem_scope=complete official fs/ tree installed; sole Fleux overlay is fs/susfs.c" in fs_summary,
-        "report does not confirm the official fs/ replacement and retained SUSFS overlay")
+require("filesystem_scope=complete official fs/ tree installed; Fleux SUSFS and targeted EXT4 API overlays applied" in fs_summary,
+        "report does not confirm the official fs/ replacement and compatibility overlays")
 require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
         "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
-require("filesystem_verification=all 1944 official fs/ files byte-identical to official Git blob" in fs_summary,
+require("filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
@@ -172,9 +181,10 @@ require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0" in fs_su
 lines = [
     "profile=hyperos-full-fs",
     "kernel_base=Fleux Linux 4.19.325",
-    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux SUSFS overlay",
-    "filesystem_tree=all official donor files byte-identity checked by build step",
+    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux SUSFS and EXT4 API overlays",
+    "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h v2.3.0 retained and linked",
+    "ext4_vm_fault_api=fs/ext4/inode.c callbacks adapted to Fleux 4.19.325 vm_fault_t API",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
     "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
     "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
