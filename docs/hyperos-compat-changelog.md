@@ -5,7 +5,7 @@ Target: Redmi Note 11S 4G / POCO M4 Pro 4G (fleur, MT6781), Fleux Linux 4.19.325
 ## Changes
 
 - Keeps the existing EXT4, F2FS, EROFS, EXFAT, VFAT, FUSE, OverlayFS and filesystem-encryption support enabled.
-- Disables the NoMount and SUSFS VFS interception layers for this compatibility profile. KernelSU itself remains enabled.
+- Disables NoMount plus the SUSFS path hiding, mount hiding, kstat spoofing, open redirection and map hiding feature flags. The KernelSU SUSFS inline-hook mode remains selected because this 4.19 Non-GKI tree does not support the BakaSU tracepoint hook.
 - Restores the MT6781 CCCI system suspend/resume callbacks and the DPMAIF HIF suspend/resume dispatch, with a modem-state guard when resuming.
 - Does not change CPU/GPU frequency tables, voltage tables, thermal limits, PMIC settings or vendor firmware.
 
