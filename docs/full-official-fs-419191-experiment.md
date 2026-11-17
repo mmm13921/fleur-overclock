@@ -82,3 +82,8 @@ This section is the running record for the isolated experiment. “Patched” me
 
 
 - Follow-up commit after the ledger was added: `f6472348dbfbdb29b63ed16ba7df580d2a248ffc` (this document update). The workflow-only commit `dbe030a47a422d1a6597e7507265f281ac3ae78a` produced Run #90, which GitHub reports as cancelled before a job was created. Run #89 remains an older-SHA build and is not validation of either follow-up commit.
+
+
+### Run #93 follow-up
+- Run #93 stopped before compilation because the VMA overlay's source-anchor pattern was over-escaped. The Python source now uses single escape sequences for the tab and newline, so it matches the literal source line in donor `fs/exec.c`.
+- Next run is the first valid test of the VMA overlay; compile, packaging, release and device boot remain unverified.
