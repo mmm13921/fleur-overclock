@@ -349,7 +349,7 @@ def main():
                 )
                 require(
                     applied.returncode == 0,
-                    "could not apply clean SEA patch " + sha + " (" + title + "):\\n" +
+                    "could not apply clean SEA patch " + sha + " (" + title + "):\n" +
                     applied.stdout.decode(errors="replace") +
                     applied.stderr.decode(errors="replace"),
                 )
@@ -363,7 +363,7 @@ def main():
                 )
                 require(
                     applied.returncode == 0,
-                    "patch conflict for " + sha + " (" + title + "):\\n" +
+                    "patch conflict for " + sha + " (" + title + "):\n" +
                     applied.stdout.decode(errors="replace") +
                     applied.stderr.decode(errors="replace"),
                 )
@@ -403,7 +403,7 @@ def main():
     require("int path_umount(struct path *path, int flags)" in namespace,
             "path_umount implementation is missing")
     umount_match = re.search(
-        r"int ksys_umount\\(char __user \\*name, int flags\\)\\s*\\{.*?\\n\\}",
+        r"int ksys_umount\(char __user \*name, int flags\)\s*\{.*?\n\}",
         namespace, re.S)
     require(umount_match is not None, "ksys_umount is missing")
     umount_fn = umount_match.group(0)
