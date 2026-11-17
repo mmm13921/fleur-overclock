@@ -39,6 +39,10 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable FUSE_FS \
   --enable STAGING \
   --enable EROFS_FS \
+  --enable EROFS_FS_XATTR \
+  --enable EROFS_FS_POSIX_ACL \
+  --enable EROFS_FS_SECURITY \
+  --enable EROFS_FS_ZIP \
   --enable OVERLAY_FS \
   --enable EXFAT_FS \
   --enable VFAT_FS \
@@ -80,6 +84,10 @@ required=(
   QUOTA_NETLINK_INTERFACE
   FUSE_FS
   EROFS_FS
+  EROFS_FS_XATTR
+  EROFS_FS_POSIX_ACL
+  EROFS_FS_SECURITY
+  EROFS_FS_ZIP
   OVERLAY_FS
   EXFAT_FS
   VFAT_FS
