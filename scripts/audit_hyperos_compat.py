@@ -114,6 +114,8 @@ require(remount_match is not None, "legacy Android do_remount is missing")
 remount_fn = remount_match.group(0)
 require("do_remount_sb2(path->mnt, sb, sb_flags, data, 0)" in remount_fn,
         "legacy Android remount does not call do_remount_sb2")
+require("change_mount_ro_state(mnt, mnt_flags)" in remount_fn,
+        "legacy bind-remount is not adapted to the 4.19.325 mount-attribute helper")
 require("fs_context_for_reconfigure" not in remount_fn and
         "parse_monolithic_mount_data" not in remount_fn,
         "legacy Android remount still routes through fs_context")
