@@ -688,7 +688,7 @@ def apply_fleux_419325_legacy_mount_api_compat(src):
             "legacy do_remount_sb2 signature is missing or ambiguous")
     text = text.replace(
         signature,
-        signature + "\n\t/* Fleux has no vendor remount_fs2 callback slot. */\n\t(void)mnt;",
+        signature + "\n\t/* Fleux has no extra mount-specific remount callback slot. */\n\t(void)mnt;",
         1,
     )
 
