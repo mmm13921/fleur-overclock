@@ -621,6 +621,38 @@ def apply_fleux_419325_procattr_lsm_compat(src):
             "procfs LSM-selector compatibility overlay is incomplete")
 
 
+
+
+def apply_fleux_419325_proc_ns_compat(src):
+    # Fleux 4.19.325 keeps ns_get_path() as an int-returning API.
+    # The 4.19.191 proc namespace link code expects an ERR_PTR-returning API.
+    # Keep the donor's procfs logic but translate the result to the Fleux contract.
+    namespaces_c = src / "fs/proc/namespaces.c"
+    replace_once(
+        namespaces_c,
+        "\tvoid *error = ERR_PTR(-EACCES);\n",
+        "\tint error = -EACCES;\n",
+        "proc namespace ns_get_path int-return API compatibility",
+    )
+    replace_once(
+        namespaces_c,
+        "\tif (!task)\n\t\treturn error;\n",
+        "\tif (!task)\n\t\treturn ERR_PTR(error);\n",
+        "proc namespace initial error-pointer return compatibility",
+    )
+    replace_once(
+        namespaces_c,
+        "\treturn error;\n}\n\nstatic int proc_ns_readlink",
+        "\treturn ERR_PTR(error);\n}\n\nstatic int proc_ns_readlink",
+        "proc namespace final error-pointer return compatibility",
+    )
+    updated = namespaces_c.read_text()
+    require("int error = -EACCES;" in updated and
+            updated.count("return ERR_PTR(error);") == 2 and
+            "void *error = ERR_PTR(-EACCES);" not in updated,
+            "proc namespace int-return API compatibility overlay is incomplete")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -668,6 +700,10 @@ def main():
     require(fleux_susfs_path.is_file(),
             "Fleux SUSFS implementation fs/susfs.c is missing before replacement")
     fleux_susfs_source = fleux_susfs_path.read_bytes()
+    fleux_nsfs_path = src / "fs/nsfs.c"
+    require(fleux_nsfs_path.is_file(),
+            "Fleux namespace filesystem fs/nsfs.c is missing before replacement")
+    fleux_nsfs_source = fleux_nsfs_path.read_bytes()
     fleux_kernfs_path = src / "fs/kernfs"
     require(fleux_kernfs_path.is_dir(),
             "Fleux fs/kernfs directory is missing before replacement")
@@ -737,6 +773,10 @@ def main():
             shutil.rmtree(target_kernfs)
         shutil.copytree(fleux_kernfs_backup, target_kernfs, symlinks=True)
 
+        # nsfs is a shared namespace pseudo-filesystem. Keep Fleux's int-return
+        # ns_get_path() implementation aligned with include/linux/proc_ns.h.
+        (target_fs / "nsfs.c").write_bytes(fleux_nsfs_source)
+
         # Keep only the dedicated SUSFS implementation from Fleux. The
         # Makefile link is added after donor byte-verification below.
         (target_fs / "susfs.c").write_bytes(fleux_susfs_source)
@@ -770,9 +810,11 @@ def main():
             "installed fs/ file list differs from official donor plus preserved Fleux kernfs and SUSFS")
     require((src / "fs/susfs.c").read_bytes() == fleux_susfs_source,
             "retained Fleux fs/susfs.c changed during filesystem replacement")
+    require((src / "fs/nsfs.c").read_bytes() == fleux_nsfs_source,
+            "retained Fleux fs/nsfs.c changed during filesystem replacement")
     # Verify every installed fs/ file against the official Git blob object.
     for rel in official_files:
-        if rel.startswith("fs/kernfs/"):
+        if rel.startswith("fs/kernfs/") or rel == "fs/nsfs.c":
             continue
         expected = run_git(src, ["rev-parse", "FETCH_HEAD:" + rel]).stdout.decode().strip()
         actual = git_blob_sha(src / rel)
@@ -796,6 +838,7 @@ def main():
     apply_fleux_419325_nls_const_char_compat(src)
     apply_fleux_419325_task_mmu_vm_flags_compat(src)
     apply_fleux_419325_procattr_lsm_compat(src)
+    apply_fleux_419325_proc_ns_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -865,15 +908,17 @@ def main():
         "filesystem_reference_branch=sea-t-oss",
         "filesystem_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_reference_commit=" + official_sha,
-        "filesystem_scope=complete official fs/ tree installed; Fleux SUSFS and targeted EXT4 API overlays applied",
+        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, SUSFS and targeted API overlays applied",
         "filesystem_source_files=" + str(len(official_files)),
-        "filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays",
+        "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs and explicit compatibility overlays",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
+        "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
+        "proc_namespace_compat=official procfs namespace link adapted to Fleux int-return ns_get_path API",
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
