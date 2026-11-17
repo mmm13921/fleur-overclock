@@ -36,6 +36,12 @@ def require(condition, message):
     if not condition:
         raise SystemExit("Full official 4.19.191 fs replacement failed: " + message)
 
+def strip_c_comments_and_literals(source):
+    # Audit executable C only; comments and diagnostic strings are not ABI use.
+    pattern = r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|/\*.*?\*/|//[^\n]*'
+    return re.sub(pattern, " ", source, flags=re.S)
+
+
 def git_blob_sha(path):
     if path.is_symlink():
         data = os.readlink(path).encode()
@@ -781,11 +787,15 @@ def apply_fleux_419325_legacy_mount_api_compat(src):
             "vendor free_secdata cleanup sites are missing or ambiguous")
     text = text.replace("\tfree_secdata(secdata);",
                         "\tsecurity_free_mnt_opts(&secdata);")
+    executable = strip_c_comments_and_literals(text)
     for obsolete in ("alloc_secdata(", "security_sb_copy_data(",
                      "security_sb_kern_mount(sb, flags, secdata)",
-                     "free_secdata(", "type->mount2", "->remount_fs2"):
-        require(obsolete not in text,
-                "obsolete vendor-only mount API remains in fs/super.c: " + obsolete)
+                     "free_secdata("):
+        require(obsolete not in executable,
+                "obsolete vendor-only mount API remains in executable fs/super.c: " + obsolete)
+    require(not re.search(r"\btype\s*->\s*mount2\b", executable) and
+            not re.search(r"->\s*remount_fs2\b", executable),
+            "obsolete vendor-only mount callbacks remain in executable fs/super.c")
     require("security_sb_eat_lsm_opts(data, &secdata)" in text and
             "security_sb_set_mnt_opts(sb, secdata, 0, NULL)" in text and
             "security_sb_kern_mount(sb)" in text and
