@@ -65,6 +65,7 @@ make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
+bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 \
@@ -81,6 +82,7 @@ fi
 
 cp "$IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
 cp "$OUT_DIR/.config" "$ARTIFACT_DIR/kernel.config"
+cp "$OUT_DIR/hyperos-filesystem-audit.txt" "$ARTIFACT_DIR/hyperos-filesystem-audit.txt"
 if [[ "$BUILD_PROFILE" == "oc2" ]]; then
   python3 "$WORKSPACE/scripts/audit_oc2_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
 elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
@@ -285,6 +287,9 @@ esac
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
+  echo "filesystem_profile=hyperos-safe"
+  echo "filesystem_reference=mt6781-sea/android_kernel_xiaomi_mt6781@lineage-23.2 (4.19.325)"
+  echo "filesystem_interceptors=nomount,ksu_susfs disabled"
   if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
     echo "target_big_cluster_cpus=6,7"
     echo "target_big_cluster_max_hz=2200000000"
