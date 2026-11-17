@@ -115,7 +115,7 @@ def main():
     require("int path_umount(struct path *path, int flags)" in namespace,
             "path_umount implementation is missing")
     change_type_start = namespace.find("static int do_change_type(struct path *path, int ms_flags)")
-    change_type_end = namespace.find("\\n}", change_type_start)
+    change_type_end = namespace.find("\n}", change_type_start)
     require(change_type_start >= 0 and change_type_end > change_type_start and
             "if (!check_mnt(mnt))" in namespace[change_type_start:change_type_end],
             "VFS foreign-mount propagation guard is missing")
