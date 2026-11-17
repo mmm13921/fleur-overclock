@@ -53,10 +53,11 @@ case "$BUILD_PROFILE" in
     ;;
   hyperos-compat)
     python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR"
+    python3 "$WORKSPACE/scripts/apply_sea_419325_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/sea-4.19.325-fs-mount-audit.txt"
     ;;
 esac
 
-git -C "$SRC_DIR" diff --check
+git -C "$SRC_DIR" diff HEAD --check
 
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
@@ -280,16 +281,16 @@ CLANG_VERSION="$(clang --version | head -n 1)"
 
 case "$BUILD_PROFILE" in
   oc1)
-    git -C "$SRC_DIR" diff --binary > "$ARTIFACT_DIR/oc1-source.patch"
+    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/oc1-source.patch"
     ;;
   oc2)
-    git -C "$SRC_DIR" diff --binary > "$ARTIFACT_DIR/oc2-source.patch"
+    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/oc2-source.patch"
     ;;
   oc3)
-    git -C "$SRC_DIR" diff --binary > "$ARTIFACT_DIR/oc3-source.patch"
+    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/oc3-source.patch"
     ;;
   hyperos-compat)
-    git -C "$SRC_DIR" diff --binary > "$ARTIFACT_DIR/hyperos-compat-source.patch"
+    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/hyperos-compat-source.patch"
     ;;
 esac
 
@@ -301,7 +302,7 @@ esac
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
   echo "filesystem_profile=hyperos-safe"
-  echo "filesystem_reference=mt6781-sea/android_kernel_xiaomi_mt6781@lineage-23.2 (4.19.325)"
+  echo "filesystem_reference=mt6781-sea/android_kernel_xiaomi_mt6781@ae44e42c393b44b1534a7fcd7065366abe6bfe65 (4.19.325)"
   echo "filesystem_interceptors=nomount disabled; susfs feature flags disabled; inline hook retained"
   if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     echo "modem_pm_compatibility=MT6781 DPMAIF syscore suspend/resume path hardened"
@@ -349,7 +350,7 @@ esac
   elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
     sha256sum "$ARTIFACT_DIR/oc3-source.patch"
   elif [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-    sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt"
+    sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt" "$ARTIFACT_DIR/sea-4.19.325-fs-mount-audit.txt"
   fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 
