@@ -563,6 +563,44 @@ def apply_fleux_419325_nls_const_char_compat(src):
             "NLS const-char compatibility overlay is incomplete")
 
 
+def apply_fleux_419325_task_mmu_vm_flags_compat(src):
+    # The 4.19.191 donor wraps VMA flag writes in vm_write_begin/end and
+    # vm_sequence. Fleux 4.19.325 has neither that VMA field nor those helpers.
+    # Match Fleux's own clear_refs_write implementation while mmap_write_lock
+    # is held, rather than adding a partial seqcount ABI to struct vm_area_struct.
+    task_mmu = src / "fs/proc/task_mmu.c"
+    donor_loop = (
+        "\\t\\t\\t\\tfor (vma = mm->mmap; vma; vma = vma->vm_next) {\\n"
+        "\\t\\t\\t\\t\\tvm_write_begin(vma);\\n"
+        "\\t\\t\\t\\t\\tWRITE_ONCE(vma->vm_flags,\\n"
+        "\\t\\t\\t\\t\\t\\t   vma->vm_flags &\\n"
+        "\\t\\t\\t\\t\\t\\t   ~VM_SOFTDIRTY);\\n"
+        "\\t\\t\\t\\t\\t vma_set_page_prot(vma);\\n"
+        "\\t\\t\\t\\t\\tvm_write_end(vma);\\n"
+        "\\t\\t\\t\\t}\\n"
+    )
+    # Keep the indentation and semantics used by the Fleux 4.19.325 base.
+    fleux_loop = (
+        "\\t\\t\\t\\tfor (vma = mm->mmap; vma; vma = vma->vm_next) {\\n"
+        "\\t\\t\\t\\t\\tvma->vm_flags &= ~VM_SOFTDIRTY;\\n"
+        "\\t\\t\\t\\t\\tvma_set_page_prot(vma);\\n"
+        "\\t\\t\\t\\t}\\n"
+    )
+    donor_loop = donor_loop.replace(
+        "\\t\\t\\t\\t\\t vma_set_page_prot(vma);\\n",
+        "\\t\\t\\t\\t\\tvma_set_page_prot(vma);\\n",
+    )
+    replace_once(
+        task_mmu, donor_loop, fleux_loop,
+        "proc task_mmu vm_write_sequence API compatibility",
+    )
+    updated = task_mmu.read_text()
+    require("vm_write_begin(vma)" not in updated and
+            "vm_write_end(vma)" not in updated and
+            "vma->vm_flags &= ~VM_SOFTDIRTY;" in updated,
+            "proc task_mmu soft-dirty compatibility overlay is incomplete")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -736,6 +774,7 @@ def main():
     apply_fleux_fuse_v2_compat(src)
     apply_fleux_419325_fuse_readahead_compat(src)
     apply_fleux_419325_nls_const_char_compat(src)
+    apply_fleux_419325_task_mmu_vm_flags_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -811,7 +850,7 @@ def main():
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
-        "filesystem_compatibility_overlay=EXT4 API, FUSE passthrough V2 ABI and 128-KiB readahead fallback ported from Fleux 4.19.325",
+        "filesystem_compatibility_overlay=EXT4 API, FUSE passthrough V2 ABI, 128-KiB readahead, NLS const-char API and proc task_mmu soft-dirty VMA update ported from Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
