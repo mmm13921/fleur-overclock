@@ -18,3 +18,7 @@ Do not overwrite the known-good kernel or remove the recovery path. Flash only a
 ### NLS API compatibility
 
 The imported NLS implementation is adapted to Fleux's `load_nls(const char *)` declaration by changing both `find_nls` and `load_nls` definitions to const-correct signatures.
+
+### procfs VMA soft-dirty API compatibility
+
+The official 4.19.191 `fs/proc/task_mmu.c` wraps the `VM_SOFTDIRTY` VMA-flag update in `vm_write_begin()` and `vm_write_end()`, which rely on `vm_sequence` in `struct vm_area_struct`. Fleux 4.19.325 does not provide that VMA field or those helper functions. The compatibility overlay therefore ports only this `clear_refs_write()` loop to the exact Fleux implementation: clear `VM_SOFTDIRTY` and refresh `vm_page_prot` while holding the existing `mmap_write_lock`. It does not add an incomplete seqcount ABI to the Fleux MM structures.
