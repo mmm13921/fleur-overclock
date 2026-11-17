@@ -228,6 +228,15 @@ def main():
     namespace = replace_function(
         namespace, official_namespace, "static int do_remount(", "legacy VFS remount"
     )
+    # 4.19.325 replaced the old bind-remount helper with this mount-attribute
+    # helper. Use the current API while retaining the official 4.19.191 flow.
+    old_bind = "err = change_mount_flags(path->mnt, ms_flags);"
+    require(old_bind in namespace, "official legacy bind-remount call site is missing")
+    require("static int change_mount_ro_state(struct mount *mnt, unsigned int mnt_flags)" in namespace,
+            "current Fleux change_mount_ro_state helper is missing")
+    namespace = namespace.replace(
+        old_bind, "err = change_mount_ro_state(mnt, mnt_flags);", 1
+    )
     namespace_path.write_text(namespace)
 
     # The 4.19.325 VFS tree replaced do_remount_sb2() with fs_context-only
@@ -244,11 +253,15 @@ def main():
 
     internal_path = src / "fs/internal.h"
     internal = internal_path.read_text()
+    if "struct vfsmount;" not in internal:
+        internal = internal.replace(
+            "struct mount;\\n", "struct mount;\\nstruct vfsmount;\\n", 1
+        )
     prototype = "int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, int sb_flags, void *data, int force);"
     if prototype not in internal:
-        end = internal.rfind("#endif")
-        require(end >= 0, "fs/internal.h include guard is missing")
-        internal = internal[:end] + prototype + "\n\n" + internal[end:]
+        # internal.h has no global include guard; append outside CONFIG_BLOCK's
+        # #ifdef/#else so the declaration is visible in normal kernel builds.
+        internal = internal.rstrip() + "\\n\\n" + prototype + "\\n"
         internal_path.write_text(internal)
 
     # Structural checks before compilation.
