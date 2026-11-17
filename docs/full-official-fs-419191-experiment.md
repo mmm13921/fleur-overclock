@@ -13,3 +13,8 @@ This creates a mixed-version kernel: Fleux 4.19.325 outside `fs/`, with the offi
 The workflow must pass source-tree identity checks, compile the full kernel, verify the gzip kernel plus appended DTB, and validate the AnyKernel3 ZIP before publishing. A successful CI build still cannot establish that HyperOS can mount and decrypt real `/data`, access all existing files, preserve app data, or behave correctly across reboot and suspend/resume.
 
 Do not overwrite the known-good kernel or remove the recovery path. Flash only after the image is built successfully and keep the previous boot image available. If the phone cannot mount userdata or reports filesystem errors, restore the known-good boot image; do not format userdata.
+
+
+### NLS API compatibility
+
+The imported NLS implementation is adapted to Fleux's `load_nls(const char *)` declaration by changing both `find_nls` and `load_nls` definitions to const-correct signatures.

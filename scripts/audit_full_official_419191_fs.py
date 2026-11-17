@@ -136,6 +136,11 @@ require("int kernfs_xattr_get(struct kernfs_node *kn" in kernfs_inode_source and
         "simple_xattr_set(&attrs->xattrs, name, value, size, flags, NULL)" in kernfs_inode_source,
         "Fleux kernfs xattr API compatibility is incomplete")
 
+nls_base_source = (source / "fs/nls/nls_base.c").read_text()
+require("find_nls(const char *charset)" in nls_base_source and
+        "load_nls(const char *charset)" in nls_base_source,
+        "NLS const-char API compatibility overlay is missing")
+
 exec_source = (source / "fs/exec.c").read_text()
 open_source = (source / "fs/open.c").read_text()
 read_write_source = (source / "fs/read_write.c").read_text()
@@ -219,8 +224,8 @@ require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
 require("filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
-require("filesystem_compatibility_overlay=EXT4 inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B mbcache flags for Fleux 4.19.325" in fs_summary,
-        "EXT4 compatibility overlay manifest is incomplete")
+require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API" in fs_summary,
+        "filesystem API compatibility overlay manifest is incomplete")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
 require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0" in fs_summary,

@@ -540,6 +540,29 @@ def apply_fleux_419325_fuse_readahead_compat(src):
             "FUSE 128-KiB VM_MAX_READAHEAD fallback was not installed")
 
 
+def apply_fleux_419325_nls_const_char_compat(src):
+    # Fleux 4.19.325 declares load_nls(const char *) in include/linux/nls.h.
+    # The 4.19.191 donor definitions used mutable char *, causing a hard
+    # conflicting-types error when compiling fs/nls/nls_base.c.
+    nls_base = src / "fs/nls/nls_base.c"
+    replace_once(
+        nls_base,
+        "static struct nls_table *find_nls(char *charset)",
+        "static struct nls_table *find_nls(const char *charset)",
+        "NLS find_nls const-char API compatibility",
+    )
+    replace_once(
+        nls_base,
+        "struct nls_table *load_nls(char *charset)",
+        "struct nls_table *load_nls(const char *charset)",
+        "NLS load_nls const-char API compatibility",
+    )
+    nls_text = nls_base.read_text()
+    require("find_nls(const char *charset)" in nls_text and
+            "load_nls(const char *charset)" in nls_text,
+            "NLS const-char compatibility overlay is incomplete")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -712,6 +735,7 @@ def main():
     apply_fleux_419325_ext4_vm_fault_compat(src)
     apply_fleux_fuse_v2_compat(src)
     apply_fleux_419325_fuse_readahead_compat(src)
+    apply_fleux_419325_nls_const_char_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
