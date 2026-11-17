@@ -671,6 +671,111 @@ def apply_fleux_419325_proc_ns_compat(src):
             "proc namespace int-return API compatibility overlay is incomplete")
 
 
+
+def apply_fleux_419325_legacy_mount_api_compat(src):
+    # The Xiaomi 4.19.191 fs/super.c uses vendor-only mount2/remount_fs2
+    # members and the pre-fs_context LSM mount-data API. Fleux 4.19.325 has
+    # the legacy mount/remount callbacks but its LSM API is split into
+    # eat_lsm_opts -> set_mnt_opts -> kern_mount.
+    super_c = src / "fs/super.c"
+    text = super_c.read_text()
+
+    signature = (
+        "int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, "
+        "int sb_flags, void *data, int force)\\n{"
+    )
+    require(text.count(signature) == 1,
+            "legacy do_remount_sb2 signature is missing or ambiguous")
+    text = text.replace(
+        signature,
+        signature + "\\n\\t/* Fleux has no vendor remount_fs2 callback slot. */\\n\\t(void)mnt;",
+        1,
+    )
+
+    remount_pattern = re.compile(
+        r"\\tif \\(mnt && sb->s_op->remount_fs2\\) \\{.*?"
+        r"\\n\\t\\} else if \\(sb->s_op->remount_fs\\) \\{(.*?)\\n\\t\\}\\n",
+        re.S,
+    )
+    matches = list(remount_pattern.finditer(text))
+    require(len(matches) == 1,
+            "vendor remount_fs2 branch is missing or ambiguous")
+    match = matches[0]
+    remount = (
+        "\\t/* Keep the Fleux 4.19.325 super_operations ABI. */\\n"
+        "\\tif (sb->s_op->remount_fs) {" + match.group(1) + "\\n\\t}\\n"
+    )
+    text = text[:match.start()] + remount + text[match.end():]
+
+    require(text.count("struct dentry *\\nmount_fs(") == 1,
+            "legacy mount_fs implementation is missing or ambiguous")
+    require(text.count("\\tchar *secdata = NULL;") == 1,
+            "legacy mount_fs security-data declaration is missing or ambiguous")
+    text = text.replace("\\tchar *secdata = NULL;",
+                        "\\tvoid *secdata = NULL;", 1)
+
+    secdata_pattern = re.compile(
+        r"\\tif \\(data && !\\(type->fs_flags & FS_BINARY_MOUNTDATA\\)\\) \\{\\n"
+        r".*?\\n\\t\\}\\n",
+        re.S,
+    )
+    matches = list(secdata_pattern.finditer(text))
+    require(len(matches) == 1,
+            "legacy LSM mount-data extraction block is missing or ambiguous")
+    match = matches[0]
+    secdata_block = (
+        "\\tif (data && !(type->fs_flags & FS_BINARY_MOUNTDATA)) {\\n"
+        "\\t\\terror = security_sb_eat_lsm_opts(data, &secdata);\\n"
+        "\\t\\tif (error)\\n"
+        "\\t\\t\\tgoto out_free_secdata;\\n"
+        "\\t}\\n"
+    )
+    text = text[:match.start()] + secdata_block + text[match.end():]
+
+    mount_pattern = re.compile(
+        r"\\tif \\(type->mount2\\)\\n"
+        r"\\t\\troot = type->mount2\\(mnt, type, flags, name, data\\);\\n"
+        r"\\telse\\n"
+        r"\\t\\troot = type->mount\\(type, flags, name, data\\);",
+    )
+    require(len(list(mount_pattern.finditer(text))) == 1,
+            "vendor mount2 dispatch block is missing or ambiguous")
+    text = mount_pattern.sub(
+        "\\t/* Fleux file_system_type exposes the legacy mount callback only. */\\n"
+        "\\troot = type->mount(type, flags, name, data);",
+        text,
+        count=1,
+    )
+
+    old_security_call = "\\terror = security_sb_kern_mount(sb, flags, secdata);"
+    require(text.count(old_security_call) == 1,
+            "vendor three-argument security_sb_kern_mount call is missing or ambiguous")
+    text = text.replace(
+        old_security_call,
+        "\\terror = security_sb_set_mnt_opts(sb, secdata, 0, NULL);\\n"
+        "\\tif (!error)\\n"
+        "\\t\\terror = security_sb_kern_mount(sb);",
+        1,
+    )
+
+    require(text.count("\\tfree_secdata(secdata);") == 2,
+            "vendor free_secdata cleanup sites are missing or ambiguous")
+    text = text.replace("\\tfree_secdata(secdata);",
+                        "\\tsecurity_free_mnt_opts(&secdata);")
+    for obsolete in ("alloc_secdata(", "security_sb_copy_data(",
+                     "security_sb_kern_mount(sb, flags, secdata)",
+                     "free_secdata(", "type->mount2", "remount_fs2"):
+        require(obsolete not in text,
+                "obsolete vendor-only mount API remains in fs/super.c: " + obsolete)
+    require("security_sb_eat_lsm_opts(data, &secdata)" in text and
+            "security_sb_set_mnt_opts(sb, secdata, 0, NULL)" in text and
+            "security_sb_kern_mount(sb)" in text and
+            "security_free_mnt_opts(&secdata)" in text,
+            "Fleux legacy LSM mount API conversion is incomplete")
+
+    super_c.write_text(text)
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -861,6 +966,7 @@ def main():
     apply_fleux_419325_task_mmu_vm_flags_compat(src)
     apply_fleux_419325_procattr_lsm_compat(src)
     apply_fleux_419325_proc_ns_compat(src)
+    apply_fleux_419325_legacy_mount_api_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
