@@ -152,6 +152,14 @@ require("int ext4_page_mkwrite(struct vm_fault *vmf)" not in ext4_inode and
         "int ext4_filemap_fault(struct vm_fault *vmf)" not in ext4_inode,
         "obsolete EXT4 int vm_fault callback signature remains")
 
+ext4_super = (source / "fs/ext4/super.c").read_text()
+require("\t\tret = __vmalloc(size, flags);" in ext4_super and
+        "\t\tret = __vmalloc(size, flags | __GFP_ZERO);" in ext4_super,
+        "EXT4 vmalloc calls are not adapted to the Fleux 4.19.325 API")
+require("\t\tret = __vmalloc(size, flags, PAGE_KERNEL);" not in ext4_super and
+        "\t\tret = __vmalloc(size, flags | __GFP_ZERO, PAGE_KERNEL);" not in ext4_super,
+        "obsolete three-argument EXT4 __vmalloc calls remain")
+
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
 dpmaif = dpmaif_path.read_text()
@@ -191,7 +199,7 @@ lines = [
     "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux SUSFS and EXT4 API overlays",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h v2.3.0 retained and linked",
-    "ext4_vm_fault_api=fs/ext4/inode.c definitions and ext4.h prototypes adapted to Fleux 4.19.325 vm_fault_t API",
+    "ext4_api_compat=inode.c/ext4.h vm_fault_t callbacks and super.c two-argument __vmalloc calls for Fleux 4.19.325",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
     "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
     "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
