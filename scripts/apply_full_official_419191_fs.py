@@ -51,7 +51,7 @@ def replace_once(path, old, new, label):
             label + ": expected one source anchor, found " + str(count))
     path.write_text(text.replace(old, new, 1))
 
-def restore_fleuxsu_inline_hooks(src):
+def restore_fleuxsu_inline_hooks(src, fleux_open_source):
     # Keep the official 4.19.191 VFS/F2FS implementation, while restoring
     # only the four FleuxSU inline hooks required by its build-time checker.
     exec_c = src / "fs/exec.c"
@@ -105,65 +105,72 @@ def restore_fleuxsu_inline_hooks(src):
     open_c = src / "fs/open.c"
     open_text = open_c.read_text()
     if "ksu_handle_faccessat" not in open_text:
+        # Restore Fleux's exact 4-argument faccessat implementation and wrappers.
+        # The donor's old 3-argument helper is incompatible with Fleux syscalls.h.
         replace_once(
             open_c,
             "#include <linux/compat.h>\n",
             "#include <linux/compat.h>\n#ifdef CONFIG_KSU_SUSFS\n#include <linux/susfs_def.h>\n#endif\n",
             "open.c SUSFS include",
         )
-        declarations = (
+        open_text = open_c.read_text()
+        decl_start = (
             "#ifdef CONFIG_KSU_SUSFS\n"
             "extern struct static_key_true ksu_su_compat_enabled;\n"
             "extern bool __ksu_is_allow_uid_for_current(uid_t uid);\n"
             "extern int ksu_handle_faccessat(int *dfd, struct filename **filename, int *mode,\n"
             "\t\t\t\tint *flags);\n"
             "#endif\n"
+            "long do_faccessat("
         )
-        replace_once(
-            open_c,
-            "long do_faccessat(int dfd, const char __user *filename, int mode)\n",
-            declarations + "long do_faccessat(int dfd, const char __user *filename, int mode)\n",
-            "open.c faccessat declarations",
-        )
-        replace_once(
-            open_c,
-            "\tint res;\n"
-            "\tunsigned int lookup_flags = LOOKUP_FOLLOW;\n\n"
-            "\tif (mode & ~S_IRWXO)",
-            "\tint res;\n"
-            "\tunsigned int lookup_flags = LOOKUP_FOLLOW;\n"
-            "#ifdef CONFIG_KSU_SUSFS\n"
-            "\tstruct filename *fname = NULL;\n"
-            "#endif\n\n"
-            "\tif (mode & ~S_IRWXO)",
-            "open.c faccessat filename declaration",
-        )
-        hook = (
-            "\t#ifdef CONFIG_KSU_SUSFS\n"
-            "\tfname = getname_flags(filename, lookup_flags, NULL);\n"
-            "\tif (likely(susfs_is_current_proc_no_su()))\n"
-            "\t\tgoto orig_flow;\n"
-            "\tif (static_branch_likely(&ksu_su_compat_enabled)) {\n"
-            "\t\tif (unlikely(__ksu_is_allow_uid_for_current(current_uid().val)))\n"
-            "\t\t\tksu_handle_faccessat(&dfd, &fname, &mode, NULL);\n"
-            "\t}\n"
-            "orig_flow:\n"
-            "\tres = filename_lookup(dfd, fname, lookup_flags, &path, NULL);\n"
-            "\t/* filename_lookup() consumes fname; do not putname() here. */\n"
-            "\t#else\n"
-            "\tres = user_path_at(dfd, filename, lookup_flags, &path);\n"
-            "\t#endif\n"
-        ).replace("\t#ifdef CONFIG_KSU_SUSFS", "#ifdef CONFIG_KSU_SUSFS")
-        replace_once(
-            open_c,
-            "\told_cred = override_creds(override_cred);\n"
-            "retry:\n"
-            "\tres = user_path_at(dfd, filename, lookup_flags, &path);\n",
-            "\told_cred = override_creds(override_cred);\n"
-            "retry:\n" + hook,
-            "open.c faccessat hook",
-        )
+        decl_end = "\nint ksys_chdir("
+        donor_start = "long do_faccessat("
+        donor_end = "\nint ksys_chdir("
+        source_begin = fleux_open_source.find(decl_start)
+        source_finish = fleux_open_source.find(decl_end, source_begin)
+        target_begin = open_text.find(donor_start)
+        target_finish = open_text.find(donor_end, target_begin)
+        require(source_begin >= 0 and source_finish > source_begin,
+                "Fleux four-argument faccessat source block is missing")
+        require(target_begin >= 0 and target_finish > target_begin,
+                "official donor faccessat source block is missing")
+        imported = fleux_open_source[source_begin:source_finish]
+        open_text = open_text[:target_begin] + imported + open_text[target_finish:]
 
+        # Fleux exposes faccessat2 via the same four-argument helper.
+        faccessat2_start = fleux_open_source.find("SYSCALL_DEFINE4(faccessat2,")
+        faccessat2_end = fleux_open_source.find("\nSYSCALL_DEFINE1(chdir", faccessat2_start)
+        require(faccessat2_start >= 0 and faccessat2_end > faccessat2_start,
+                "Fleux faccessat2 syscall wrapper is missing")
+        faccessat2 = fleux_open_source[faccessat2_start:faccessat2_end]
+        if "SYSCALL_DEFINE4(faccessat2," not in open_text:
+            replace_once(
+                open_c,
+                "\nSYSCALL_DEFINE1(chdir,",
+                "\n" + faccessat2 + "\nSYSCALL_DEFINE1(chdir,",
+                "open.c faccessat2 syscall wrapper",
+            )
+            open_text = open_c.read_text()
+        open_c.write_text(open_text)
+
+    # Keep the private filesystem declarations aligned with Fleux's syscall ABI.
+    internal_h = src / "fs/internal.h"
+    replace_once(
+        internal_h,
+        "long do_faccessat(int dfd, const char __user *filename, int mode);",
+        "long do_faccessat(int dfd, const char __user *filename, int mode, int flags);",
+        "fs/internal.h four-argument do_faccessat prototype",
+    )
+    internal_text = internal_h.read_text()
+    if "filename_lookup(int dfd, struct filename *name, unsigned flags," not in internal_text:
+        replace_once(
+            internal_h,
+            "long do_faccessat(int dfd, const char __user *filename, int mode, int flags);",
+            "extern int filename_lookup(int dfd, struct filename *name, unsigned flags,\n"
+            "\t\t\t   struct path *path, struct path *root);\n"
+            "long do_faccessat(int dfd, const char __user *filename, int mode, int flags);",
+            "fs/internal.h filename_lookup declaration",
+        )
     read_write_c = src / "fs/read_write.c"
     read_write_text = read_write_c.read_text()
     if "ksu_handle_sys_read" not in read_write_text:
@@ -704,6 +711,10 @@ def main():
     require(fleux_nsfs_path.is_file(),
             "Fleux namespace filesystem fs/nsfs.c is missing before replacement")
     fleux_nsfs_source = fleux_nsfs_path.read_bytes()
+    fleux_open_path = src / "fs/open.c"
+    require(fleux_open_path.is_file(),
+            "Fleux filesystem fs/open.c is missing before replacement")
+    fleux_open_source = fleux_open_path.read_text()
     fleux_kernfs_path = src / "fs/kernfs"
     require(fleux_kernfs_path.is_dir(),
             "Fleux fs/kernfs directory is missing before replacement")
@@ -869,7 +880,7 @@ def main():
         staging_makefile = staging_makefile.rstrip() + "\n" + erofs_make_rule + "\n"
         staging_makefile_path.write_text(staging_makefile)
 
-    restore_fleuxsu_inline_hooks(src)
+    restore_fleuxsu_inline_hooks(src, fleux_open_source)
 
     require(erofs_kconfig_source in staging_kconfig,
             "staging EROFS Kconfig is not sourced")
