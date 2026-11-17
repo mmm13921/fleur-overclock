@@ -783,35 +783,35 @@ def apply_fleux_419325_namespace_lsm_remount_compat(src):
     namespace_c = src / "fs/namespace.c"
     replace_once(
         namespace_c,
-        "static int do_remount(struct path *path, int ms_flags, int sb_flags,\\n"
-        "\\t\\t      int mnt_flags, void *data)\\n"
-        "{\\n"
-        "\\tint err;\\n"
-        "\\tstruct super_block *sb = path->mnt->mnt_sb;\\n",
-        "static int do_remount(struct path *path, int ms_flags, int sb_flags,\\n"
-        "\\t\\t      int mnt_flags, void *data)\\n"
-        "{\\n"
-        "\\tint err;\\n"
-        "\\tvoid *mnt_opts = NULL;\\n"
-        "\\tstruct super_block *sb = path->mnt->mnt_sb;\\n",
+        "static int do_remount(struct path *path, int ms_flags, int sb_flags,\n"
+        "\t\t      int mnt_flags, void *data)\n"
+        "{\n"
+        "\tint err;\n"
+        "\tstruct super_block *sb = path->mnt->mnt_sb;\n",
+        "static int do_remount(struct path *path, int ms_flags, int sb_flags,\n"
+        "\t\t      int mnt_flags, void *data)\n"
+        "{\n"
+        "\tint err;\n"
+        "\tvoid *mnt_opts = NULL;\n"
+        "\tstruct super_block *sb = path->mnt->mnt_sb;\n",
         "namespace do_remount Fleux LSM option declaration",
     )
     replace_once(
         namespace_c,
-        "\\terr = security_sb_remount(sb, data);\\n"
-        "\\tif (err)\\n"
-        "\\t\\treturn err;\\n",
-        "\\tif (data && !(sb->s_type->fs_flags & FS_BINARY_MOUNTDATA)) {\\n"
-        "\\t\\terr = security_sb_eat_lsm_opts(data, &mnt_opts);\\n"
-        "\\t\\tif (err) {\\n"
-        "\\t\\t\\tsecurity_free_mnt_opts(&mnt_opts);\\n"
-        "\\t\\t\\treturn err;\\n"
-        "\\t\\t}\\n"
-        "\\t}\\n"
-        "\\terr = security_sb_remount(sb, mnt_opts);\\n"
-        "\\tsecurity_free_mnt_opts(&mnt_opts);\\n"
-        "\\tif (err)\\n"
-        "\\t\\treturn err;\\n",
+        "\terr = security_sb_remount(sb, data);\n"
+        "\tif (err)\n"
+        "\t\treturn err;\n",
+        "\tif (data && !(sb->s_type->fs_flags & FS_BINARY_MOUNTDATA)) {\n"
+        "\t\terr = security_sb_eat_lsm_opts(data, &mnt_opts);\n"
+        "\t\tif (err) {\n"
+        "\t\t\tsecurity_free_mnt_opts(&mnt_opts);\n"
+        "\t\t\treturn err;\n"
+        "\t\t}\n"
+        "\t}\n"
+        "\terr = security_sb_remount(sb, mnt_opts);\n"
+        "\tsecurity_free_mnt_opts(&mnt_opts);\n"
+        "\tif (err)\n"
+        "\t\treturn err;\n",
         "namespace do_remount Fleux parsed LSM option API",
     )
     updated = namespace_c.read_text()
