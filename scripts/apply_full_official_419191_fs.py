@@ -225,8 +225,8 @@ def restore_fleuxsu_inline_hooks(src, fleux_open_source):
     if '#include "internal.h"' not in stat_text:
         replace_once(
             stat_c,
-            "#include <linux/compat.h>\\n",
-            '#include <linux/compat.h>\\n#include "internal.h"\\n',
+            "#include <linux/compat.h>\n",
+            '#include <linux/compat.h>\n#include "internal.h"\n',
             "stat.c private VFS declarations include",
         )
         stat_text = stat_c.read_text()
