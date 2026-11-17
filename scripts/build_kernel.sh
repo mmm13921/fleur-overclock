@@ -308,7 +308,7 @@ esac
     echo "modem_pm_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume"
     echo "hardware_validation=required; CI performs structural checks only"
   fi
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
     echo "target_big_cluster_cpus=6,7"
     echo "target_big_cluster_max_hz=2200000000"
     echo "target_big_cluster_max_vproc_uv=1156250"
