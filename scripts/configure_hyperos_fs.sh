@@ -111,7 +111,7 @@ done
   echo "ext4_xattr_support=built-in (no separate Kconfig symbol in this Fleux tree)"
   echo "f2fs_features=xattr,acl,security,encryption,compression-lzo-lz4-zstd"
   echo "inline_fs_encryption=enabled"
-  echo "disabled_interceptors=nomount,susfs-feature-flags" \
+  echo "disabled_interceptors=nomount,susfs-feature-flags"
   echo "kernel_su_hook_mode=inline (CONFIG_KSU_SUSFS retained for Non-GKI 4.19)"
 } | tee "$OUT_DIR/hyperos-filesystem-audit.txt"
 echo "HyperOS filesystem configuration verified."
