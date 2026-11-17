@@ -1,4 +1,4 @@
-name: Fleux latest-source kernel build (cgroup v2)
+name: Fleux HyperOS-safe filesystem kernel build
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build fleur_defconfig with cgroup v2
+    name: Build fleur_defconfig with HyperOS filesystem support
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     env:
@@ -60,13 +60,13 @@ jobs:
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
 
-      - name: Build Fleux kernel with cgroup v2 support
+      - name: Build Fleux kernel with HyperOS-safe filesystem configuration
         run: bash scripts/build_kernel.sh "$SOURCE_REF"
 
-      - name: Upload kernel image and cgroup v2 manifest
+      - name: Upload kernel image, filesystem audit, and build manifest
         uses: actions/upload-artifact@v4
         with:
-          name: fleux-cgroup-v2
+          name: fleux-hyperos-filesystem-safe
           path: artifacts/
           if-no-files-found: error
           retention-days: 14
