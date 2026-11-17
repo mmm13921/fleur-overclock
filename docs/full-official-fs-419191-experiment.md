@@ -75,3 +75,6 @@ This section is the running record for the isolated experiment. “Patched” me
 4. AnyKernel3 ZIP integrity and required installer-file checks pass.
 5. Prerelease and checksums are published for that same SHA.
 6. Device testing is performed separately with the known-good boot image retained. Verify boot, encrypted `/data` mount, read/write and app data integrity, modem registration/signal after long idle, reboot, and suspend/resume. Never format userdata as a troubleshooting step for this experiment.
+
+
+- Follow-up commit after the ledger was added: `f6472348dbfbdb29b63ed16ba7df580d2a248ffc` (this document update). The workflow-only commit `dbe030a47a422d1a6597e7507265f281ac3ae78a` produced Run #90, which GitHub reports as cancelled before a job was created. Run #89 remains an older-SHA build and is not validation of either follow-up commit.
