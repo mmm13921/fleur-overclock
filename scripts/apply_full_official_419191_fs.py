@@ -400,6 +400,115 @@ def apply_fleux_419325_ext4_vm_fault_compat(src):
             "int ext4_filemap_fault(struct vm_fault *vmf)" not in final,
             "an old EXT4 vm_fault callback signature remains")
 
+
+def apply_fleux_fuse_v2_compat(src):
+    # Fleux exposes Android FUSE passthrough V2 (ioctl 126, __u32 fd).
+    # The 4.19.191 donor's V1 struct/ioctl 127 must not replace that ABI.
+    dev_c = src / "fs/fuse/dev.c"
+    dev_text = dev_c.read_text()
+    start_marker = "static long fuse_dev_ioctl(struct file *file, unsigned int cmd,"
+    end_marker = "\nconst struct file_operations fuse_dev_operations"
+    require(dev_text.count(start_marker) == 1 and dev_text.count(end_marker) == 1,
+            "FUSE ioctl function anchors are missing or ambiguous")
+    start = dev_text.index(start_marker)
+    end = dev_text.index(end_marker, start)
+    new_ioctl = """static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
+\t\t\t   unsigned long arg)
+{
+\tint res;
+\tint oldfd;
+\tstruct fuse_dev *fud = NULL;
+
+\tswitch (cmd) {
+\tcase FUSE_DEV_IOC_CLONE:
+\t\tres = -EFAULT;
+\t\tif (!get_user(oldfd, (__u32 __user *)arg)) {
+\t\t\tstruct file *old = fget(oldfd);
+
+\t\t\tres = -EINVAL;
+\t\t\tif (old) {
+\t\t\t\t/*
+\t\t\t\t * Check against file->f_op because CUSE
+\t\t\t\t * uses the same ioctl handler.
+\t\t\t\t */
+\t\t\t\tif (old->f_op == file->f_op &&
+\t\t\t\t    old->f_cred->user_ns ==
+\t\t\t\t\t    file->f_cred->user_ns)
+\t\t\t\t\tfud = fuse_get_dev(old);
+
+\t\t\t\tif (fud) {
+\t\t\t\t\tmutex_lock(&fuse_mutex);
+\t\t\t\t\tres = fuse_device_clone(fud->fc, file);
+\t\t\t\t\tmutex_unlock(&fuse_mutex);
+\t\t\t\t}
+\t\t\t\tfput(old);
+\t\t\t}
+\t\t}
+\t\tbreak;
+\tcase FUSE_DEV_IOC_PASSTHROUGH_OPEN:
+\t\tres = -EFAULT;
+\t\tif (!get_user(oldfd, (__u32 __user *)arg)) {
+\t\t\tres = -EINVAL;
+\t\t\tfud = fuse_get_dev(file);
+\t\t\tif (fud)
+\t\t\t\tres = fuse_passthrough_open(fud, oldfd);
+\t\t}
+\t\tbreak;
+\tdefault:
+\t\tres = -ENOTTY;
+\t\tbreak;
+\t}
+\treturn res;
+}
+"""
+    dev_c.write_text(dev_text[:start] + new_ioctl + dev_text[end:])
+
+    fuse_i = src / "fs/fuse/fuse_i.h"
+    replace_once(
+        fuse_i,
+        "int fuse_passthrough_open(struct fuse_dev *fud,\n"
+        "\t\t\t  struct fuse_passthrough_out *pto);",
+        "int fuse_passthrough_open(struct fuse_dev *fud, u32 lower_fd);",
+        "FUSE V2 internal passthrough prototype",
+    )
+
+    passthrough_c = src / "fs/fuse/passthrough.c"
+    replace_once(
+        passthrough_c,
+        "int fuse_passthrough_open(struct fuse_dev *fud,\n"
+        "\t\t\t  struct fuse_passthrough_out *pto)",
+        "int fuse_passthrough_open(struct fuse_dev *fud, u32 lower_fd)",
+        "FUSE V2 passthrough implementation signature",
+    )
+    replace_once(
+        passthrough_c,
+        "\t/* This field is reserved for future implementation */\n"
+        "\tif (pto->len != 0)\n"
+        "\t\treturn -EINVAL;\n\n",
+        "",
+        "FUSE V1-only passthrough length handling",
+    )
+    replace_once(
+        passthrough_c,
+        "passthrough_filp = fget(pto->fd);",
+        "passthrough_filp = fget(lower_fd);",
+        "FUSE V2 lower file descriptor",
+    )
+
+    require("case FUSE_DEV_IOC_PASSTHROUGH_OPEN:" in dev_c.read_text() and
+            "fuse_passthrough_open(fud, oldfd)" in dev_c.read_text(),
+            "FUSE device ioctl was not converted to Fleux V2")
+    require("struct fuse_passthrough_out" not in dev_c.read_text(),
+            "FUSE V1 passthrough struct remains in dev.c")
+    require("struct fuse_passthrough_out" not in fuse_i.read_text(),
+            "FUSE V1 passthrough struct remains in fuse_i.h")
+    require("u32 lower_fd" in fuse_i.read_text() and
+            "u32 lower_fd" in passthrough_c.read_text() and
+            "fget(lower_fd)" in passthrough_c.read_text(),
+            "FUSE V2 lower-fd path is incomplete")
+    require("pto->" not in passthrough_c.read_text(),
+            "FUSE V1 passthrough payload access remains")
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -543,6 +652,7 @@ def main():
     # Apply the narrow 4.19.325 MM callback API compatibility overlay only
     # after verifying the imported Xiaomi donor files byte-for-byte.
     apply_fleux_419325_ext4_vm_fault_compat(src)
+    apply_fleux_fuse_v2_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -616,7 +726,7 @@ def main():
         "filesystem_source_files=" + str(len(official_files)),
         "filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays",
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
-        "filesystem_compatibility_overlay=EXT4 inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B mbcache flags for Fleux 4.19.325",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
