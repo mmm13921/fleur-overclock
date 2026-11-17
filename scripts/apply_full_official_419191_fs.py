@@ -306,7 +306,7 @@ def apply_fleux_419325_ext4_vm_fault_compat(src):
 
     filemap_start = "int ext4_filemap_fault(struct vm_fault *vmf)"
     filemap_end = "\n"
-    filemap_begin = content.index(filemap_start, finish - len(end) + 1)
+    filemap_begin = content.index(filemap_start, finish + 1)
     filemap_finish = content.find("\n}\n", filemap_begin)
     require(filemap_finish >= 0,
             "EXT4 filemap_fault function terminator is missing")
@@ -326,7 +326,7 @@ def apply_fleux_419325_ext4_vm_fault_compat(src):
                 old.strip() + " (" + str(count) + ")")
         filemap_fn = filemap_fn.replace(old, new, 1)
 
-    updated = content[:begin] + page_fn + filemap_fn + content[filemap_finish:]
+    updated = content[:begin] + page_fn + "\n" + filemap_fn + content[filemap_finish:]
     inode_c.write_text(updated)
 
     final = inode_c.read_text()
@@ -550,9 +550,9 @@ def main():
         "filesystem_reference_branch=sea-t-oss",
         "filesystem_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_reference_commit=" + official_sha,
-        "filesystem_scope=complete official fs/ tree installed; sole Fleux overlay is fs/susfs.c",
+        "filesystem_scope=complete official fs/ tree installed; Fleux SUSFS and targeted EXT4 API overlays applied",
         "filesystem_source_files=" + str(len(official_files)),
-        "filesystem_verification=all 1944 official fs/ files byte-identical to official Git blob",
+        "filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays",
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "filesystem_compatibility_overlay=fs/ext4/inode.c vm_fault_t callback signatures adapted for Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
