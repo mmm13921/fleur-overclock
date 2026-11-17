@@ -45,8 +45,16 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable NLS_UTF8 \
   --enable UNICODE \
   --disable NOMOUNT \
-  --disable KSU_SUSFS \
-  --disable KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+  --enable KSU_SUSFS \
+  --disable KSU_SUSFS_SUS_PATH \
+  --disable KSU_SUSFS_SUS_MOUNT \
+  --disable KSU_SUSFS_SUS_KSTAT \
+  --disable KSU_SUSFS_SPOOF_UNAME \
+  --disable KSU_SUSFS_ENABLE_LOG \
+  --disable KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
+  --disable KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
+  --disable KSU_SUSFS_OPEN_REDIRECT \
+  --disable KSU_SUSFS_SUS_MAP
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 required=(
@@ -83,7 +91,11 @@ for symbol in "${required[@]}"; do
     exit 1
   fi
 done
-for symbol in NOMOUNT KSU_SUSFS KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG; do
+if ! grep -qx "CONFIG_KSU_SUSFS=y" "$CONFIG"; then
+  echo "KernelSU inline hook mode (CONFIG_KSU_SUSFS) must remain enabled for this Non-GKI kernel." >&2
+  exit 1
+fi
+for symbol in NOMOUNT KSU_SUSFS_SUS_PATH KSU_SUSFS_SUS_MOUNT KSU_SUSFS_SUS_KSTAT KSU_SUSFS_SPOOF_UNAME KSU_SUSFS_ENABLE_LOG KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG KSU_SUSFS_OPEN_REDIRECT KSU_SUSFS_SUS_MAP KSU_TRACEPOINT_HOOK; do
   if grep -qx "CONFIG_${symbol}=y" "$CONFIG"; then
     echo "Filesystem interception option remains enabled: CONFIG_${symbol}" >&2
     exit 1
@@ -99,6 +111,7 @@ done
   echo "ext4_xattr_support=built-in (no separate Kconfig symbol in this Fleux tree)"
   echo "f2fs_features=xattr,acl,security,encryption,compression-lzo-lz4-zstd"
   echo "inline_fs_encryption=enabled"
-  echo "disabled_interceptors=nomount,ksu_susfs"
+  echo "disabled_interceptors=nomount,susfs-feature-flags" \
+  echo "kernel_su_hook_mode=inline (CONFIG_KSU_SUSFS retained for Non-GKI 4.19)"
 } | tee "$OUT_DIR/hyperos-filesystem-audit.txt"
 echo "HyperOS filesystem configuration verified."
