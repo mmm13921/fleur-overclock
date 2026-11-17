@@ -255,13 +255,13 @@ def main():
     internal = internal_path.read_text()
     if "struct vfsmount;" not in internal:
         internal = internal.replace(
-            "struct mount;\\n", "struct mount;\\nstruct vfsmount;\\n", 1
+            "struct mount;\n", "struct mount;\nstruct vfsmount;\n", 1
         )
     prototype = "int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, int sb_flags, void *data, int force);"
     if prototype not in internal:
         # internal.h has no global include guard; append outside CONFIG_BLOCK's
         # #ifdef/#else so the declaration is visible in normal kernel builds.
-        internal = internal.rstrip() + "\\n\\n" + prototype + "\\n"
+        internal = internal.rstrip() + "\n\n" + prototype + "\n"
         internal_path.write_text(internal)
 
     # Structural checks before compilation.
