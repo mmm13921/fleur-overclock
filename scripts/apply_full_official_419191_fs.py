@@ -300,6 +300,23 @@ def main():
             "fs/f2fs/super.c" in official_files,
             "official VFS/F2FS core files are missing")
 
+    # Preserve the Fleux SUSFS implementation explicitly: the Xiaomi 4.19.191
+    # donor predates this integration and its Kbuild check requires fs/susfs.c.
+    require("fs/susfs.c" not in official_files,
+            "unexpected SUSFS implementation in the pinned official donor")
+    fleux_susfs_path = src / "fs/susfs.c"
+    require(fleux_susfs_path.is_file(),
+            "Fleux SUSFS implementation fs/susfs.c is missing before replacement")
+    fleux_susfs_source = fleux_susfs_path.read_bytes()
+    susfs_header_path = src / "include/linux/susfs.h"
+    require(susfs_header_path.is_file() and
+            '#define SUSFS_VERSION "v2.3.0"' in susfs_header_path.read_text(),
+            "Fleux SUSFS v2.3.0 header is missing")
+    susfs_make_rule = "obj-$(CONFIG_KSU_SUSFS) += susfs.o"
+    original_fs_makefile = (src / "fs/Makefile").read_text()
+    require(susfs_make_rule in original_fs_makefile,
+            "Fleux fs/Makefile SUSFS object registration is missing")
+
     erofs_tree = run_git(
         src, ["ls-tree", "-r", "--full-tree", "--name-only", "FETCH_HEAD", "--",
               "drivers/staging/erofs"]
@@ -340,6 +357,15 @@ def main():
             shutil.rmtree(target_fs)
         shutil.copytree(donor_fs, target_fs, symlinks=True)
 
+        # Keep only the dedicated SUSFS implementation from Fleux and link it
+        # into the official donor Makefile; VFS/F2FS source remains donor code.
+        (target_fs / "susfs.c").write_bytes(fleux_susfs_source)
+        official_fs_makefile = target_fs / "Makefile"
+        fs_make_text = official_fs_makefile.read_text()
+        if susfs_make_rule not in fs_make_text:
+            fs_make_text = fs_make_text.rstrip() + "\\n" + susfs_make_rule + "\\n"
+            official_fs_makefile.write_text(fs_make_text)
+
         donor_erofs = tmp / "drivers/staging/erofs"
         require(donor_erofs.is_dir(),
                 "official archive did not contain drivers/staging/erofs")
@@ -359,8 +385,13 @@ def main():
         for p in (src / "fs").rglob("*")
         if p.is_file() or p.is_symlink()
     )
-    require(actual_files == official_files,
-            "installed fs/ file list does not exactly match the official donor")
+    expected_files = sorted(official_files + ["fs/susfs.c"])
+    require(actual_files == expected_files,
+            "installed fs/ file list differs from the official donor plus the single retained SUSFS file")
+    require((src / "fs/susfs.c").read_bytes() == fleux_susfs_source,
+            "retained Fleux fs/susfs.c changed during filesystem replacement")
+    require(susfs_make_rule in (src / "fs/Makefile").read_text(),
+            "official fs/Makefile does not build retained Fleux SUSFS implementation")
 
     # Verify every installed fs/ file against the official Git blob object.
     for rel in official_files:
@@ -436,9 +467,12 @@ def main():
         "filesystem_reference_branch=sea-t-oss",
         "filesystem_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_reference_commit=" + official_sha,
-        "filesystem_scope=complete fs/ directory replaced",
+        "filesystem_scope=complete official fs/ tree installed; sole Fleux overlay is fs/susfs.c",
         "filesystem_source_files=" + str(len(official_files)),
-        "filesystem_verification=every fs/ file byte-identical to official Git blob",
+        "filesystem_verification=all 1944 official fs/ files byte-identical to official Git blob",
+        "filesystem_preserved_overlay=Fleux fs/susfs.c",
+        "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
+        "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
         "erofs_reference=official 4.19.191 drivers/staging/erofs",
         "erofs_source_files=" + str(len(official_erofs_files)),
