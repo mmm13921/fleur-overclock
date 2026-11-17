@@ -121,6 +121,13 @@ require("#ifndef VM_MAX_READAHEAD\n#define VM_MAX_READAHEAD 128 /* kbytes; Linux
 require("sb->s_bdi->ra_pages = (VM_MAX_READAHEAD * 1024) / PAGE_SIZE;" in fuse_inode_source,
         "FUSE readahead sizing no longer uses the official 128-KiB cap")
 
+kernfs_mount_source = (source / "fs/kernfs/mount.c").read_text()
+require("struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root, u64 id)" in kernfs_mount_source,
+        "kernfs node lookup function does not match Fleux packed-u64 ID API")
+require("kernfs_id_ino(id)" in kernfs_mount_source and
+        "kernfs_gen(kn) != kernfs_id_gen(id)" in kernfs_mount_source,
+        "kernfs generation/ino validation is incomplete")
+
 exec_source = (source / "fs/exec.c").read_text()
 open_source = (source / "fs/open.c").read_text()
 read_write_source = (source / "fs/read_write.c").read_text()
@@ -224,6 +231,7 @@ lines = [
     "erofs_makefile=drivers/staging/Makefile builds official EROFS",
     "erofs_trace_header=official include/trace/events/erofs.h",
     "fuse_readahead=legacy Linux 4.19 128-KiB cap restored locally for Fleux 4.19.325",
+    "kernfs_generation=packed u64 generation:ino ABI from Fleux 4.19.325",
     "fleuxsu_hooks=execveat,faccessat,sys_read,stat restored and source-checked",
     "vfs_mount=official legacy bind-remount and superblock remount paths",
     "filesystem_features=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",

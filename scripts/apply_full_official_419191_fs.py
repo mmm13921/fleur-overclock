@@ -540,6 +540,46 @@ def apply_fleux_419325_fuse_readahead_compat(src):
             "FUSE 128-KiB VM_MAX_READAHEAD fallback was not installed")
 
 
+def apply_fleux_419325_kernfs_id_compat(src):
+    # Fleux 4.19.325 stores kernfs IDs as a packed u64 (generation:ino).
+    # The 4.19.191 donor mount.c expects an obsolete union pointer ABI.
+    mount_c = src / "fs/kernfs/mount.c"
+    text = mount_c.read_text()
+    old = """struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root,
+\tconst union kernfs_node_id *id)
+{
+\tstruct kernfs_node *kn;
+
+\tkn = kernfs_find_and_get_node_by_ino(root, id->ino);
+\tif (!kn)
+\t\treturn NULL;
+\tif (kn->id.generation != id->generation) {
+\t\tkernfs_put(kn);
+\t\treturn NULL;
+\t}
+\treturn kn;
+}"""
+    modern = """struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root, u64 id)
+{
+\tstruct kernfs_node *kn;
+
+\tkn = kernfs_find_and_get_node_by_ino(root, kernfs_id_ino(id));
+\tif (!kn)
+\t\treturn NULL;
+\tif (kernfs_gen(kn) != kernfs_id_gen(id)) {
+\t\tkernfs_put(kn);
+\t\treturn NULL;
+\t}
+\treturn kn;
+}"""
+    if old in text:
+        text = text.replace(old, modern, 1)
+        mount_c.write_text(text)
+    require(modern in mount_c.read_text(),
+            "kernfs_get_node_by_id does not match Fleux packed-u64 ID ABI")
+    return
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -685,6 +725,7 @@ def main():
     apply_fleux_419325_ext4_vm_fault_compat(src)
     apply_fleux_fuse_v2_compat(src)
     apply_fleux_419325_fuse_readahead_compat(src)
+    apply_fleux_419325_kernfs_id_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
