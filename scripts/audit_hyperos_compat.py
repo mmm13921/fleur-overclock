@@ -33,6 +33,7 @@ disabled = set(line for line in cfg if line.startswith("# CONFIG_") and line.end
 
 required = [
     "CONFIG_KSU=y",
+    "CONFIG_KSU_SUSFS=y",
     "CONFIG_EXT4_FS=y",
     "CONFIG_F2FS_FS=y",
     "CONFIG_EROFS_FS=y",
@@ -49,7 +50,19 @@ required = [
 for item in required:
     require(item in enabled, item + " is not enabled")
 
-for symbol in ("NOMOUNT", "KSU_SUSFS", "KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG"):
+for symbol in (
+    "NOMOUNT",
+    "KSU_TRACEPOINT_HOOK",
+    "KSU_SUSFS_SUS_PATH",
+    "KSU_SUSFS_SUS_MOUNT",
+    "KSU_SUSFS_SUS_KSTAT",
+    "KSU_SUSFS_SPOOF_UNAME",
+    "KSU_SUSFS_ENABLE_LOG",
+    "KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS",
+    "KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG",
+    "KSU_SUSFS_OPEN_REDIRECT",
+    "KSU_SUSFS_SUS_MAP",
+):
     require("CONFIG_" + symbol + "=y" not in enabled, "CONFIG_" + symbol + " must be disabled")
 
 hif = (source / "drivers/misc/mediatek/eccci/hif/ccci_hif.c").read_text()
@@ -68,7 +81,8 @@ lines = [
     "root_manager=KernelSU enabled",
     "filesystem_stack=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
     "filesystem_encryption=enabled",
-    "filesystem_interceptors=NoMount disabled; SUSFS disabled",
+    "filesystem_interceptors=NoMount disabled; all SUSFS feature flags disabled",
+    "kernel_su_hook_mode=CONFIG_KSU_SUSFS inline hook retained for Non-GKI",
     "modem_pm=MT6781 CCCI suspend/resume wired to DPMAIF ops",
     "modem_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume",
     "hardware_validation=not performed by CI",
