@@ -65,6 +65,8 @@ require("obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_makefile,
         "retained SUSFS implementation is not linked by fs/Makefile")
 
 namespace = (source / "fs/namespace.c").read_text()
+open_source = (source / "fs/open.c").read_text()
+internal_source = (source / "fs/internal.h").read_text()
 nsfs_source = (source / "fs/nsfs.c").read_text()
 proc_ns_header = (source / "include/linux/proc_ns.h").read_text()
 proc_ns_dir = (source / "fs/proc/namespaces.c").read_text()
@@ -98,6 +100,16 @@ require("int do_remount_sb2(" in super_c and "sb->s_op->remount_fs" in super_c,
         "official superblock remount callback is missing")
 require("fs_context_for_reconfigure" not in namespace,
         "the modern fs_context remount path unexpectedly remains")
+require("long do_faccessat(int dfd, const char __user *filename, int mode, int flags)" in open_source and
+        "long do_faccessat(int dfd, const char __user *filename, int mode, int flags);" in internal_source,
+        "Fleux four-argument faccessat function/prototype pairing is missing")
+require("extern int filename_lookup(int dfd, struct filename *name, unsigned flags," in internal_source,
+        "Fleux filename_lookup declaration is missing from fs/internal.h")
+require("SYSCALL_DEFINE4(faccessat2," in open_source and
+        "return do_faccessat(dfd, filename, mode, flags);" in open_source,
+        "Fleux faccessat2 wrapper is not restored")
+require("long do_faccessat(int dfd, const char __user *filename, int mode);" not in internal_source,
+        "obsolete three-argument do_faccessat prototype remains")
 require("int ns_get_path(struct path *path, struct task_struct *task," in nsfs_source and
         "extern int ns_get_path(struct path *path, struct task_struct *task," in proc_ns_header,
         "Fleux int-return ns_get_path implementation/header pairing is missing")
@@ -246,7 +258,7 @@ require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
 require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
-require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API" in fs_summary,
+require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI and faccessat2 wrapper" in fs_summary,
         "filesystem API compatibility overlay manifest is incomplete")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
