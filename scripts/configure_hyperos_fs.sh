@@ -7,7 +7,7 @@ if [[ ! -s "$CONFIG" || ! -f "$CONFIG_TOOL" ]]; then
   echo "Kernel .config or scripts/config is missing." >&2
   exit 2
 fi
-for path in fs/ext4/Kconfig fs/ext4/Makefile fs/f2fs/Kconfig fs/f2fs/Makefile fs/erofs/Kconfig fs/fuse/Kconfig; do
+for path in fs/ext4/Kconfig fs/ext4/Makefile fs/f2fs/Kconfig fs/f2fs/Makefile drivers/staging/erofs/Kconfig drivers/staging/erofs/Makefile fs/fuse/Kconfig; do
   if [[ ! -s "$SRC_DIR/$path" ]]; then
     echo "Required filesystem source is missing: $path" >&2
     exit 2
@@ -37,6 +37,7 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable QUOTA \
   --enable QUOTA_NETLINK_INTERFACE \
   --enable FUSE_FS \
+  --enable STAGING \
   --enable EROFS_FS \
   --enable OVERLAY_FS \
   --enable EXFAT_FS \
