@@ -160,6 +160,16 @@ require("\t\tret = __vmalloc(size, flags, PAGE_KERNEL);" not in ext4_super and
         "\t\tret = __vmalloc(size, flags | __GFP_ZERO, PAGE_KERNEL);" not in ext4_super,
         "obsolete three-argument EXT4 __vmalloc calls remain")
 
+ext4_xattr = (source / "fs/ext4/xattr.c").read_text()
+require("set_bit(MBE_REUSABLE_B, &ce->e_flags);" in ext4_xattr,
+        "EXT4 mbcache reusable flag set conversion is missing")
+require("!test_bit(MBE_REUSABLE_B, &ce->e_flags)" in ext4_xattr,
+        "EXT4 mbcache reusable flag test conversion is missing")
+require("clear_bit(MBE_REUSABLE_B, &ce->e_flags);" in ext4_xattr,
+        "EXT4 mbcache reusable flag clear conversion is missing")
+require("ce->e_reusable" not in ext4_xattr,
+        "obsolete EXT4 mbcache e_reusable field access remains")
+
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
 dpmaif = dpmaif_path.read_text()
