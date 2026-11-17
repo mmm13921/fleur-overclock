@@ -385,9 +385,6 @@ def main():
             "installed fs/ file list differs from the official donor plus the single retained SUSFS file")
     require((src / "fs/susfs.c").read_bytes() == fleux_susfs_source,
             "retained Fleux fs/susfs.c changed during filesystem replacement")
-    require(susfs_make_rule in (src / "fs/Makefile").read_text(),
-            "official fs/Makefile does not build retained Fleux SUSFS implementation")
-
     # Verify every installed fs/ file against the official Git blob object.
     for rel in official_files:
         expected = run_git(src, ["rev-parse", "FETCH_HEAD:" + rel]).stdout.decode().strip()
@@ -411,6 +408,8 @@ def main():
     if susfs_make_rule not in fs_make_text:
         fs_make_text = fs_make_text.rstrip() + "\n" + susfs_make_rule + "\n"
         official_fs_makefile.write_text(fs_make_text)
+    require(susfs_make_rule in official_fs_makefile.read_text(),
+            "official fs/Makefile does not build retained Fleux SUSFS implementation")
 
     staging_kconfig_path = src / "drivers/staging/Kconfig"
     staging_kconfig = staging_kconfig_path.read_text()
