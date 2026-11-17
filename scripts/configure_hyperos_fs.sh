@@ -45,6 +45,7 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable NLS_UTF8 \
   --enable UNICODE \
   --disable NOMOUNT \
+  --disable KSU_TRACEPOINT_HOOK \
   --enable KSU_SUSFS \
   --disable KSU_SUSFS_SUS_PATH \
   --disable KSU_SUSFS_SUS_MOUNT \
