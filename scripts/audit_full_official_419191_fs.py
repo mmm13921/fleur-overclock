@@ -133,6 +133,8 @@ require("long do_faccessat(int dfd, const char __user *filename, int mode, int f
         "Fleux four-argument faccessat function/prototype pairing is missing")
 require("extern int filename_lookup(int dfd, struct filename *name, unsigned flags," in internal_source,
         "Fleux filename_lookup declaration is missing from fs/internal.h")
+require('#include "internal.h"' in stat_source,
+        "fs/stat.c does not include fs/internal.h for filename_lookup declaration")
 require("int filename_lookup(int dfd, struct filename *name, unsigned flags," in namei_source and
         "static int filename_lookup(int dfd, struct filename *name, unsigned flags," not in namei_source,
         "Fleux filename_lookup external linkage is not restored in fs/namei.c")
