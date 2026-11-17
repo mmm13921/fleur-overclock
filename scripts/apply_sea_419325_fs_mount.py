@@ -226,7 +226,7 @@ def apply_vfs_umount_helpers(src):
             "partial path_umount prototype already exists")
 
     ksys_re = re.compile(
-        r"int ksys_umount\\(char __user \\*name, int flags\\)\\s*\\{.*?\\n\\}",
+        r"int ksys_umount\(char __user \*name, int flags\)\s*\{.*?\n\}",
         re.S,
     )
     match = ksys_re.search(namespace)
@@ -334,19 +334,40 @@ def main():
         if reverse.returncode == 0:
             state = "already-present"
         else:
-            applied = run_git(
+            check = run_git(
                 src,
-                ["apply", "--3way", "--index", "--whitespace=error-all"],
+                ["apply", "--check", "--whitespace=error-all"],
                 data=patch,
                 check=False,
             )
-            require(
-                applied.returncode == 0,
-                "patch conflict for " + sha + " (" + title + "):\n" +
-                applied.stdout.decode(errors="replace") +
-                applied.stderr.decode(errors="replace"),
-            )
-            state = "applied"
+            if check.returncode == 0:
+                applied = run_git(
+                    src,
+                    ["apply", "--index", "--whitespace=error-all"],
+                    data=patch,
+                    check=False,
+                )
+                require(
+                    applied.returncode == 0,
+                    "could not apply clean SEA patch " + sha + " (" + title + "):\\n" +
+                    applied.stdout.decode(errors="replace") +
+                    applied.stderr.decode(errors="replace"),
+                )
+                state = "applied-clean"
+            else:
+                applied = run_git(
+                    src,
+                    ["apply", "--3way", "--index", "--whitespace=error-all"],
+                    data=patch,
+                    check=False,
+                )
+                require(
+                    applied.returncode == 0,
+                    "patch conflict for " + sha + " (" + title + "):\\n" +
+                    applied.stdout.decode(errors="replace") +
+                    applied.stderr.decode(errors="replace"),
+                )
+                state = "applied-3way"
 
         checked = run_git(src, ["diff", "HEAD", "--check"], check=False)
         require(
@@ -390,7 +411,7 @@ def main():
             < umount_fn.find("user_path_mountpoint_at"),
             "umount flag validation does not precede path lookup")
     change_type_match = re.search(
-        r"static int do_change_type\\(struct path \\*path, int ms_flags\\)\\s*\\{.*?\\n\\}",
+        r"static int do_change_type\(struct path \*path, int ms_flags\)\s*\{.*?\n\}",
         namespace, re.S)
     require(change_type_match is not None and
             "if (!check_mnt(mnt))" in change_type_match.group(0) and
