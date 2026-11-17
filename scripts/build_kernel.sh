@@ -19,7 +19,7 @@ case "$SOURCE_REF" in
 esac
 
 case "$BUILD_PROFILE" in
-  baseline|oc1|oc2|oc3) ;;
+  baseline|oc1|oc2|oc3|hyperos-compat) ;;
   *)
     echo "Unsupported build profile: $BUILD_PROFILE" >&2
     exit 2
@@ -50,6 +50,9 @@ case "$BUILD_PROFILE" in
     ;;
   oc3)
     bash "$WORKSPACE/scripts/apply_oc3_2200.sh" "$SRC_DIR"
+    ;;
+  hyperos-compat)
+    python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR"
     ;;
 esac
 
@@ -83,6 +86,13 @@ fi
 cp "$IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
 cp "$OUT_DIR/.config" "$ARTIFACT_DIR/kernel.config"
 cp "$OUT_DIR/hyperos-filesystem-audit.txt" "$ARTIFACT_DIR/hyperos-filesystem-audit.txt"
+if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+  python3 "$WORKSPACE/scripts/audit_hyperos_compat.py" \
+    --image "$ARTIFACT_DIR/Image.gz-dtb" \
+    --config "$ARTIFACT_DIR/kernel.config" \
+    --source "$SRC_DIR" \
+    --report "$ARTIFACT_DIR/hyperos-compat-audit.txt"
+fi
 if [[ "$BUILD_PROFILE" == "oc2" ]]; then
   python3 "$WORKSPACE/scripts/audit_oc2_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
 elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
@@ -278,6 +288,9 @@ case "$BUILD_PROFILE" in
   oc3)
     git -C "$SRC_DIR" diff --binary > "$ARTIFACT_DIR/oc3-source.patch"
     ;;
+  hyperos-compat)
+    git -C "$SRC_DIR" diff --binary > "$ARTIFACT_DIR/hyperos-compat-source.patch"
+    ;;
 esac
 
 {
@@ -290,7 +303,12 @@ esac
   echo "filesystem_profile=hyperos-safe"
   echo "filesystem_reference=mt6781-sea/android_kernel_xiaomi_mt6781@lineage-23.2 (4.19.325)"
   echo "filesystem_interceptors=nomount,ksu_susfs disabled"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
+  if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+    echo "modem_pm_compatibility=MT6781 CCCI/DPMAIF suspend-resume restored"
+    echo "modem_pm_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume"
+    echo "hardware_validation=required; CI performs structural checks only"
+  fi
+  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     echo "target_big_cluster_cpus=6,7"
     echo "target_big_cluster_max_hz=2200000000"
     echo "target_big_cluster_max_vproc_uv=1156250"
@@ -316,7 +334,7 @@ esac
   echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
   echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
+  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     echo "flashable_zip=AnyKernel3"
   else
     echo "flashable_zip=false"
@@ -330,6 +348,8 @@ esac
     sha256sum "$ARTIFACT_DIR/oc2-source.patch"
   elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
     sha256sum "$ARTIFACT_DIR/oc3-source.patch"
+  elif [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+    sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt"
   fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 
