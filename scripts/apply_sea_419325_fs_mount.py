@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -6,12 +7,9 @@ SEA_REPO = "https://github.com/mt6781-sea/android_kernel_xiaomi_mt6781.git"
 SEA_REF = "lineage-23.2"
 SEA_TREE = "ae44e42c393b44b1534a7fcd7065366abe6bfe65"
 
-# These are focused 4.19.325 SEA commits, not a wholesale fs/ replacement.
-# Existing Fleux fixes are kept; an already-applied patch is detected and skipped.
+# Focused filesystem/data patches from the exact SEA 4.19.325 tree.
+# Existing Fleux fixes are detected and skipped; no whole-directory replacement.
 PATCHES = [
-    ("1cf0def4f545b18d68b97449e8525a26d4de89c3", "VFS path_umount refactor and reference cleanup"),
-    ("3d435413340ed5cf7bc0a974a325a8095b08b6f6", "VFS validate umount flags before path lookup"),
-    ("0d17aa4eae2d61965f9edfcdafaa17ebdb534d84", "VFS reject propagation changes on foreign mounts"),
     ("fc95bb8ca2ccc6a7f2463a97b02ebc0fc928bd28", "F2FS atomic compressed-block accounting"),
     ("218cf245fc6a3aacb0ebe143a4f4a88121104559", "F2FS reject duplicate encrypted names without keys"),
     ("b101599b0a34cff2064846390ec1b72c38a12a66", "F2FS dedicated COMPRESS_RELEASED inode flag"),
@@ -40,6 +38,95 @@ def run_git(src, args, *, data=None, check=True):
 def require(condition, message):
     if not condition:
         raise SystemExit("SEA 4.19.325 filesystem/mount audit failed: " + message)
+
+def apply_vfs_umount_helpers(src):
+    namespace_path = src / "fs/namespace.c"
+    internal_path = src / "fs/internal.h"
+    namespace = namespace_path.read_text()
+    internal = internal_path.read_text()
+
+    if ("int path_umount(struct path *path, int flags)" in namespace and
+            "int path_umount(struct path *path, int flags);" in internal):
+        return "already-present"
+
+    require("int path_umount(struct path *path, int flags)" not in namespace,
+            "partial path_umount implementation already exists")
+    require("int path_umount(struct path *path, int flags);" not in internal,
+            "partial path_umount prototype already exists")
+
+    ksys_re = re.compile(
+        r"int ksys_umount\\(char __user \\*name, int flags\\)\\s*\\{.*?\\n\\}",
+        re.S,
+    )
+    match = ksys_re.search(namespace)
+    require(match is not None, "Fleux ksys_umount function was not found")
+
+    helpers = r"""
+static int can_umount(const struct path *path, int flags)
+{
+	struct mount *mnt = real_mount(path->mnt);
+
+	if (!may_mount())
+		return -EPERM;
+	if (path->dentry != path->mnt->mnt_root)
+		return -EINVAL;
+	if (!check_mnt(mnt))
+		return -EINVAL;
+	if (mnt->mnt.mnt_flags & MNT_LOCKED)
+		return -EINVAL;
+	if ((flags & MNT_FORCE) && !capable(CAP_SYS_ADMIN))
+		return -EPERM;
+	return 0;
+}
+
+/* The caller validates flags before resolving the mountpoint. */
+int path_umount(struct path *path, int flags)
+{
+	struct mount *mnt = real_mount(path->mnt);
+	int ret;
+
+	ret = can_umount(path, flags);
+	if (!ret)
+		ret = do_umount(mnt, flags);
+
+	/* Do not call path_put(): it would clear mnt_expiry_mark. */
+	dput(path->dentry);
+	mntput_no_expire(mnt);
+	return ret;
+}
+
+"""
+    replacement = r"""int ksys_umount(char __user *name, int flags)
+{
+	struct path path;
+	int lookup_flags = 0;
+	int ret;
+
+	/* Validate before path lookup, as in the SEA 4.19.325 VFS path. */
+	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
+		return -EINVAL;
+
+	if (!(flags & UMOUNT_NOFOLLOW))
+		lookup_flags |= LOOKUP_FOLLOW;
+
+	ret = user_path_mountpoint_at(AT_FDCWD, name, lookup_flags, &path);
+	if (ret)
+		return ret;
+
+	return path_umount(&path, flags);
+}"""
+    namespace = namespace[:match.start()] + helpers + replacement + namespace[match.end():]
+    namespace_path.write_text(namespace)
+
+    prototype_anchor = "extern void __mnt_drop_write_file(struct file *);"
+    require(prototype_anchor in internal, "namespace.c prototype insertion point is missing")
+    internal = internal.replace(
+        prototype_anchor,
+        prototype_anchor + "\nextern int path_umount(struct path *path, int flags);",
+        1,
+    )
+    internal_path.write_text(internal)
+    return "manual-merge"
 
 def main():
     if len(sys.argv) != 3:
@@ -100,10 +187,16 @@ def main():
         results.append((sha, state, title))
         print("SEA-4.19.325:", state, sha, title)
 
+    mount_state = apply_vfs_umount_helpers(src)
+    results.append((
+        "1cf0def4f545b18d68b97449e8525a26d4de89c3+3d435413340ed5cf7bc0a974a325a8095b08b6f6",
+        mount_state,
+        "VFS path_umount refactor, reference cleanup and early umount flag validation",
+    ))
+
     namespace = (src / "fs/namespace.c").read_text()
     internal = (src / "fs/internal.h").read_text()
     f2fs_h = (src / "fs/f2fs/f2fs.h").read_text()
-    f2fs_namei = (src / "fs/f2fs/namei.c").read_text()
     f2fs_super = (src / "fs/f2fs/super.c").read_text()
     f2fs_checkpoint = (src / "fs/f2fs/checkpoint.c").read_text()
     f2fs_file = (src / "fs/f2fs/file.c").read_text()
@@ -114,11 +207,22 @@ def main():
             "path_umount prototype is missing")
     require("int path_umount(struct path *path, int flags)" in namespace,
             "path_umount implementation is missing")
-    change_type_start = namespace.find("static int do_change_type(struct path *path, int ms_flags)")
-    change_type_end = namespace.find("\n}", change_type_start)
-    require(change_type_start >= 0 and change_type_end > change_type_start and
-            "if (!check_mnt(mnt))" in namespace[change_type_start:change_type_end],
+    umount_match = re.search(
+        r"int ksys_umount\\(char __user \\*name, int flags\\)\\s*\\{.*?\\n\\}",
+        namespace, re.S)
+    require(umount_match is not None, "ksys_umount is missing")
+    umount_fn = umount_match.group(0)
+    require(umount_fn.find("if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))")
+            < umount_fn.find("user_path_mountpoint_at"),
+            "umount flag validation does not precede path lookup")
+    change_type_match = re.search(
+        r"static int do_change_type\\(struct path \\*path, int ms_flags\\)\\s*\\{.*?\\n\\}",
+        namespace, re.S)
+    require(change_type_match is not None and
+            "if (!check_mnt(mnt))" in change_type_match.group(0) and
+            "goto out_unlock;" in change_type_match.group(0),
             "VFS foreign-mount propagation guard is missing")
+
     require("atomic_t i_compr_blocks;" in f2fs_h,
             "F2FS compressed-block counter is not atomic")
     require("if (fscrypt_is_nokey_name(dentry))" in f2fs_h,
@@ -137,6 +241,12 @@ def main():
             "F2FS zero-range block-address check is missing")
     require("DATA_GENERIC_ENHANCE_UPDATE" in f2fs_recovery,
             "F2FS recovery destination-address check is missing")
+
+    checked = run_git(src, ["diff", "HEAD", "--check"], check=False)
+    require(checked.returncode == 0,
+            "final source diff check failed:\n" +
+            checked.stdout.decode(errors="replace") +
+            checked.stderr.decode(errors="replace"))
 
     source_head = run_git(src, ["rev-parse", "HEAD"]).stdout.decode().strip()
     report.parent.mkdir(parents=True, exist_ok=True)
