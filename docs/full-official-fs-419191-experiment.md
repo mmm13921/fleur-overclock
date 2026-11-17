@@ -26,3 +26,52 @@ The Xiaomi `fs/super.c` donor uses `mount2` and `remount_fs2` callback members p
 ### procfs VMA soft-dirty API compatibility
 
 The official 4.19.191 `fs/proc/task_mmu.c` wraps the `VM_SOFTDIRTY` VMA-flag update in `vm_write_begin()` and `vm_write_end()`, which rely on `vm_sequence` in `struct vm_area_struct`. Fleux 4.19.325 does not provide that VMA field or those helper functions. The compatibility overlay therefore ports only this `clear_refs_write()` loop to the exact Fleux implementation: clear `VM_SOFTDIRTY` and refresh `vm_page_prot` while holding the existing `mmap_write_lock`. It does not add an incomplete seqcount ABI to the Fleux MM structures.
+
+
+## CI failure and compatibility ledger (2026-11-17)
+
+This section is the running record for the isolated experiment. “Patched” means the compatibility code or audit was added to the branch; it does **not** mean the device behavior or even the current full build has been validated. Each item remains pending the current complete CI run unless explicitly marked otherwise.
+
+### Root causes found in earlier CI runs
+
+| Area | Failure / incompatibility | Applied correction | Verification status |
+|---|---|---|---|
+| Official donor source audit | Comments and string literals containing legacy callback names caused false positives | Strip C comments and literals before checking executable callback references | Patched; current audit must pass |
+| `fs/super.c` remount conversion | The script modified an in-memory copy, then a later helper re-read the original file and discarded the remount edit | Persist the transformed `fs/super.c` before the next independent replacement | Patched in `73cfc40799dc985af20b1ce4f988735d7d140cf3`; current build must pass |
+| VFS mount callbacks / LSM | Xiaomi-only `mount2` / `remount_fs2`, old secdata helpers, and old 3-argument `security_sb_kern_mount()` do not match Fleux 4.19.325 | Route through Fleux `mount` / `remount_fs` and translate LSM option parsing/application/freeing to current APIs | Patched; compile and runtime SELinux behavior pending |
+| Namespace pseudo-filesystem | Donor `ns_get_path()` return type differs from Fleux API | Keep Fleux `fs/nsfs.c`; adapt proc namespace caller to the integer return contract and `ERR_PTR()` | Patched; compile pending |
+| procattr LSM API | Donor calls 3-argument `security_getprocattr` / `security_setprocattr`, Fleux expects 4 arguments | Supply the Fleux selector argument (`NULL`) | Patched; compile pending |
+| faccessat ABI / SUSFS | Donor `do_faccessat()` has 3 arguments; Fleux uses 4 and has `faccessat2`; donor `filename_lookup()` is static and undeclared to the caller | Restore Fleux 4-argument implementation and `faccessat2`, declare `filename_lookup()` in `fs/internal.h`, and use external linkage in `fs/namei.c` | Patched; compile/link pending |
+| `fs/stat.c` filename lookup | `implicit declaration of function 'filename_lookup'` | Include `fs/internal.h` in `fs/stat.c`; retain the Fleux declaration and external definition | Patched in `6fbcd9bab2dfd0a80da14f6cbdb407dca0c2369a`; Run #89 compiling |
+| Audit script ordering | The audit referenced `stat_source` before loading it | Load `fs/stat.c` before evaluating the declaration/include checks | Patched in `6fbcd9bab2dfd0a80da14f6cbdb407dca0c2369a`; Run #89 compiling |
+| `kernfs` API | Donor kernfs does not match Fleux packed `u64` node ID and xattr interfaces | Preserve Fleux `fs/kernfs/` and audit the required ABI | Patched; audit/build pending |
+| procfs VMA soft-dirty | Donor `vm_write_begin/end` relies on `vm_sequence`, absent from Fleux VMA | Port the operation to Fleux's `mmap_write_lock` implementation without importing a partial seqcount ABI | Patched; compile/runtime pending |
+| EXT4 fault callbacks | Donor callback return types conflict with Fleux MM callback type | Convert the two callbacks and declarations to `vm_fault_t` | Patched; compile pending |
+| EXT4 allocation API | Donor uses obsolete three-argument `__vmalloc()` | Convert the two calls to Fleux two-argument API | Patched; compile pending |
+| EXT4 mbcache | Donor accesses removed `e_reusable` member | Map reusable state to `MBE_REUSABLE_B` in `e_flags` using bit operations | Patched; compile pending |
+| FUSE readahead | Donor references legacy `VM_MAX_READAHEAD` absent from Fleux MM headers | Add a local fallback with the official 128 KiB limit | Patched; compile pending |
+| NLS | Donor definitions are not const-correct for Fleux `load_nls(const char *)` declaration | Make `find_nls` and `load_nls` definitions const-correct | Patched; compile pending |
+
+### CI / release process corrections
+
+- The workflow previously used `cancel-in-progress: true`, allowing a new push to cancel the previous validation run. Changed to `false` in commit `dbe030a47a422d1a6597e7507265f281ac3ae78a` so an active build is not killed merely because another commit is pushed. GitHub may queue the newer run in the same concurrency group.
+- Every result must be checked against the current experiment branch HEAD SHA. A green run for an older SHA is not proof that the latest source passed.
+- Release remains prerelease-only and isolated to this experiment. Do not promote it as stable based only on compilation.
+
+### Current validation snapshot
+
+- Last checked branch commit before the workflow concurrency-only change: `6fbcd9bab2dfd0a80da14f6cbdb407dca0c2369a`.
+- Run #89: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44086083891), job `134048795343`.
+- Dependency installation and checksum-verified Clang r563880c installation completed successfully.
+- The full Fleux build step was still running at the last poll. AnyKernel3 packaging, prerelease publication, and artifact upload had not started.
+- The workflow concurrency correction is a newer commit and therefore needs its own run; do not treat Run #89 as validation of that newer workflow commit.
+- No successful compile, AnyKernel ZIP, release artifact, phone boot, userdata mount/read/write, radio stability, suspend/resume, or HyperOS runtime result is claimed here.
+
+### Required acceptance gates
+
+1. Source donor identity and all compatibility audits pass.
+2. Full kernel compile exits successfully for the exact latest branch SHA.
+3. Kernel image and appended DTB checks pass.
+4. AnyKernel3 ZIP integrity and required installer-file checks pass.
+5. Prerelease and checksums are published for that same SHA.
+6. Device testing is performed separately with the known-good boot image retained. Verify boot, encrypted `/data` mount, read/write and app data integrity, modem registration/signal after long idle, reboot, and suspend/resume. Never format userdata as a troubleshooting step for this experiment.
