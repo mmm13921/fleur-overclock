@@ -53,6 +53,17 @@ for item in (
 ):
     require(item in enabled, item + " is not enabled")
 
+susfs_implementation = source / "fs/susfs.c"
+susfs_header = source / "include/linux/susfs.h"
+fs_makefile = (source / "fs/Makefile").read_text()
+require(susfs_implementation.is_file(),
+        "Fleux SUSFS implementation fs/susfs.c is missing")
+require(susfs_header.is_file() and
+        '#define SUSFS_VERSION "v2.3.0"' in susfs_header.read_text(),
+        "Fleux SUSFS v2.3.0 header is missing")
+require("obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_makefile,
+        "retained SUSFS implementation is not linked by fs/Makefile")
+
 namespace = (source / "fs/namespace.c").read_text()
 super_c = (source / "fs/super.c").read_text()
 f2fs_header = (source / "fs/f2fs/f2fs.h").read_text()
@@ -145,8 +156,10 @@ require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
         "DPMAIF restore path is missing")
 
 fs_summary = fs_report.read_text()
-require("filesystem_scope=complete fs/ directory replaced" in fs_summary,
-        "report does not confirm full fs/ replacement")
+require("filesystem_scope=complete official fs/ tree installed; sole Fleux overlay is fs/susfs.c" in fs_summary,
+        "report does not confirm the official fs/ replacement and retained SUSFS overlay")
+require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
+        "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
 require("filesystem_verification=every fs/ file byte-identical to official Git blob" in fs_summary,
@@ -155,8 +168,9 @@ require("filesystem_verification=every fs/ file byte-identical to official Git b
 lines = [
     "profile=hyperos-full-fs",
     "kernel_base=Fleux Linux 4.19.325",
-    "filesystem=complete official MT6781 Linux 4.19.191 fs/ tree",
-    "filesystem_tree=byte-identity checked by build step",
+    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux SUSFS overlay",
+    "filesystem_tree=all official donor files byte-identity checked by build step",
+    "susfs=Fleux fs/susfs.c and include/linux/susfs.h v2.3.0 retained and linked",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
     "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
     "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
