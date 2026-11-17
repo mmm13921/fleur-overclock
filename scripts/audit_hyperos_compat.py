@@ -86,6 +86,55 @@ require(suspend_match is not None, "DPMAIF syscore suspend function is missing")
 resume_fn = resume_match.group(0)
 suspend_fn = suspend_match.group(0)
 
+# Audit the actual VFS and F2FS source paths, not only Kconfig symbols.
+namespace = (source / "fs/namespace.c").read_text()
+internal = (source / "fs/internal.h").read_text()
+f2fs_h = (source / "fs/f2fs/f2fs.h").read_text()
+f2fs_namei = (source / "fs/f2fs/namei.c").read_text()
+f2fs_super = (source / "fs/f2fs/super.c").read_text()
+f2fs_checkpoint = (source / "fs/f2fs/checkpoint.c").read_text()
+f2fs_file = (source / "fs/f2fs/file.c").read_text()
+f2fs_recovery = (source / "fs/f2fs/recovery.c").read_text()
+f2fs_uapi = (source / "include/linux/f2fs_fs.h").read_text()
+
+require("int path_umount(struct path *path, int flags);" in internal and
+        "int path_umount(struct path *path, int flags)" in namespace,
+        "SEA VFS path_umount helper/prototype is missing")
+umount_match = re.search(
+    r"int ksys_umount\(char __user \*name, int flags\)\s*\{.*?\n\}",
+    namespace, re.S)
+require(umount_match is not None, "ksys_umount is missing")
+umount_fn = umount_match.group(0)
+require(umount_fn.find("if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))")
+        < umount_fn.find("user_path_mountpoint_at"),
+        "umount flag validation does not precede path lookup")
+change_type_match = re.search(
+    r"static int do_change_type\(struct path \*path, int ms_flags\)\s*\{.*?\n\}",
+    namespace, re.S)
+require(change_type_match is not None and
+        "if (!check_mnt(mnt))" in change_type_match.group(0) and
+        "goto out_unlock;" in change_type_match.group(0),
+        "VFS foreign-mount propagation guard is missing")
+
+require("atomic_t i_compr_blocks;" in f2fs_h,
+        "F2FS compressed-block accounting is not atomic")
+require("if (fscrypt_is_nokey_name(dentry))" in f2fs_h,
+        "F2FS encrypted no-key filename guard is missing")
+require("FI_COMPRESS_RELEASED" in f2fs_h and
+        "F2FS_COMPRESS_RELEASED" in f2fs_uapi,
+        "F2FS compressed-block-release state is incomplete")
+require("f2fs_quota_sync_file" in f2fs_super and
+        "inode_lock(dqopt->files[cnt])" in f2fs_super,
+        "F2FS quota-sync lock-order protection is missing")
+require("down_write_trylock(&sbi->quota_sem)" in f2fs_checkpoint,
+        "F2FS quota checkpoint trylock protection is missing")
+require("cp_blocks <= F2FS_CP_PACKS" in f2fs_checkpoint,
+        "F2FS checkpoint-pack bounds validation is missing")
+require("f2fs_is_valid_blkaddr(sbi, dn->data_blkaddr" in f2fs_file,
+        "F2FS zero-range block-address validation is missing")
+require("DATA_GENERIC_ENHANCE_UPDATE" in f2fs_recovery,
+        "F2FS recovery destination-address validation is missing")
+
 require("register_syscore_ops(&dpmaif_sysops);" in dpmaif,
         "DPMAIF syscore callbacks are not registered")
 require(".suspend = dpmaif_syssuspend" in dpmaif and
@@ -112,6 +161,9 @@ lines = [
     "kernel_su_hook=CONFIG_KSU_SUSFS inline hook for Non-GKI 4.19",
     "filesystem_stack=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
     "filesystem_encryption=enabled",
+    "filesystem_reference=mt6781-sea/android_kernel_xiaomi_mt6781@ae44e42c393b44b1534a7fcd7065366abe6bfe65 (4.19.325)",
+    "mount_vfs=SEA path_umount cleanup; early umount flag validation; propagation mount ownership guard",
+    "f2fs_backports=atomic compression accounting; encrypted no-key filename guard; quota lock-order; checkpoint and block-address checks",
     "filesystem_interceptors=NoMount disabled; SUSFS runtime feature flags disabled",
     "modem_pm=MT6781 DPMAIF syscore suspend/resume path retained",
     "modem_resume_guard=GATED,WAITING_TO_STOP,INVALID skipped; PWRON/EXCEPTION restored",
