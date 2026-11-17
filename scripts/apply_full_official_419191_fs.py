@@ -601,12 +601,12 @@ def apply_fleux_419325_procattr_lsm_compat(src):
     base_c = src / "fs/proc/base.c"
     replace_once(
         base_c,
-        "length = security_getprocattr(task,\\n"
-        "\\t\\t\\t\\t      (char*)file->f_path.dentry->d_name.name,\\n"
-        "\\t\\t\\t\\t      &p);",
-        "length = security_getprocattr(task, NULL,\\n"
-        "\\t\\t\\t\\t      (char*)file->f_path.dentry->d_name.name,\\n"
-        "\\t\\t\\t\\t      &p);",
+        "length = security_getprocattr(task,\n"
+        "\t\t\t\t      (char*)file->f_path.dentry->d_name.name,\n"
+        "\t\t\t\t      &p);",
+        "length = security_getprocattr(task, NULL,\n"
+        "\t\t\t\t      (char*)file->f_path.dentry->d_name.name,\n"
+        "\t\t\t\t      &p);",
         "procfs security_getprocattr LSM-selector API compatibility",
     )
     replace_once(
