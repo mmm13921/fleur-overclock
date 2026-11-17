@@ -37,9 +37,10 @@ enabled = set(line for line in cfg if line.startswith("CONFIG_") and line.endswi
 for item in (
     "CONFIG_KSU=y",
     "CONFIG_KSU_SUSFS=y",
+    "CONFIG_STAGING=y",
+    "CONFIG_EROFS_FS=y",
     "CONFIG_EXT4_FS=y",
     "CONFIG_F2FS_FS=y",
-    "CONFIG_EROFS_FS=y",
     "CONFIG_EXFAT_FS=y",
     "CONFIG_VFAT_FS=y",
     "CONFIG_FUSE_FS=y",
@@ -56,6 +57,20 @@ f2fs_checkpoint = (source / "fs/f2fs/checkpoint.c").read_text()
 f2fs_kconfig = (source / "fs/f2fs/Kconfig").read_text()
 f2fs_uapi = (source / "include/linux/f2fs_fs.h").read_text()
 f2fs_trace = (source / "include/trace/events/f2fs.h").read_text()
+erofs_kconfig = source / "drivers/staging/erofs/Kconfig"
+erofs_makefile = source / "drivers/staging/erofs/Makefile"
+erofs_trace = source / "include/trace/events/erofs.h"
+staging_kconfig = (source / "drivers/staging/Kconfig").read_text()
+staging_makefile = (source / "drivers/staging/Makefile").read_text()
+
+require(erofs_kconfig.is_file() and erofs_makefile.is_file(),
+        "official 4.19.191 staging EROFS source tree is missing")
+require(erofs_trace.is_file(),
+        "matching official EROFS trace header is missing")
+require('source "drivers/staging/erofs/Kconfig"' in staging_kconfig,
+        "staging Kconfig does not source official EROFS options")
+require("obj-$(CONFIG_EROFS_FS) += erofs/" in staging_makefile,
+        "staging Makefile does not build official EROFS")
 
 require("change_mount_flags(path->mnt, ms_flags)" in namespace,
         "official legacy bind-remount function is missing")
@@ -80,6 +95,10 @@ require("struct f2fs_super_block" in f2fs_uapi and
         "matching official F2FS on-disk header is missing")
 require("TRACE_EVENT(f2fs" in f2fs_trace or "DECLARE_EVENT_CLASS(f2fs" in f2fs_trace,
         "matching official F2FS trace header is missing")
+erofs_trace_text = erofs_trace.read_text()
+require("TRACE_EVENT(erofs" in erofs_trace_text or
+        "DECLARE_EVENT_CLASS(erofs" in erofs_trace_text,
+        "matching official EROFS trace header is missing")
 
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
@@ -114,6 +133,10 @@ lines = [
     "filesystem=complete official MT6781 Linux 4.19.191 fs/ tree",
     "filesystem_tree=byte-identity checked by build step",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
+    "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
+    "erofs_kconfig=drivers/staging/Kconfig sources official EROFS Kconfig",
+    "erofs_makefile=drivers/staging/Makefile builds official EROFS",
+    "erofs_trace_header=official include/trace/events/erofs.h",
     "vfs_mount=official legacy bind-remount and superblock remount paths",
     "filesystem_features=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
     "filesystem_encryption=enabled",
