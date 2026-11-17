@@ -114,43 +114,45 @@ def restore_fleuxsu_inline_hooks(src, fleux_open_source):
             "open.c SUSFS include",
         )
         open_text = open_c.read_text()
-        decl_start = (
-            "#ifdef CONFIG_KSU_SUSFS\n"
-            "extern struct static_key_true ksu_su_compat_enabled;\n"
-            "extern bool __ksu_is_allow_uid_for_current(uid_t uid);\n"
-            "extern int ksu_handle_faccessat(int *dfd, struct filename **filename, int *mode,\n"
-            "\t\t\t\tint *flags);\n"
-            "#endif\n"
-            "long do_faccessat("
+        # Match the Fleux declaration block independent of its tab width.
+        # The previous literal anchor required four tabs, while the actual
+        # lineage-24.0 source uses three; that made a valid function look absent.
+        declaration = re.search(
+            r"(?ms)^#ifdef CONFIG_KSU_SUSFS\\n"
+            r"extern struct static_key_true ksu_su_compat_enabled;\\n"
+            r"extern bool __ksu_is_allow_uid_for_current\\(uid_t uid\\);\\n"
+            r"extern int ksu_handle_faccessat\\(int \\*dfd, struct filename \\*\\*filename, int \\*mode,\\n"
+            r"[ \\t]+int \\*flags\\);\\n"
+            r"#endif\\n(?=long do_faccessat\\()",
+            fleux_open_source,
         )
-        decl_end = "\nint ksys_chdir("
-        donor_start = "long do_faccessat("
-        donor_end = "\nint ksys_chdir("
-        source_begin = fleux_open_source.find(decl_start)
-        source_finish = fleux_open_source.find(decl_end, source_begin)
-        target_begin = open_text.find(donor_start)
-        target_finish = open_text.find(donor_end, target_begin)
-        require(source_begin >= 0 and source_finish > source_begin,
+        source_func = fleux_open_source.find("long do_faccessat(")
+        source_finish = fleux_open_source.find("\\nint ksys_chdir(", source_func)
+        target_begin = open_text.find("long do_faccessat(")
+        target_finish = open_text.find("\\nint ksys_chdir(", target_begin)
+        require(declaration is not None and source_func >= 0 and
+                declaration.end() == source_func and source_finish > source_func,
                 "Fleux four-argument faccessat source block is missing")
         require(target_begin >= 0 and target_finish > target_begin,
                 "official donor faccessat source block is missing")
-        imported = fleux_open_source[source_begin:source_finish]
+        imported = fleux_open_source[declaration.start():source_finish]
         open_text = open_text[:target_begin] + imported + open_text[target_finish:]
 
         # Fleux exposes faccessat2 via the same four-argument helper.
         faccessat2_start = fleux_open_source.find("SYSCALL_DEFINE4(faccessat2,")
-        faccessat2_end = fleux_open_source.find("\nSYSCALL_DEFINE1(chdir", faccessat2_start)
+        faccessat2_end = fleux_open_source.find("\\nSYSCALL_DEFINE1(chdir", faccessat2_start)
         require(faccessat2_start >= 0 and faccessat2_end > faccessat2_start,
                 "Fleux faccessat2 syscall wrapper is missing")
         faccessat2 = fleux_open_source[faccessat2_start:faccessat2_end]
         if "SYSCALL_DEFINE4(faccessat2," not in open_text:
-            replace_once(
-                open_c,
-                "\nSYSCALL_DEFINE1(chdir,",
-                "\n" + faccessat2 + "\nSYSCALL_DEFINE1(chdir,",
-                "open.c faccessat2 syscall wrapper",
+            chdir_marker = "\\nSYSCALL_DEFINE1(chdir,"
+            require(open_text.count(chdir_marker) == 1,
+                    "official donor chdir syscall insertion anchor is missing or ambiguous")
+            # Edit the in-memory buffer so the just-imported faccessat body is
+            # not discarded by re-reading the original donor file.
+            open_text = open_text.replace(
+                chdir_marker, "\\n" + faccessat2 + chdir_marker, 1
             )
-            open_text = open_c.read_text()
         open_c.write_text(open_text)
 
     # Keep the private filesystem declarations aligned with Fleux's syscall ABI.
