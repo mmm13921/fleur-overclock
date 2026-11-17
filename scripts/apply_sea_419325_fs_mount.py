@@ -108,7 +108,7 @@ def apply_f2fs_released_compression_state(src):
 
     uapi = replace_once(
         uapi,
-        "#define F2FS_PIN_FILE" + tab * 2 + "0x40" + tab * 2 + "/* file should not be gced */",
+        "#define F2FS_PIN_FILE" + tab * 2 + "0x40" + tab + "/* file should not be gced */",
         "#define F2FS_PIN_FILE" + tab * 2 + "0x40" + tab * 2 + "/* file should not be gced */" + nl +
         "#define F2FS_COMPRESS_RELEASED" + tab + "0x80" + tab * 2 + "/* file released compressed blocks */",
         "F2FS released-compression on-disk flag",
@@ -165,7 +165,7 @@ def apply_f2fs_released_compression_state(src):
     reserve_fn = replace_once(
         reserve_fn,
         "F2FS_I(inode)->i_flags &= ~F2FS_IMMUTABLE_FL;" + nl +
-        tab + "f2fs_set_inode_flags(inode);",
+        tab * 2 + "f2fs_set_inode_flags(inode);",
         "clear_inode_flag(inode, FI_COMPRESS_RELEASED);",
         "F2FS clear released-compression state",
     )
