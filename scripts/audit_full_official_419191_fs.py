@@ -65,6 +65,9 @@ require("obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_makefile,
         "retained SUSFS implementation is not linked by fs/Makefile")
 
 namespace = (source / "fs/namespace.c").read_text()
+nsfs_source = (source / "fs/nsfs.c").read_text()
+proc_ns_header = (source / "include/linux/proc_ns.h").read_text()
+proc_ns_dir = (source / "fs/proc/namespaces.c").read_text()
 super_c = (source / "fs/super.c").read_text()
 f2fs_header = (source / "fs/f2fs/f2fs.h").read_text()
 f2fs_super = (source / "fs/f2fs/super.c").read_text()
@@ -95,6 +98,13 @@ require("int do_remount_sb2(" in super_c and "sb->s_op->remount_fs" in super_c,
         "official superblock remount callback is missing")
 require("fs_context_for_reconfigure" not in namespace,
         "the modern fs_context remount path unexpectedly remains")
+require("int ns_get_path(struct path *path, struct task_struct *task," in nsfs_source and
+        "extern int ns_get_path(struct path *path, struct task_struct *task," in proc_ns_header,
+        "Fleux int-return ns_get_path implementation/header pairing is missing")
+require("int error = -EACCES;" in proc_ns_dir and
+        proc_ns_dir.count("return ERR_PTR(error);") == 2 and
+        "void *error = ERR_PTR(-EACCES);" not in proc_ns_dir,
+        "proc namespace caller is not adapted to Fleux int-return ns_get_path API")
 for option in ('"checkpoint_merge"', '"nocheckpoint_merge"', '"gc_merge"', '"nogc_merge"'):
     require(option in f2fs_super, "official F2FS mount option is missing: " + option)
 require("F2FS_MOUNT_MERGE_CHECKPOINT" in f2fs_header and
@@ -225,15 +235,18 @@ require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
         "DPMAIF restore path is missing")
 
 fs_summary = fs_report.read_text()
-require("filesystem_scope=complete official fs/ tree installed; Fleux SUSFS and targeted EXT4 API overlays applied" in fs_summary,
+require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, SUSFS and targeted API overlays applied" in fs_summary,
         "report does not confirm the official fs/ replacement and compatibility overlays")
+require("namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API" in fs_summary and
+        "proc_namespace_compat=official procfs namespace link adapted to Fleux int-return ns_get_path API" in fs_summary,
+        "report does not confirm the retained Fleux nsfs API pairing and procfs compatibility overlay")
 require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
         "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
-require("filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays" in fs_summary,
+require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
-require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API" in fs_summary,
+require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API" in fs_summary,
         "filesystem API compatibility overlay manifest is incomplete")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
@@ -243,9 +256,10 @@ require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0" in fs_su
 lines = [
     "profile=hyperos-full-fs",
     "kernel_base=Fleux Linux 4.19.325",
-    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux SUSFS and EXT4 API overlays",
+    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux namespace/SUSFS and filesystem API overlays",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h v2.3.0 retained and linked",
+    "namespace_api=Fleux fs/nsfs.c and include/linux/proc_ns.h int ns_get_path API retained; official procfs caller adapted",
     "ext4_api_compat=inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B flags for Fleux 4.19.325",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
     "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
