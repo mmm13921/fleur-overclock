@@ -118,18 +118,18 @@ def restore_fleuxsu_inline_hooks(src, fleux_open_source):
         # The previous literal anchor required four tabs, while the actual
         # lineage-24.0 source uses three; that made a valid function look absent.
         declaration = re.search(
-            r"(?ms)^#ifdef CONFIG_KSU_SUSFS\\n"
-            r"extern struct static_key_true ksu_su_compat_enabled;\\n"
-            r"extern bool __ksu_is_allow_uid_for_current\\(uid_t uid\\);\\n"
-            r"extern int ksu_handle_faccessat\\(int \\*dfd, struct filename \\*\\*filename, int \\*mode,\\n"
-            r"[ \\t]+int \\*flags\\);\\n"
-            r"#endif\\n(?=long do_faccessat\\()",
+            r"(?ms)^#ifdef CONFIG_KSU_SUSFS\n"
+            r"extern struct static_key_true ksu_su_compat_enabled;\n"
+            r"extern bool __ksu_is_allow_uid_for_current\(uid_t uid\);\n"
+            r"extern int ksu_handle_faccessat\(int \*dfd, struct filename \*\*filename, int \*mode,\n"
+            r"[ \t]+int \*flags\);\n"
+            r"#endif\n(?=long do_faccessat\()",
             fleux_open_source,
         )
         source_func = fleux_open_source.find("long do_faccessat(")
-        source_finish = fleux_open_source.find("\\nint ksys_chdir(", source_func)
+        source_finish = fleux_open_source.find("\nint ksys_chdir(", source_func)
         target_begin = open_text.find("long do_faccessat(")
-        target_finish = open_text.find("\\nint ksys_chdir(", target_begin)
+        target_finish = open_text.find("\nint ksys_chdir(", target_begin)
         require(declaration is not None and source_func >= 0 and
                 declaration.end() == source_func and source_finish > source_func,
                 "Fleux four-argument faccessat source block is missing")
@@ -140,18 +140,18 @@ def restore_fleuxsu_inline_hooks(src, fleux_open_source):
 
         # Fleux exposes faccessat2 via the same four-argument helper.
         faccessat2_start = fleux_open_source.find("SYSCALL_DEFINE4(faccessat2,")
-        faccessat2_end = fleux_open_source.find("\\nSYSCALL_DEFINE1(chdir", faccessat2_start)
+        faccessat2_end = fleux_open_source.find("\nSYSCALL_DEFINE1(chdir", faccessat2_start)
         require(faccessat2_start >= 0 and faccessat2_end > faccessat2_start,
                 "Fleux faccessat2 syscall wrapper is missing")
         faccessat2 = fleux_open_source[faccessat2_start:faccessat2_end]
         if "SYSCALL_DEFINE4(faccessat2," not in open_text:
-            chdir_marker = "\\nSYSCALL_DEFINE1(chdir,"
+            chdir_marker = "\nSYSCALL_DEFINE1(chdir,"
             require(open_text.count(chdir_marker) == 1,
                     "official donor chdir syscall insertion anchor is missing or ambiguous")
             # Edit the in-memory buffer so the just-imported faccessat body is
             # not discarded by re-reading the original donor file.
             open_text = open_text.replace(
-                chdir_marker, "\\n" + faccessat2 + chdir_marker, 1
+                chdir_marker, "\n" + faccessat2 + chdir_marker, 1
             )
         open_c.write_text(open_text)
 
