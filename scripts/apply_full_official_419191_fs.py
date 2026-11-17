@@ -783,7 +783,7 @@ def apply_fleux_419325_legacy_mount_api_compat(src):
                         "\tsecurity_free_mnt_opts(&secdata);")
     for obsolete in ("alloc_secdata(", "security_sb_copy_data(",
                      "security_sb_kern_mount(sb, flags, secdata)",
-                     "free_secdata(", "type->mount2", "remount_fs2"):
+                     "free_secdata(", "type->mount2", "->remount_fs2"):
         require(obsolete not in text,
                 "obsolete vendor-only mount API remains in fs/super.c: " + obsolete)
     require("security_sb_eat_lsm_opts(data, &secdata)" in text and
