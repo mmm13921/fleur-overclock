@@ -357,14 +357,9 @@ def main():
             shutil.rmtree(target_fs)
         shutil.copytree(donor_fs, target_fs, symlinks=True)
 
-        # Keep only the dedicated SUSFS implementation from Fleux and link it
-        # into the official donor Makefile; VFS/F2FS source remains donor code.
+        # Keep only the dedicated SUSFS implementation from Fleux. The
+        # Makefile link is added after donor byte-verification below.
         (target_fs / "susfs.c").write_bytes(fleux_susfs_source)
-        official_fs_makefile = target_fs / "Makefile"
-        fs_make_text = official_fs_makefile.read_text()
-        if susfs_make_rule not in fs_make_text:
-            fs_make_text = fs_make_text.rstrip() + "\n" + susfs_make_rule + "\n"
-            official_fs_makefile.write_text(fs_make_text)
 
         donor_erofs = tmp / "drivers/staging/erofs"
         require(donor_erofs.is_dir(),
@@ -408,6 +403,14 @@ def main():
         actual = git_blob_sha(src / rel)
         require(actual == expected,
                 "installed staging EROFS file is not byte-identical to official donor: " + rel)
+
+    # Only after all official donor files have passed byte-identity checks,
+    # add the single Fleux-specific SUSFS object registration.
+    official_fs_makefile = src / "fs/Makefile"
+    fs_make_text = official_fs_makefile.read_text()
+    if susfs_make_rule not in fs_make_text:
+        fs_make_text = fs_make_text.rstrip() + "\n" + susfs_make_rule + "\n"
+        official_fs_makefile.write_text(fs_make_text)
 
     staging_kconfig_path = src / "drivers/staging/Kconfig"
     staging_kconfig = staging_kconfig_path.read_text()
