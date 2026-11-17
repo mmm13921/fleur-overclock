@@ -616,7 +616,7 @@ def main():
         "filesystem_source_files=" + str(len(official_files)),
         "filesystem_verification=all 1944 official donor fs/ files checked byte-identical before explicit compatibility overlays",
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
-        "filesystem_compatibility_overlay=fs/ext4/inode.c and ext4.h vm_fault_t callbacks; fs/ext4/super.c __vmalloc API adapted for Fleux 4.19.325",
+        "filesystem_compatibility_overlay=EXT4 inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B mbcache flags for Fleux 4.19.325",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
