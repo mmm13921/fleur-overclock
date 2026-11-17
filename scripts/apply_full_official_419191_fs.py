@@ -570,25 +570,20 @@ def apply_fleux_419325_task_mmu_vm_flags_compat(src):
     # is held, rather than adding a partial seqcount ABI to struct vm_area_struct.
     task_mmu = src / "fs/proc/task_mmu.c"
     donor_loop = (
-        "\\t\\t\\t\\tfor (vma = mm->mmap; vma; vma = vma->vm_next) {\\n"
-        "\\t\\t\\t\\t\\tvm_write_begin(vma);\\n"
-        "\\t\\t\\t\\t\\tWRITE_ONCE(vma->vm_flags,\\n"
-        "\\t\\t\\t\\t\\t\\t   vma->vm_flags &\\n"
-        "\\t\\t\\t\\t\\t\\t   ~VM_SOFTDIRTY);\\n"
-        "\\t\\t\\t\\t\\t vma_set_page_prot(vma);\\n"
-        "\\t\\t\\t\\t\\tvm_write_end(vma);\\n"
-        "\\t\\t\\t\\t}\\n"
+        "\t\t\t\tfor (vma = mm->mmap; vma; vma = vma->vm_next) {\n"
+        "\t\t\t\t\tvm_write_begin(vma);\n"
+        "\t\t\t\t\tWRITE_ONCE(vma->vm_flags,\n"
+        "\t\t\t\t\t\t   vma->vm_flags &\n"
+        "\t\t\t\t\t\t   ~VM_SOFTDIRTY);\n"
+        "\t\t\t\t\tvma_set_page_prot(vma);\n"
+        "\t\t\t\t\tvm_write_end(vma);\n"
+        "\t\t\t\t}\n"
     )
-    # Keep the indentation and semantics used by the Fleux 4.19.325 base.
     fleux_loop = (
-        "\\t\\t\\t\\tfor (vma = mm->mmap; vma; vma = vma->vm_next) {\\n"
-        "\\t\\t\\t\\t\\tvma->vm_flags &= ~VM_SOFTDIRTY;\\n"
-        "\\t\\t\\t\\t\\tvma_set_page_prot(vma);\\n"
-        "\\t\\t\\t\\t}\\n"
-    )
-    donor_loop = donor_loop.replace(
-        "\\t\\t\\t\\t\\t vma_set_page_prot(vma);\\n",
-        "\\t\\t\\t\\t\\tvma_set_page_prot(vma);\\n",
+        "\t\t\t\tfor (vma = mm->mmap; vma; vma = vma->vm_next) {\n"
+        "\t\t\t\t\tvma->vm_flags &= ~VM_SOFTDIRTY;\n"
+        "\t\t\t\t\tvma_set_page_prot(vma);\n"
+        "\t\t\t\t}\n"
     )
     replace_once(
         task_mmu, donor_loop, fleux_loop,
@@ -599,7 +594,6 @@ def apply_fleux_419325_task_mmu_vm_flags_compat(src):
             "vm_write_end(vma)" not in updated and
             "vma->vm_flags &= ~VM_SOFTDIRTY;" in updated,
             "proc task_mmu soft-dirty compatibility overlay is incomplete")
-
 
 def main():
     if len(sys.argv) != 3:
