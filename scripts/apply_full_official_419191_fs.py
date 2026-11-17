@@ -776,6 +776,52 @@ def apply_fleux_419325_legacy_mount_api_compat(src):
     super_c.write_text(text)
 
 
+
+def apply_fleux_419325_namespace_lsm_remount_compat(src):
+    # The donor namespace.c passes raw mount-option text to security_sb_remount.
+    # Fleux's LSM API expects parsed opaque options from security_sb_eat_lsm_opts.
+    namespace_c = src / "fs/namespace.c"
+    replace_once(
+        namespace_c,
+        "static int do_remount(struct path *path, int ms_flags, int sb_flags,\\n"
+        "\\t\\t      int mnt_flags, void *data)\\n"
+        "{\\n"
+        "\\tint err;\\n"
+        "\\tstruct super_block *sb = path->mnt->mnt_sb;\\n",
+        "static int do_remount(struct path *path, int ms_flags, int sb_flags,\\n"
+        "\\t\\t      int mnt_flags, void *data)\\n"
+        "{\\n"
+        "\\tint err;\\n"
+        "\\tvoid *mnt_opts = NULL;\\n"
+        "\\tstruct super_block *sb = path->mnt->mnt_sb;\\n",
+        "namespace do_remount Fleux LSM option declaration",
+    )
+    replace_once(
+        namespace_c,
+        "\\terr = security_sb_remount(sb, data);\\n"
+        "\\tif (err)\\n"
+        "\\t\\treturn err;\\n",
+        "\\tif (data && !(sb->s_type->fs_flags & FS_BINARY_MOUNTDATA)) {\\n"
+        "\\t\\terr = security_sb_eat_lsm_opts(data, &mnt_opts);\\n"
+        "\\t\\tif (err) {\\n"
+        "\\t\\t\\tsecurity_free_mnt_opts(&mnt_opts);\\n"
+        "\\t\\t\\treturn err;\\n"
+        "\\t\\t}\\n"
+        "\\t}\\n"
+        "\\terr = security_sb_remount(sb, mnt_opts);\\n"
+        "\\tsecurity_free_mnt_opts(&mnt_opts);\\n"
+        "\\tif (err)\\n"
+        "\\t\\treturn err;\\n",
+        "namespace do_remount Fleux parsed LSM option API",
+    )
+    updated = namespace_c.read_text()
+    require("security_sb_eat_lsm_opts(data, &mnt_opts)" in updated and
+            "security_sb_remount(sb, mnt_opts)" in updated and
+            "security_free_mnt_opts(&mnt_opts)" in updated and
+            "security_sb_remount(sb, data)" not in updated,
+            "namespace remount does not use Fleux parsed LSM option API")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -967,6 +1013,7 @@ def main():
     apply_fleux_419325_procattr_lsm_compat(src)
     apply_fleux_419325_proc_ns_compat(src)
     apply_fleux_419325_legacy_mount_api_compat(src)
+    apply_fleux_419325_namespace_lsm_remount_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
