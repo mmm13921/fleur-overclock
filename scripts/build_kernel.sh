@@ -19,7 +19,7 @@ case "$SOURCE_REF" in
 esac
 
 case "$BUILD_PROFILE" in
-  baseline|oc1|oc2|oc3|hyperos-compat) ;;
+  baseline|oc1|oc2|oc3|hyperos-compat|hyperos-full-fs) ;;
   *)
     echo "Unsupported build profile: $BUILD_PROFILE" >&2
     exit 2
@@ -54,6 +54,10 @@ case "$BUILD_PROFILE" in
   hyperos-compat)
     python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR"
     python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
+    ;;
+  hyperos-full-fs)
+    python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR"
+    python3 "$WORKSPACE/scripts/apply_full_official_419191_fs.py" "$SRC_DIR" "$ARTIFACT_DIR/full-official-4.19.191-fs-audit.txt"
     ;;
 esac
 
@@ -93,6 +97,13 @@ if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     --config "$ARTIFACT_DIR/kernel.config" \
     --source "$SRC_DIR" \
     --report "$ARTIFACT_DIR/hyperos-compat-audit.txt"
+elif [[ "$BUILD_PROFILE" == "hyperos-full-fs" ]]; then
+  python3 "$WORKSPACE/scripts/audit_full_official_419191_fs.py" \
+    --image "$ARTIFACT_DIR/Image.gz-dtb" \
+    --config "$ARTIFACT_DIR/kernel.config" \
+    --source "$SRC_DIR" \
+    --filesystem-report "$ARTIFACT_DIR/full-official-4.19.191-fs-audit.txt" \
+    --report "$ARTIFACT_DIR/full-official-4.19.191-fs-build-audit.txt"
 fi
 if [[ "$BUILD_PROFILE" == "oc2" ]]; then
   python3 "$WORKSPACE/scripts/audit_oc2_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
@@ -292,6 +303,9 @@ case "$BUILD_PROFILE" in
   hyperos-compat)
     git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/hyperos-compat-source.patch"
     ;;
+  hyperos-full-fs)
+    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/full-official-4.19.191-fs-source.patch"
+    ;;
 esac
 
 {
@@ -301,9 +315,16 @@ esac
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
-  echo "filesystem_profile=hyperos-safe"
-  echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official 4.19.191)"
-  echo "filesystem_interceptors=nomount disabled; susfs feature flags disabled; inline hook retained"
+  if [[ "$BUILD_PROFILE" == "hyperos-full-fs" ]]; then
+    echo "filesystem_profile=complete-official-4.19.191-fs"
+    echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@6f6b84e0e2fa8d474db66798a051ec1835257729"
+    echo "filesystem_scope=entire fs/ directory plus matching F2FS UAPI and trace headers"
+    echo "filesystem_interceptors=official donor fs tree; Fleux filesystem-specific hooks replaced"
+  else
+    echo "filesystem_profile=hyperos-safe"
+    echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official 4.19.191)"
+    echo "filesystem_interceptors=nomount disabled; susfs feature flags disabled; inline hook retained"
+  fi
   if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     echo "modem_pm_compatibility=MT6781 DPMAIF syscore suspend/resume path hardened"
     echo "modem_pm_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume"
@@ -335,7 +356,7 @@ esac
   echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
   echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" || "$BUILD_PROFILE" == "hyperos-full-fs" ]]; then
     echo "flashable_zip=AnyKernel3"
   else
     echo "flashable_zip=false"
@@ -351,6 +372,8 @@ esac
     sha256sum "$ARTIFACT_DIR/oc3-source.patch"
   elif [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
+  elif [[ "$BUILD_PROFILE" == "hyperos-full-fs" ]]; then
+    sha256sum "$ARTIFACT_DIR/full-official-4.19.191-fs-source.patch" "$ARTIFACT_DIR/full-official-4.19.191-fs-audit.txt" "$ARTIFACT_DIR/full-official-4.19.191-fs-build-audit.txt"
   fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 
