@@ -680,17 +680,19 @@ def apply_fleux_419325_legacy_mount_api_compat(src):
     super_c = src / "fs/super.c"
     text = super_c.read_text()
 
-    signature = (
+    remount_declarations = (
         "int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, "
-        "int sb_flags, void *data, int force)\n{"
+        "int sb_flags, void *data, int force)\n{\n"
+        "\tint retval;\n"
+        "\tint remount_ro;\n"
     )
-    require(text.count(signature) == 1,
-            "legacy do_remount_sb2 signature is missing or ambiguous")
-    text = text.replace(
-        signature,
-        signature + "\n\t/* Fleux has no extra mount-specific remount callback slot. */\n\t(void)mnt;",
-        1,
+    replace_once(
+        super_c,
+        remount_declarations,
+        remount_declarations + "\t(void)mnt;\n",
+        "do_remount_sb2 Fleux callback compatibility",
     )
+    text = super_c.read_text()
 
     remount_pattern = re.compile(
         r"\tif \(mnt && sb->s_op->remount_fs2\) \{.*?"
@@ -709,6 +711,23 @@ def apply_fleux_419325_legacy_mount_api_compat(src):
 
     require(text.count("struct dentry *\nmount_fs(") == 1,
             "legacy mount_fs implementation is missing or ambiguous")
+    mount_declarations = (
+        "struct dentry *\n"
+        "mount_fs(struct file_system_type *type, int flags, const char *name, "
+        "struct vfsmount *mnt, void *data)\n"
+        "{\n"
+        "\tstruct dentry *root;\n"
+        "\tstruct super_block *sb;\n"
+        "\tchar *secdata = NULL;\n"
+        "\tint error = -ENOMEM;\n"
+    )
+    replace_once(
+        super_c,
+        mount_declarations,
+        mount_declarations + "\t(void)mnt;\n",
+        "mount_fs Fleux callback compatibility",
+    )
+    text = super_c.read_text()
     require(text.count("\tchar *secdata = NULL;") == 1,
             "legacy mount_fs security-data declaration is missing or ambiguous")
     text = text.replace("\tchar *secdata = NULL;",
