@@ -362,6 +362,28 @@ def apply_fleux_419325_ext4_vm_fault_compat(src):
         "EXT4 kvzalloc __vmalloc API",
     )
 
+    # The newer mbcache API stores reusable state in e_flags bit MBE_REUSABLE_B.
+    # Translate the old donor bitfield accesses without changing xattr reuse logic.
+    ext4_xattr = src / "fs/ext4/xattr.c"
+    replace_once(
+        ext4_xattr,
+        "ce->e_reusable = 1;",
+        "set_bit(MBE_REUSABLE_B, &ce->e_flags);",
+        "EXT4 mbcache reusable set",
+    )
+    replace_once(
+        ext4_xattr,
+        "!ce->e_reusable)",
+        "!test_bit(MBE_REUSABLE_B, &ce->e_flags))",
+        "EXT4 mbcache reusable test",
+    )
+    replace_once(
+        ext4_xattr,
+        "ce->e_reusable = 0;",
+        "clear_bit(MBE_REUSABLE_B, &ce->e_flags);",
+        "EXT4 mbcache reusable clear",
+    )
+
     final = inode_c.read_text()
     require("vm_fault_t ext4_page_mkwrite(struct vm_fault *vmf)" in final,
             "EXT4 page_mkwrite return type was not adapted")
