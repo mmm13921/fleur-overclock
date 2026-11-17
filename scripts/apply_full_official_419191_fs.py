@@ -595,6 +595,32 @@ def apply_fleux_419325_task_mmu_vm_flags_compat(src):
             "vma->vm_flags &= ~VM_SOFTDIRTY;" in updated,
             "proc task_mmu soft-dirty compatibility overlay is incomplete")
 
+def apply_fleux_419325_procattr_lsm_compat(src):
+    # Fleux 4.19.325 adds an optional LSM selector to procattr accessors.
+    # NULL deliberately preserves the legacy unfiltered LSM lookup behavior.
+    base_c = src / "fs/proc/base.c"
+    replace_once(
+        base_c,
+        "length = security_getprocattr(task,\\n"
+        "\\t\\t\\t\\t      (char*)file->f_path.dentry->d_name.name,\\n"
+        "\\t\\t\\t\\t      &p);",
+        "length = security_getprocattr(task, NULL,\\n"
+        "\\t\\t\\t\\t      (char*)file->f_path.dentry->d_name.name,\\n"
+        "\\t\\t\\t\\t      &p);",
+        "procfs security_getprocattr LSM-selector API compatibility",
+    )
+    replace_once(
+        base_c,
+        "rv = security_setprocattr(file->f_path.dentry->d_name.name, page, count);",
+        "rv = security_setprocattr(NULL, file->f_path.dentry->d_name.name, page, count);",
+        "procfs security_setprocattr LSM-selector API compatibility",
+    )
+    updated = base_c.read_text()
+    require("security_getprocattr(task, NULL," in updated and
+            "security_setprocattr(NULL, file->f_path.dentry->d_name.name, page, count)" in updated,
+            "procfs LSM-selector compatibility overlay is incomplete")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -769,6 +795,7 @@ def main():
     apply_fleux_419325_fuse_readahead_compat(src)
     apply_fleux_419325_nls_const_char_compat(src)
     apply_fleux_419325_task_mmu_vm_flags_compat(src)
+    apply_fleux_419325_procattr_lsm_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -845,7 +872,8 @@ def main():
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API",
+        "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
