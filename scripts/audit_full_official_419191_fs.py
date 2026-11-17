@@ -97,6 +97,11 @@ require("change_mount_flags(path->mnt, ms_flags)" in namespace,
         "official legacy bind-remount function is missing")
 require("do_remount_sb2(path->mnt, sb, sb_flags, data, 0)" in namespace,
         "legacy Android remount does not use official do_remount_sb2")
+require("security_sb_eat_lsm_opts(data, &mnt_opts)" in namespace and
+        "security_sb_remount(sb, mnt_opts)" in namespace and
+        "security_free_mnt_opts(&mnt_opts)" in namespace and
+        "security_sb_remount(sb, data)" not in namespace,
+        "legacy remount LSM options are not parsed using Fleux security APIs")
 require("int do_remount_sb2(" in super_c and "sb->s_op->remount_fs" in super_c,
         "official superblock remount callback is missing")
 require("fs_context_for_reconfigure" not in namespace,
