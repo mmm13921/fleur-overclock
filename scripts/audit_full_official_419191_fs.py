@@ -64,9 +64,15 @@ susfs_header = source / "include/linux/susfs.h"
 fs_makefile = (source / "fs/Makefile").read_text()
 require(susfs_implementation.is_file(),
         "Fleux SUSFS implementation fs/susfs.c is missing")
-require(susfs_header.is_file() and
-        '#define SUSFS_VERSION "v2.3.0"' in susfs_header.read_text(),
-        "Fleux SUSFS v2.3.0 header is missing")
+susfs_header_text = susfs_header.read_text() if susfs_header.is_file() else ""
+susfs_version_match = re.search(
+    r'(?m)^#define SUSFS_VERSION "(v2\.\d+\.\d+)"$',
+
+    susfs_header_text,
+)
+require(susfs_version_match is not None,
+        "Fleux SUSFS v2.x version header is missing or invalid")
+susfs_version = susfs_version_match.group(1)
 require("obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_makefile,
         "retained SUSFS implementation is not linked by fs/Makefile")
 
@@ -312,7 +318,7 @@ require("VFS dcache spin_release adapted to Fleux two-argument lockdep API" in f
         "VFS dcache lockdep API compatibility overlay is missing")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
-require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0" in fs_summary,
+require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version in fs_summary,
         "retained SUSFS header/version record is missing")
 
 lines = [
@@ -320,7 +326,7 @@ lines = [
     "kernel_base=Fleux Linux 4.19.325",
     "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux namespace/SUSFS and filesystem API overlays",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
-    "susfs=Fleux fs/susfs.c and include/linux/susfs.h v2.3.0 retained and linked",
+    "susfs=Fleux fs/susfs.c and include/linux/susfs.h " + susfs_version + " retained and linked",
     "namespace_api=Fleux fs/nsfs.c and include/linux/proc_ns.h int ns_get_path API retained; official procfs caller adapted",
     "ext4_api_compat=inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B flags for Fleux 4.19.325",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",

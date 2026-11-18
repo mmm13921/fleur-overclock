@@ -968,9 +968,15 @@ def main():
     require(fleux_kernfs_files,
             "Fleux fs/kernfs source tree is empty")
     susfs_header_path = src / "include/linux/susfs.h"
-    require(susfs_header_path.is_file() and
-            '#define SUSFS_VERSION "v2.3.0"' in susfs_header_path.read_text(),
-            "Fleux SUSFS v2.3.0 header is missing")
+    susfs_header_text = susfs_header_path.read_text() if susfs_header_path.is_file() else ""
+    susfs_version_match = re.search(
+        r'(?m)^#define SUSFS_VERSION "(v2\.\d+\.\d+)"$',
+
+        susfs_header_text,
+    )
+    require(susfs_version_match is not None,
+            "Fleux SUSFS v2.x version header is missing or invalid")
+    susfs_version = susfs_version_match.group(1)
     susfs_make_rule = "obj-$(CONFIG_KSU_SUSFS) += susfs.o"
     original_fs_makefile = (src / "fs/Makefile").read_text()
     require(susfs_make_rule in original_fs_makefile,
@@ -1177,7 +1183,7 @@ def main():
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
         "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
-        "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
+        "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version,
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
         "erofs_reference=official 4.19.191 drivers/staging/erofs",
         "erofs_source_files=" + str(len(official_erofs_files)),
