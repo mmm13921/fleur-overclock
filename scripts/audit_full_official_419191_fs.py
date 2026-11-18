@@ -116,6 +116,7 @@ namespace = (source / "fs/namespace.c").read_text()
 xattr_source = (source / "fs/xattr.c").read_text()
 eventfd_c = strip_c_comments_and_literals((source / "fs/eventfd.c").read_text())
 eventfd_h = (source / "include/linux/eventfd.h").read_text()
+userfaultfd_source = (source / "fs/userfaultfd.c").read_text()
 mount_header = (source / "include/linux/mount.h").read_text()
 open_source = (source / "fs/open.c").read_text()
 internal_source = (source / "fs/internal.h").read_text()
@@ -292,6 +293,15 @@ require(dcache_source.count("spin_release(&dentry->d_lock.dep_map, _RET_IP_);") 
         "spin_release(&dentry->d_lock.dep_map, 1, _RET_IP_);" not in dcache_source,
         "official dcache spin_release call is not adapted to Fleux lockdep API")
 
+userfaultfd_code = strip_c_comments_and_literals(userfaultfd_source)
+require("mmap_write_lock(mm);" in userfaultfd_code and
+        "mmap_write_unlock(mm);" in userfaultfd_code and
+        "__VM_UFFD_FLAGS" in userfaultfd_code and
+        "UFFDIO_REGISTER_MODE_MINOR" in userfaultfd_code and
+        "VM_UFFD_MINOR" in userfaultfd_code and
+        not re.search(r"\bvm_write_(?:begin|end)\s*\(", userfaultfd_code),
+        "userfaultfd still depends on removed VMA seqcount helpers or lacks Fleux MINOR/flag API")
+
 task_mmu_source = (source / "fs/proc/task_mmu.c").read_text()
 require("vm_write_begin(vma)" not in task_mmu_source and
         "vm_write_end(vma)" not in task_mmu_source and
@@ -399,7 +409,7 @@ require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
         "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
-require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c and explicit compatibility overlays" in fs_summary,
+require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
 overlay = next(
     (line for line in fs_summary.splitlines()
@@ -418,10 +428,13 @@ for token in (
     "legacy mount_fs/do_remount_sb2",
     "namespace remount LSM options",
     "spin_release adapted",
+    "userfaultfd VMA seqcount API",
 ):
     require(token in overlay, "overlay manifest is missing: " + token)
 require("eventfd_api=" in fs_summary,
         "report does not confirm the Fleux eventfd compatibility overlay")
+require("userfaultfd_api=" in fs_summary,
+        "report does not confirm the retained Fleux userfaultfd implementation")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
 require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version in fs_summary,
@@ -430,12 +443,13 @@ require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_versio
 lines = [
     "profile=hyperos-full-fs",
     "kernel_base=Fleux Linux 4.19.325",
-    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/SUSFS and filesystem API overlays",
+    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/userfaultfd.c/SUSFS and filesystem API overlays",
     "vfs_fdtable_api=Fleux fs/file.c retained to match fd_range dup_fd() and close_range ABI",
     "xattr_api=Fleux six-argument simple_xattr_set() removed_size ABI and semantics retained in official fs/xattr.c",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h " + susfs_version + " retained and linked",
     "namespace_api=Fleux fs/nsfs.c and include/linux/proc_ns.h int ns_get_path API retained; official procfs caller adapted",
+    "userfaultfd=Fleux 4.19.325 implementation retained for VMA lock, __VM_UFFD_FLAGS and UFFD MINOR compatibility",
     "ext4_api_compat=inode.c/ext4.h vm_fault_t; super.c two-argument __vmalloc; xattr.c MBE_REUSABLE_B flags for Fleux 4.19.325",
     "f2fs_headers=official 4.19.191 UAPI and trace headers",
     "erofs=official 4.19.191 drivers/staging/erofs tree with byte-identity check",
