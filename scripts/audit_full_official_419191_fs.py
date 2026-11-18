@@ -73,8 +73,22 @@ susfs_version_match = re.search(
 require(susfs_version_match is not None,
         "Fleux SUSFS v2.x version header is missing or invalid")
 susfs_version = susfs_version_match.group(1)
+file_source = (source / "fs/file.c").read_text()
+fdtable_header = (source / "include/linux/fdtable.h").read_text()
+fork_source = (source / "kernel/fork.c").read_text()
 require("obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_makefile,
         "retained SUSFS implementation is not linked by fs/Makefile")
+require("struct files_struct *dup_fd(struct files_struct *oldf, struct fd_range *punch_hole)" in file_source and
+        "static unsigned int sane_fdtable_size(" in file_source and
+        "return ERR_PTR(-ENOMEM);" in file_source and
+        "return ERR_PTR(error);" in file_source and
+        "#include <linux/close_range.h>" in file_source,
+        "Fleux fdtable implementation does not provide its fd_range dup_fd/ERR_PTR/close_range API")
+require("struct files_struct *dup_fd(struct files_struct *, struct fd_range *)" in fdtable_header and
+        fork_source.count("dup_fd(") == 2 and
+        "newf = dup_fd(oldf, NULL);" in fork_source and
+        "fd = dup_fd(fd, NULL);" in fork_source,
+        "Fleux fdtable header/fork callers do not match the retained fs/file.c implementation")
 
 namespace = (source / "fs/namespace.c").read_text()
 open_source = (source / "fs/open.c").read_text()
@@ -301,8 +315,10 @@ require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
         "DPMAIF restore path is missing")
 
 fs_summary = fs_report.read_text()
-require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, SUSFS and targeted API overlays applied" in fs_summary,
+require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, SUSFS and targeted API overlays applied" in fs_summary,
         "report does not confirm the official fs/ replacement and compatibility overlays")
+require("vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support" in fs_summary,
+        "report does not confirm retained Fleux VFS fdtable API implementation")
 require("namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API" in fs_summary and
         "proc_namespace_compat=official procfs namespace link adapted to Fleux int-return ns_get_path API" in fs_summary,
         "report does not confirm the retained Fleux nsfs API pairing and procfs compatibility overlay")
@@ -310,7 +326,7 @@ require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
         "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
-require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs and explicit compatibility overlays" in fs_summary,
+require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
 require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper" in fs_summary,
         "filesystem API compatibility overlay manifest is incomplete")
@@ -324,7 +340,8 @@ require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_versio
 lines = [
     "profile=hyperos-full-fs",
     "kernel_base=Fleux Linux 4.19.325",
-    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux namespace/SUSFS and filesystem API overlays",
+    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/SUSFS and filesystem API overlays",
+    "vfs_fdtable_api=Fleux fs/file.c retained to match fd_range dup_fd() and close_range ABI",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h " + susfs_version + " retained and linked",
     "namespace_api=Fleux fs/nsfs.c and include/linux/proc_ns.h int ns_get_path API retained; official procfs caller adapted",
