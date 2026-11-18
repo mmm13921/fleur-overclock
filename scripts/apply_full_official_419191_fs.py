@@ -1003,6 +1003,13 @@ def apply_fleux_419325_fs_context_api_compat(src, fleux_super_source):
 
     super_path = src / "fs/super.c"
     super_text = super_path.read_text()
+    if "#include <linux/fs_context.h>" not in super_text:
+        include_anchor = "#include <linux/fsnotify.h>\n"
+        require(super_text.count(include_anchor) == 1,
+                "official super.c has no unique fs_context header insertion point")
+        super_text = super_text.replace(
+            include_anchor, include_anchor + "#include <linux/fs_context.h>\n", 1
+        )
     require("struct super_block *sget_fc(" not in super_text and
             "int vfs_get_super(" not in super_text,
             "official super.c unexpectedly already contains Fleux fs_context helpers")

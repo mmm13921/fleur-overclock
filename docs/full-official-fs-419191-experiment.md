@@ -145,3 +145,8 @@ This section is the running record for the isolated experiment. “Patched” me
 ### Run #117: namei source pairing guard
 - The API-preservation patch now retains Fleux `fs/namei.c`, which already exports `filename_lookup()`. Updated the legacy SUSFS hook restoration step so it upgrades the donor's old `static filename_lookup()` only when that old definition is present; when the Fleux implementation is already retained, it verifies the exported implementation instead of trying to rewrite a nonexistent static declaration.
 - Run #117 was triggered before this follow-up commit and may stop at the old unconditional anchor; the next run tests the conditional pairing logic.
+
+
+### Run #118 follow-up: super.c fs_context type definition
+- The VFS superblock helper merge adds `sget_fc()` and `vfs_get_super()` to the official `fs/super.c`. The donor file does not include `linux/fs_context.h`, while these helpers access members of `struct fs_context`; the compatibility overlay now adds that header explicitly before inserting the functions, and the source audit requires it.
+- This closes the known incomplete-type risk in the helper merge. CI for the exact latest branch SHA remains the authority for compile/link validation.

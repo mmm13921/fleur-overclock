@@ -430,7 +430,8 @@ require("int bpf_iter_init_seq_net(" in proc_net_source and
 require("void __init __register_sysctl_init(" in proc_sysctl_source and
         "proc_sysctl.o" in proc_makefile,
         "Fleux proc_sysctl init registration API or Kbuild rule is missing")
-require("struct super_block *sget_fc(" in super_c and
+require("#include <linux/fs_context.h>" in super_c and
+        "struct super_block *sget_fc(" in super_c and
         "int set_anon_super_fc(" in super_c and
         "int vfs_get_super(" in super_c and
         "int get_tree_nodev(" in super_c and
