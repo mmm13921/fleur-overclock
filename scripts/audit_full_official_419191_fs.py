@@ -397,9 +397,9 @@ require("entry->e_reusable" not in mbcache_source and
 require("void exfat_buf_lock(struct super_block *sb, sector_t sec)" in exfat_cache_source and
         "void   exfat_buf_lock(struct super_block *sb, sector_t sec);" in exfat_cache_header and
         "exfat_buf_lock(sb," in exfat_core_source and
-        re.search(r"\\bbuf_lock\\s*\\(", exfat_cache_source) is None and
-        re.search(r"\\bbuf_lock\\s*\\(", exfat_cache_header) is None and
-        re.search(r"\\bbuf_lock\\s*\\(", exfat_core_source) is None,
+        re.search(r"\bbuf_lock\s*\(", exfat_cache_source) is None and
+        re.search(r"\bbuf_lock\s*\(", exfat_cache_header) is None and
+        re.search(r"\bbuf_lock\s*\(", exfat_core_source) is None,
         "EXFAT buf_lock function namespace is not fully renamed")
 require(re.search(r"(?m)^spinlock_t buf_lock;", stp_uart_source) is not None,
         "Fleux MediaTek stp_uart global buf_lock source symbol is missing")

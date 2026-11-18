@@ -943,9 +943,9 @@ def apply_fleux_419325_exfat_buf_lock_namespace_compat(src):
         if not path.is_file() or path.suffix not in (".c", ".h"):
             continue
         text = path.read_text()
-        count = len(re.findall(r"\\bbuf_lock\\b", text))
+        count = len(re.findall(r"\bbuf_lock\b", text))
         if count:
-            updated = re.sub(r"\\bbuf_lock\\b", "exfat_buf_lock", text)
+            updated = re.sub(r"\bbuf_lock\b", "exfat_buf_lock", text)
             path.write_text(updated)
             replaced += count
             touched += 1
@@ -960,7 +960,7 @@ def apply_fleux_419325_exfat_buf_lock_namespace_compat(src):
             "EXFAT buf_lock rename did not update its definition, prototype and callers")
     for path in exfat_dir.rglob("*"):
         if path.is_file() and path.suffix in (".c", ".h"):
-            require(re.search(r"\\bbuf_lock\\b", path.read_text()) is None,
+            require(re.search(r"\bbuf_lock\b", path.read_text()) is None,
                     "unrenamed buf_lock identifier remains in " + path.relative_to(src).as_posix())
     print("EXFAT buf_lock namespaced as exfat_buf_lock in", touched,
           "files (", replaced, "identifier occurrences )")
