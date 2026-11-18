@@ -91,6 +91,7 @@ require("struct files_struct *dup_fd(struct files_struct *, struct fd_range *)" 
         "Fleux fdtable header/fork callers do not match the retained fs/file.c implementation")
 
 namespace = (source / "fs/namespace.c").read_text()
+xattr_source = (source / "fs/xattr.c").read_text()
 mount_header = (source / "include/linux/mount.h").read_text()
 open_source = (source / "fs/open.c").read_text()
 internal_source = (source / "fs/internal.h").read_text()
@@ -126,6 +127,11 @@ require("extern bool __mnt_is_readonly(struct vfsmount *mnt);" in mount_header a
         "int __mnt_is_readonly(struct vfsmount *mnt)" not in namespace and
         "return (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);" in namespace,
         "namespace __mnt_is_readonly definition does not match Fleux bool mount.h API")
+
+require("ssize_t *removed_size)" in xattr_source and
+        xattr_source.count("*removed_size = xattr->size;") == 2 and
+        "*removed_size = -1;" in xattr_source,
+        "official fs/xattr.c simple_xattr_set does not match Fleux removed_size ABI")
 
 require("change_mount_flags(path->mnt, ms_flags)" in namespace,
         "official legacy bind-remount function is missing")
@@ -351,6 +357,7 @@ lines = [
     "kernel_base=Fleux Linux 4.19.325",
     "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/SUSFS and filesystem API overlays",
     "vfs_fdtable_api=Fleux fs/file.c retained to match fd_range dup_fd() and close_range ABI",
+    "xattr_api=Fleux six-argument simple_xattr_set() removed_size ABI and semantics retained in official fs/xattr.c",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
     "susfs=Fleux fs/susfs.c and include/linux/susfs.h " + susfs_version + " retained and linked",
     "namespace_api=Fleux fs/nsfs.c and include/linux/proc_ns.h int ns_get_path API retained; official procfs caller adapted",
