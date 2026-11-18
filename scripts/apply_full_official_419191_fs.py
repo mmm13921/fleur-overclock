@@ -629,6 +629,23 @@ def apply_fleux_419325_task_mmu_vm_flags_compat(src):
             "vma->vm_flags &= ~VM_SOFTDIRTY;" in updated,
             "proc task_mmu soft-dirty compatibility overlay is incomplete")
 
+def apply_fleux_419325_dcache_lockdep_compat(src):
+    # Fleux 4.19.325 lockdep defines spin_release(lock, ip), while the
+    # Xiaomi 4.19.191 donor passes an obsolete extra subclass argument.
+    # Preserve _RET_IP_ as the second (instruction-pointer) argument.
+    dcache = src / "fs/dcache.c"
+    replace_once(
+        dcache,
+        "spin_release(&dentry->d_lock.dep_map, 1, _RET_IP_);",
+        "spin_release(&dentry->d_lock.dep_map, _RET_IP_);",
+        "dcache.c Fleux lockdep spin_release API compatibility",
+    )
+    updated = dcache.read_text()
+    require("spin_release(&dentry->d_lock.dep_map, _RET_IP_);" in updated and
+            "spin_release(&dentry->d_lock.dep_map, 1, _RET_IP_);" not in updated,
+            "dcache spin_release call is not adapted to Fleux lockdep API")
+
+
 def apply_fleux_419325_exec_vma_init_compat(src):
     # The Xiaomi 4.19.191 exec.c calls INIT_VMA() after vm_area_alloc().
     # Fleux 4.19.325 has no INIT_VMA helper or speculative-page-fault VMA
@@ -1073,6 +1090,7 @@ def main():
     apply_fleux_419325_fuse_readahead_compat(src)
     apply_fleux_419325_nls_const_char_compat(src)
     apply_fleux_419325_task_mmu_vm_flags_compat(src)
+    apply_fleux_419325_dcache_lockdep_compat(src)
     apply_fleux_419325_exec_vma_init_compat(src)
     apply_fleux_419325_procattr_lsm_compat(src)
     apply_fleux_419325_proc_ns_compat(src)
@@ -1157,7 +1175,7 @@ def main():
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0",
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",

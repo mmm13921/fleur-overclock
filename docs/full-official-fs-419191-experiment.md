@@ -87,3 +87,10 @@ This section is the running record for the isolated experiment. “Patched” me
 ### Run #93 follow-up
 - Run #93 stopped before compilation because the VMA overlay's source-anchor pattern was over-escaped. The Python source now uses single escape sequences for the tab and newline, so it matches the literal source line in donor `fs/exec.c`.
 - Next run is the first valid test of the VMA overlay; compile, packaging, release and device boot remain unverified.
+
+
+### Run #95: VFS dcache lockdep API mismatch
+- The full official 4.19.191 `fs/` replacement and identity audit passed. Compilation stopped at `fs/dcache.c:1281`: donor code called `spin_release(&dentry->d_lock.dep_map, 1, _RET_IP_)`, but Fleux 4.19.325 defines `spin_release(lock, ip)` and `lock_release(lock, ip)`.
+- Corrected the call by removing only the obsolete middle argument `1`, preserving `_RET_IP_` as the instruction pointer: `spin_release(&dentry->d_lock.dep_map, _RET_IP_)`.
+- Added a source compatibility overlay and audit assertions against Fleux `include/linux/lockdep.h`. This fix is pending the next complete CI compile.
+- Run #95: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44091603944), SHA `74323f788733620b531f8ce3235b016c5311da4d`, failed at this compile error; no package or release was produced.

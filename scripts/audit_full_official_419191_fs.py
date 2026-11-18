@@ -197,6 +197,15 @@ require("find_nls(const char *charset)" in nls_base_source and
         "load_nls(const char *charset)" in nls_base_source,
         "NLS const-char API compatibility overlay is missing")
 
+dcache_source = (source / "fs/dcache.c").read_text()
+lockdep_header = (source / "include/linux/lockdep.h").read_text()
+require("#define spin_release(l, i)" in lockdep_header and
+        "extern void lock_release(struct lockdep_map *lock, unsigned long ip);" in lockdep_header,
+        "Fleux lockdep spin_release API does not match the expected two-argument contract")
+require(dcache_source.count("spin_release(&dentry->d_lock.dep_map, _RET_IP_);") == 1 and
+        "spin_release(&dentry->d_lock.dep_map, 1, _RET_IP_);" not in dcache_source,
+        "official dcache spin_release call is not adapted to Fleux lockdep API")
+
 task_mmu_source = (source / "fs/proc/task_mmu.c").read_text()
 require("vm_write_begin(vma)" not in task_mmu_source and
         "vm_write_end(vma)" not in task_mmu_source and
@@ -298,6 +307,8 @@ require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
 require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
 require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper" in fs_summary,
+require("VFS dcache spin_release adapted to Fleux two-argument lockdep API" in fs_summary,
+        "VFS dcache lockdep API compatibility overlay is missing")
         "filesystem API compatibility overlay manifest is incomplete")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
