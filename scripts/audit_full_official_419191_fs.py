@@ -307,9 +307,9 @@ require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
 require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
 require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper" in fs_summary,
+        "filesystem API compatibility overlay manifest is incomplete")
 require("VFS dcache spin_release adapted to Fleux two-argument lockdep API" in fs_summary,
         "VFS dcache lockdep API compatibility overlay is missing")
-        "filesystem API compatibility overlay manifest is incomplete")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
 require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION v2.3.0" in fs_summary,
