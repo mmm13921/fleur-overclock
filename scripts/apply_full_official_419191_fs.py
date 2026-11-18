@@ -193,12 +193,17 @@ def restore_fleuxsu_inline_hooks(src, fleux_open_source):
     # Fleux exports filename_lookup() from namei.c; the official donor keeps it static.
     # Remove static so open.c can call the API exposed by fs/internal.h.
     namei_c = src / "fs/namei.c"
-    replace_once(
-        namei_c,
-        "static int filename_lookup(int dfd, struct filename *name, unsigned flags,\n",
-        "int filename_lookup(int dfd, struct filename *name, unsigned flags,\n",
-        "fs/namei.c export filename_lookup for Fleux faccessat API",
-    )
+    namei_text = namei_c.read_text()
+    if "static int filename_lookup(int dfd, struct filename *name, unsigned flags," in namei_text:
+        replace_once(
+            namei_c,
+            "static int filename_lookup(int dfd, struct filename *name, unsigned flags,\n",
+            "int filename_lookup(int dfd, struct filename *name, unsigned flags,\n",
+            "fs/namei.c export filename_lookup for Fleux faccessat API",
+        )
+    else:
+        require("int filename_lookup(int dfd, struct filename *name, unsigned flags," in namei_text,
+                "Fleux namei.c does not expose the expected filename_lookup() ABI")
     read_write_c = src / "fs/read_write.c"
     read_write_text = read_write_c.read_text()
     if "ksu_handle_sys_read" not in read_write_text:
