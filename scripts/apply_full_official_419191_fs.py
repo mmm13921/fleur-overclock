@@ -12,6 +12,17 @@ import tempfile
 OFFICIAL_REPO = "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git"
 OFFICIAL_REF = "6f6b84e0e2fa8d474db66798a051ec1835257729"
 EXPECTED_KERNEL = "4.19.191"
+FLEUX_API_PRESERVED_FILES = (
+    "fs/fs_context.c",
+    "fs/fs_parser.c",
+    "fs/io_uring.c",
+    "fs/libfs.c",
+    "fs/namei.c",
+    "fs/open.c",
+    "fs/anon_inodes.c",
+    "fs/proc/proc_net.c",
+    "fs/proc/proc_sysctl.c",
+)
 EXTRA_FILES = (
     "include/linux/f2fs_fs.h",
     "include/trace/events/f2fs.h",
@@ -966,6 +977,69 @@ def apply_fleux_419325_exfat_buf_lock_namespace_compat(src):
           "files (", replaced, "identifier occurrences )")
 
 
+def apply_fleux_419325_fs_context_api_compat(src, fleux_super_source):
+    # Restore the fs_context-era APIs required by Fleux's current drivers,
+    # security, BPF, syscall tables and pseudo-filesystems, while retaining
+    # Xiaomi's legacy mount/remount implementation in namespace.c/super.c.
+    sget_start = fleux_super_source.find("struct super_block *sget_fc(")
+    sget_end_marker = "\nEXPORT_SYMBOL(sget_fc);"
+    sget_end = fleux_super_source.find(sget_end_marker, sget_start)
+    require(sget_start >= 0 and sget_end > sget_start,
+            "Fleux sget_fc() implementation could not be located")
+    sget_end += len(sget_end_marker)
+    vfs_start = fleux_super_source.find("int set_anon_super_fc(", sget_end)
+    vfs_end_marker = "\nEXPORT_SYMBOL(get_tree_single);"
+    vfs_end = fleux_super_source.find(vfs_end_marker, vfs_start)
+    require(vfs_start >= 0 and vfs_end > vfs_start,
+            "Fleux fs_context superblock helper block could not be located")
+    vfs_end += len(vfs_end_marker)
+    sget_block = fleux_super_source[sget_start:sget_end]
+    vfs_block = fleux_super_source[vfs_start:vfs_end]
+
+    super_path = src / "fs/super.c"
+    super_text = super_path.read_text()
+    require("struct super_block *sget_fc(" not in super_text and
+            "int vfs_get_super(" not in super_text,
+            "official super.c unexpectedly already contains Fleux fs_context helpers")
+    anchor = "EXPORT_SYMBOL(kill_litter_super);\n"
+    require(super_text.count(anchor) == 1,
+            "official super.c kill_litter_super insertion point is missing or ambiguous")
+    super_text = super_text.replace(
+        anchor, anchor + "\n" + sget_block + "\n\n" + vfs_block + "\n", 1
+    )
+    super_path.write_text(super_text)
+    require("struct super_block *sget_fc(" in super_text and
+            "int set_anon_super_fc(" in super_text and
+            "int vfs_get_super(" in super_text and
+            "int get_tree_nodev(" in super_text and
+            "int get_tree_single(" in super_text,
+            "Fleux sget_fc/get_tree helper APIs were not integrated into official super.c")
+
+    makefile_path = src / "fs/Makefile"
+    makefile = makefile_path.read_text()
+    context_objects = "fs_context.o fs_parser.o"
+    if context_objects not in makefile:
+        old_anchor = "\t\tstack.o fs_struct.o statfs.o fs_pin.o nsfs.o\n"
+        new_anchor = (
+            "\t\tstack.o fs_struct.o statfs.o fs_pin.o nsfs.o \\\n"
+            "\t\tfs_context.o fs_parser.o\n"
+        )
+        require(makefile.count(old_anchor) == 1,
+                "official fs/Makefile has no unique fs_context object-list anchor")
+        makefile = makefile.replace(old_anchor, new_anchor, 1)
+    io_uring_rule = "obj-$(CONFIG_IO_URING)\t\t+= io_uring.o"
+    if io_uring_rule not in makefile:
+        makefile = makefile.rstrip() + "\n" + io_uring_rule + "\n"
+    makefile_path.write_text(makefile)
+
+    proc_makefile = (src / "fs/proc/Makefile").read_text()
+    require("proc_sysctl.o" in proc_makefile and "proc_net.o" in proc_makefile,
+            "official proc/Makefile does not build proc_sysctl.o and proc_net.o")
+    require(context_objects in makefile and "io_uring.o" in makefile,
+            "fs_context/fs_parser/io_uring objects are not registered in fs/Makefile")
+    print("Restored Fleux fs_context/parser/io_uring build objects and VFS superblock helpers")
+
+
 def apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source):
     # Keep official eventfd.c except the exported Fleux helper required by
     # include/linux/eventfd.h and the Fleux eventfd semaphore semantics.
@@ -1117,6 +1191,12 @@ def main():
     require(fleux_mbcache_path.is_file(),
             "Fleux mbcache implementation fs/mbcache.c is missing before replacement")
     fleux_mbcache_source = fleux_mbcache_path.read_bytes()
+    fleux_super_source = (src / "fs/super.c").read_text()
+    fleux_api_sources = {}
+    for rel in FLEUX_API_PRESERVED_FILES:
+        path = src / rel
+        require(path.is_file(), "Fleux API-compatible source is missing: " + rel)
+        fleux_api_sources[rel] = path.read_bytes()
     fleux_kernfs_path = src / "fs/kernfs"
     require(fleux_kernfs_path.is_dir(),
             "Fleux fs/kernfs directory is missing before replacement")
@@ -1208,6 +1288,13 @@ def main():
         # uses removed e_reusable/e_referenced fields and an older free/put ABI.
         (target_fs / "mbcache.c").write_bytes(fleux_mbcache_source)
 
+        # Preserve the specific 4.19.325 VFS/API implementation files consumed
+        # by Fleux code outside fs/: fs_context, syscalls, BPF/proc and LSM.
+        for rel, content in fleux_api_sources.items():
+            dest = src / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(content)
+
         # Keep only the dedicated SUSFS implementation from Fleux. The
         # Makefile link is added after donor byte-verification below.
         (target_fs / "susfs.c").write_bytes(fleux_susfs_source)
@@ -1234,8 +1321,12 @@ def main():
     official_files_without_kernfs = [
         rel for rel in official_files if not rel.startswith("fs/kernfs/")
     ]
+    api_extra_files = [
+        rel for rel in FLEUX_API_PRESERVED_FILES if rel not in official_files
+    ]
     expected_files = sorted(
-        official_files_without_kernfs + fleux_kernfs_files + ["fs/susfs.c"]
+        official_files_without_kernfs + fleux_kernfs_files +
+        ["fs/susfs.c"] + api_extra_files
     )
     require(actual_files == expected_files,
             "installed fs/ file list differs from official donor plus preserved Fleux kernfs and SUSFS")
@@ -1247,9 +1338,15 @@ def main():
             "retained Fleux fs/userfaultfd.c changed during filesystem replacement")
     require((src / "fs/mbcache.c").read_bytes() == fleux_mbcache_source,
             "retained Fleux fs/mbcache.c changed during filesystem replacement")
+    for rel, expected in fleux_api_sources.items():
+        require((src / rel).read_bytes() == expected,
+                "retained Fleux API source changed during filesystem replacement: " + rel)
+    preserved_official_paths = {
+        "fs/nsfs.c", "fs/file.c", "fs/userfaultfd.c", "fs/mbcache.c",
+    } | set(FLEUX_API_PRESERVED_FILES)
     # Verify every installed fs/ file against the official Git blob object.
     for rel in official_files:
-        if rel.startswith("fs/kernfs/") or rel in ("fs/nsfs.c", "fs/file.c", "fs/userfaultfd.c", "fs/mbcache.c"):
+        if rel.startswith("fs/kernfs/") or rel in preserved_official_paths:
             continue
         expected = run_git(src, ["rev-parse", "FETCH_HEAD:" + rel]).stdout.decode().strip()
         actual = git_blob_sha(src / rel)
@@ -1282,6 +1379,7 @@ def main():
     apply_fleux_419325_simple_xattr_set_compat(src, fleux_xattr_source)
     apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source)
     apply_fleux_419325_exfat_buf_lock_namespace_compat(src)
+    apply_fleux_419325_fs_context_api_compat(src, fleux_super_source)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -1351,15 +1449,22 @@ def main():
         "filesystem_reference_branch=sea-t-oss",
         "filesystem_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_reference_commit=" + official_sha,
-        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, userfaultfd.c, mbcache.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied",
+        "filesystem_scope=official 4.19.191 fs/ tree installed with Fleux kernfs, nsfs, file.c, userfaultfd.c, mbcache.c, fs_context.c, fs_parser.c, io_uring.c, libfs.c, namei.c, open.c, anon_inodes.c, proc_net.c, proc_sysctl.c, SUSFS and targeted ABI overlays",
         "filesystem_source_files=" + str(len(official_files)),
-        "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c and explicit compatibility overlays",
+        "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c/fs_context.c/fs_parser.c/io_uring.c/libfs.c/namei.c/open.c/anon_inodes.c/proc_net.c/proc_sysctl.c and explicit compatibility overlays",
         "vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support",
         "namespace_mnt_api=Fleux bool __mnt_is_readonly() declaration matched by namespace.c definition",
         "eventfd_api=official fs/eventfd.c with only Fleux exported eventfd_ctx_do_read() retained",
         "userfaultfd_api=Fleux fs/userfaultfd.c retained for 4.19.325 mmap_write_lock, __VM_UFFD_FLAGS and UFFD MINOR API compatibility",
         "mbcache_api=Fleux fs/mbcache.c retained to match include/linux/mbcache.h e_flags, delete_or_get, wait_unused and two-argument __mb_cache_entry_free ABI",
         "exfat_symbol_namespace=official EXFAT buf_lock() function/prototype/callers renamed exfat_buf_lock() to avoid collision with Fleux MediaTek stp_uart global buf_lock data symbol",
+        "fs_context_api=Fleux fs_context.c/fs_parser.c restored and built for current mount-context consumers; official legacy namespace mount/remount code remains",
+        "vfs_super_helpers=Fleux sget_fc/set_anon_super_fc/vfs_get_super/get_tree_nodev/get_tree_single merged into official super.c without replacing legacy mount_fs/do_remount_sb2",
+        "vfs_syscall_api=Fleux fs/open.c retained for openat2/close_range/vfs_fchown/vfs_fchmod and current faccessat ABI",
+        "vfs_namei_api=Fleux fs/namei.c retained for lookup_positive_unlocked and exported filename_lookup ABI",
+        "pseudo_fs_api=Fleux fs/libfs.c and fs/anon_inodes.c retained for init_pseudo and anon_inode_getfd_secure",
+        "proc_api=Fleux fs/proc/proc_net.c and proc_sysctl.c retained for BPF net iterator and __register_sysctl_init symbols",
+        "io_uring_api=Fleux fs/io_uring.c retained and linked with CONFIG_IO_URING for arm64 io_uring syscall wrappers",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
@@ -1367,7 +1472,7 @@ def main():
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; Fleux fs/mbcache.c retained for the 4.19.325 mbcache structure and lifetime ABI; EXFAT buf_lock file-local namespace renamed to exfat_buf_lock to avoid the MediaTek stp_uart duplicate global symbol; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; namespace bool __mnt_is_readonly API matched to Fleux mount.h; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API; userfaultfd VMA seqcount API replaced by Fleux mmap_write_lock implementation with __VM_UFFD_FLAGS and UFFD MINOR support",
+        "filesystem_compatibility_overlay=Fleux fs_context/fs_parser and io_uring syscall APIs restored; sget_fc/set_anon_super_fc/vfs_get_super/get_tree helpers merged into official super.c; Fleux open.c/namei.c/libfs.c/anon_inodes.c/proc_net.c/proc_sysctl.c retained for current VFS, pseudo-fs, BPF and sysctl consumers; EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; Fleux fs/mbcache.c retained for the 4.19.325 mbcache structure and lifetime ABI; EXFAT buf_lock file-local namespace renamed to exfat_buf_lock to avoid the MediaTek stp_uart duplicate global symbol; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; namespace bool __mnt_is_readonly API matched to Fleux mount.h; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API; userfaultfd VMA seqcount API replaced by Fleux mmap_write_lock implementation with __VM_UFFD_FLAGS and UFFD MINOR support",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version,
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",

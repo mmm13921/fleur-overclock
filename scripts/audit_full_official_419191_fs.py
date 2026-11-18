@@ -117,6 +117,15 @@ xattr_source = (source / "fs/xattr.c").read_text()
 eventfd_c = strip_c_comments_and_literals((source / "fs/eventfd.c").read_text())
 eventfd_h = (source / "include/linux/eventfd.h").read_text()
 userfaultfd_source = (source / "fs/userfaultfd.c").read_text()
+fs_context_source = (source / "fs/fs_context.c").read_text()
+fs_parser_source = (source / "fs/fs_parser.c").read_text()
+io_uring_source = (source / "fs/io_uring.c").read_text()
+libfs_source = (source / "fs/libfs.c").read_text()
+anon_inodes_source = (source / "fs/anon_inodes.c").read_text()
+proc_net_source = (source / "fs/proc/proc_net.c").read_text()
+proc_sysctl_source = (source / "fs/proc/proc_sysctl.c").read_text()
+fs_makefile = (source / "fs/Makefile").read_text()
+proc_makefile = (source / "fs/proc/Makefile").read_text()
 mbcache_source = (source / "fs/mbcache.c").read_text()
 mbcache_header = (source / "include/linux/mbcache.h").read_text()
 exfat_cache_source = (source / "fs/exfat/exfat_cache.c").read_text()
@@ -394,6 +403,42 @@ require("entry->e_reusable" not in mbcache_source and
         "entry->e_referenced" not in mbcache_source,
         "obsolete donor mbcache entry fields remain in the retained implementation")
 
+require("fs_context_for_mount(" in fs_context_source and "void put_fs_context(" in fs_context_source,
+        "Fleux fs_context mount/cleanup APIs are missing")
+require("int fs_parse(" in fs_parser_source,
+        "Fleux fs_parser implementation is missing")
+require("SYSCALL_DEFINE2(io_uring_setup" in io_uring_source and
+        "SYSCALL_DEFINE6(io_uring_enter" in io_uring_source and
+        "SYSCALL_DEFINE4(io_uring_register" in io_uring_source and
+        "obj-$(CONFIG_IO_URING)" in fs_makefile and "io_uring.o" in fs_makefile,
+        "Fleux io_uring syscalls or Kbuild registration are missing")
+require("SYSCALL_DEFINE3(close_range" in open_source and
+        "SYSCALL_DEFINE4(openat2" in open_source and
+        "int vfs_fchown(" in open_source and "int vfs_fchmod(" in open_source,
+        "Fleux openat2/close_range/VFS chmod-chown APIs are missing")
+require("struct dentry *lookup_positive_unlocked(" in namei_source and
+        "int filename_lookup(" in namei_source,
+        "Fleux lookup_positive_unlocked/filename_lookup namei APIs are missing")
+require("struct pseudo_fs_context *init_pseudo(" in libfs_source,
+        "Fleux init_pseudo pseudo-filesystem API is missing")
+require("int anon_inode_getfd_secure(" in anon_inodes_source,
+        "Fleux secure anonymous inode file descriptor API is missing")
+require("int bpf_iter_init_seq_net(" in proc_net_source and
+        "void bpf_iter_fini_seq_net(" in proc_net_source and
+        "proc_net.o" in proc_makefile,
+        "Fleux proc_net BPF iterator helpers or Kbuild registration are missing")
+require("void __init __register_sysctl_init(" in proc_sysctl_source and
+        "proc_sysctl.o" in proc_makefile,
+        "Fleux proc_sysctl init registration API or Kbuild rule is missing")
+require("struct super_block *sget_fc(" in super_c and
+        "int set_anon_super_fc(" in super_c and
+        "int vfs_get_super(" in super_c and
+        "int get_tree_nodev(" in super_c and
+        "int get_tree_single(" in super_c,
+        "Fleux fs_context superblock helpers are missing from official super.c")
+require("fs_context.o fs_parser.o" in fs_makefile,
+        "Fleux fs_context/fs_parser objects are not linked by fs/Makefile")
+
 require("void exfat_buf_lock(struct super_block *sb, sector_t sec)" in exfat_cache_source and
         "void   exfat_buf_lock(struct super_block *sb, sector_t sec);" in exfat_cache_header and
         "exfat_buf_lock(sb," in exfat_core_source and
@@ -424,7 +469,7 @@ require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
         "DPMAIF restore path is missing")
 
 fs_summary = fs_report.read_text()
-require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, userfaultfd.c, mbcache.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied" in fs_summary,
+require("filesystem_scope=official 4.19.191 fs/ tree installed with Fleux kernfs, nsfs, file.c, userfaultfd.c, mbcache.c, fs_context.c, fs_parser.c, io_uring.c, libfs.c, namei.c, open.c, anon_inodes.c, proc_net.c, proc_sysctl.c, SUSFS and targeted ABI overlays" in fs_summary,
         "report does not confirm the official fs/ replacement and compatibility overlays")
 require("vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support" in fs_summary,
         "report does not confirm retained Fleux VFS fdtable API implementation")
@@ -442,7 +487,7 @@ require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
         "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
-require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c and explicit compatibility overlays" in fs_summary,
+require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c/fs_context.c/fs_parser.c/io_uring.c/libfs.c/namei.c/open.c/anon_inodes.c/proc_net.c/proc_sysctl.c and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
 overlay = next(
     (line for line in fs_summary.splitlines()
@@ -463,6 +508,14 @@ for token in (
     "spin_release adapted",
     "userfaultfd VMA seqcount API",
     "EXFAT buf_lock file-local namespace",
+    "fs_context/fs_parser",
+    "io_uring syscall APIs",
+    "sget_fc/get_tree VFS helpers",
+    "openat2/close_range/VFS chmod-chown",
+    "lookup_positive_unlocked",
+    "secure anon inode",
+    "proc_net BPF iterator",
+    "proc_sysctl init registration",
 ):
     require(token in overlay, "overlay manifest is missing: " + token)
 require("eventfd_api=" in fs_summary,
@@ -471,6 +524,16 @@ require("userfaultfd_api=" in fs_summary,
         "report does not confirm the retained Fleux userfaultfd implementation")
 require("mbcache_api=Fleux fs/mbcache.c retained to match include/linux/mbcache.h e_flags, delete_or_get, wait_unused and two-argument __mb_cache_entry_free ABI" in fs_summary,
         "report does not confirm the retained Fleux mbcache/header API pairing")
+for manifest_line in (
+    "fs_context_api=Fleux fs_context.c/fs_parser.c restored and built for current mount-context consumers; official legacy namespace mount/remount code remains",
+    "vfs_super_helpers=Fleux sget_fc/set_anon_super_fc/vfs_get_super/get_tree_nodev/get_tree_single merged into official super.c without replacing legacy mount_fs/do_remount_sb2",
+    "vfs_syscall_api=Fleux fs/open.c retained for openat2/close_range/vfs_fchown/vfs_fchmod and current faccessat ABI",
+    "vfs_namei_api=Fleux fs/namei.c retained for lookup_positive_unlocked and exported filename_lookup ABI",
+    "pseudo_fs_api=Fleux fs/libfs.c and fs/anon_inodes.c retained for init_pseudo and anon_inode_getfd_secure",
+    "proc_api=Fleux fs/proc/proc_net.c and proc_sysctl.c retained for BPF net iterator and __register_sysctl_init symbols",
+    "io_uring_api=Fleux fs/io_uring.c retained and linked with CONFIG_IO_URING for arm64 io_uring syscall wrappers",
+):
+    require(manifest_line in fs_summary, "report does not confirm compatibility API: " + manifest_line)
 require("exfat_symbol_namespace=official EXFAT buf_lock() function/prototype/callers renamed exfat_buf_lock() to avoid collision with Fleux MediaTek stp_uart global buf_lock data symbol" in fs_summary,
         "report does not confirm the EXFAT/MediaTek buf_lock symbol collision fix")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
@@ -481,7 +544,8 @@ require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_versio
 lines = [
     "profile=hyperos-full-fs",
     "kernel_base=Fleux Linux 4.19.325",
-    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c/SUSFS and filesystem API overlays",
+    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c/fs_context.c/fs_parser.c/io_uring.c/libfs.c/namei.c/open.c/anon_inodes.c/proc_net.c/proc_sysctl.c/SUSFS and filesystem API overlays",
+    "vfs_api_compat=fs_context/parser/io_uring, libfs/anon_inodes, open/namei, proc_net/proc_sysctl and sget_fc/get_tree helpers retained for Fleux 4.19.325 consumers",
     "mbcache=Fleux fs/mbcache.c retained with Fleux include/linux/mbcache.h to match e_flags and entry lifetime ABI",
     "exfat_symbol_namespace=EXFAT function renamed exfat_buf_lock to avoid collision with MediaTek stp_uart global data symbol",
     "vfs_fdtable_api=Fleux fs/file.c retained to match fd_range dup_fd() and close_range ABI",
