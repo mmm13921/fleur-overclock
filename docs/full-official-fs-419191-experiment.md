@@ -110,3 +110,10 @@ This section is the running record for the isolated experiment. “Patched” me
 - Updated the apply and post-build audit scripts to parse and validate a semantic `v2.x.y` value from `include/linux/susfs.h`, then record and cross-check that exact version in the reports.
 - Run #96: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44217340788), SHA `1defb3813938f0115bc042385deb8bf6769b230e`, failed at the stale v2.3.0 guard.
 - Run #97: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44217431650), SHA `4061a957457a0608a5123c0a7752147388c5e2ce`, failed at the same stale guard.
+
+
+### Run #102: namespace read-only API return-type mismatch
+- Run #102 used the corrected fdtable commit and reached full compilation. It stopped at `fs/namespace.c:249`: the official 4.19.191 donor defines `int __mnt_is_readonly(struct vfsmount *)`, while Fleux 4.19.325 `include/linux/mount.h` declares `extern bool __mnt_is_readonly(struct vfsmount *)`.
+- Confirmed the original Fleux 4.19.325 implementation returns `bool` and evaluates the same mount-read-only condition. The compatibility overlay now changes only the imported definition's return type from `int` to `bool`; the official legacy mount/remount implementation remains in place.
+- Added a post-replacement source audit that checks the Fleux header declaration, the final namespace definition, and its read-only condition, plus a manifest entry for this compatibility overlay.
+- Run #102: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44221481889), SHA `4d8a4c8824b4332eb3ff90b4b575ac5d658a014c`, failed on this compile error. No image, AnyKernel ZIP, or release was produced. The next run must validate the bool API fix.

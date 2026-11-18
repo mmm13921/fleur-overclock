@@ -902,6 +902,25 @@ def apply_fleux_419325_namespace_lsm_remount_compat(src):
             "namespace remount does not use Fleux parsed LSM option API")
 
 
+
+def apply_fleux_419325_namespace_mnt_readonly_compat(src):
+    # Fleux 4.19.325 declares __mnt_is_readonly() as bool in mount.h.
+    # The 4.19.191 donor's int definition conflicts with that public VFS API.
+    # Keep the imported namespace implementation and correct only its return type.
+    namespace_c = src / "fs/namespace.c"
+    replace_once(
+        namespace_c,
+        "int __mnt_is_readonly(struct vfsmount *mnt)\\n{",
+        "bool __mnt_is_readonly(struct vfsmount *mnt)\\n{",
+        "namespace __mnt_is_readonly Fleux bool API compatibility",
+    )
+    updated = namespace_c.read_text()
+    require("bool __mnt_is_readonly(struct vfsmount *mnt)" in updated and
+            "int __mnt_is_readonly(struct vfsmount *mnt)" not in updated and
+            "return (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);" in updated,
+            "namespace __mnt_is_readonly definition does not match Fleux bool VFS API")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -1113,6 +1132,7 @@ def main():
     apply_fleux_419325_proc_ns_compat(src)
     apply_fleux_419325_legacy_mount_api_compat(src)
     apply_fleux_419325_namespace_lsm_remount_compat(src)
+    apply_fleux_419325_namespace_mnt_readonly_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -1182,10 +1202,11 @@ def main():
         "filesystem_reference_branch=sea-t-oss",
         "filesystem_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_reference_commit=" + official_sha,
-        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, SUSFS and targeted API overlays applied",
+        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied",
         "filesystem_source_files=" + str(len(official_files)),
         "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c and explicit compatibility overlays",
         "vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support",
+        "namespace_mnt_api=Fleux bool __mnt_is_readonly() declaration matched by namespace.c definition",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
@@ -1193,7 +1214,7 @@ def main():
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; namespace bool __mnt_is_readonly API matched to Fleux mount.h; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version,
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",
@@ -1206,7 +1227,7 @@ def main():
         "fleuxsu_hooks=minimal inline hooks restored in exec.c,open.c,read_write.c,stat.c",
         "f2fs_mount_options=checkpoint_merge,nocheckpoint_merge,gc_merge,nogc_merge",
         "f2fs_checkpoint=official 4.19.191 checkpoint worker",
-        "vfs_mount=official 4.19.191 namespace.c and super.c",
+        "vfs_mount=official 4.19.191 namespace.c and super.c; __mnt_is_readonly uses Fleux bool API",
         "fs_context=not present in official 4.19.191 fs/ implementation",
         "kernel_base=Fleux Linux 4.19.325; mixed-version integration requires compile and device validation",
         "hardware_validation=not performed by CI",

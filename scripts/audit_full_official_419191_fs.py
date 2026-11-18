@@ -91,6 +91,7 @@ require("struct files_struct *dup_fd(struct files_struct *, struct fd_range *)" 
         "Fleux fdtable header/fork callers do not match the retained fs/file.c implementation")
 
 namespace = (source / "fs/namespace.c").read_text()
+mount_header = (source / "include/linux/mount.h").read_text()
 open_source = (source / "fs/open.c").read_text()
 internal_source = (source / "fs/internal.h").read_text()
 stat_source = (source / "fs/stat.c").read_text()
@@ -119,6 +120,12 @@ require('source "drivers/staging/erofs/Kconfig"' in staging_kconfig,
         "staging Kconfig does not source official EROFS options")
 require("obj-$(CONFIG_EROFS_FS) += erofs/" in staging_makefile,
         "staging Makefile does not build official EROFS")
+
+require("extern bool __mnt_is_readonly(struct vfsmount *mnt);" in mount_header and
+        "bool __mnt_is_readonly(struct vfsmount *mnt)" in namespace and
+        "int __mnt_is_readonly(struct vfsmount *mnt)" not in namespace and
+        "return (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);" in namespace,
+        "namespace __mnt_is_readonly definition does not match Fleux bool mount.h API")
 
 require("change_mount_flags(path->mnt, ms_flags)" in namespace,
         "official legacy bind-remount function is missing")
@@ -315,10 +322,12 @@ require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
         "DPMAIF restore path is missing")
 
 fs_summary = fs_report.read_text()
-require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, SUSFS and targeted API overlays applied" in fs_summary,
+require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied" in fs_summary,
         "report does not confirm the official fs/ replacement and compatibility overlays")
 require("vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support" in fs_summary,
         "report does not confirm retained Fleux VFS fdtable API implementation")
+require("namespace_mnt_api=Fleux bool __mnt_is_readonly() declaration matched by namespace.c definition" in fs_summary,
+        "report does not confirm Fleux namespace bool mount API compatibility")
 require("namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API" in fs_summary and
         "proc_namespace_compat=official procfs namespace link adapted to Fleux int-return ns_get_path API" in fs_summary,
         "report does not confirm the retained Fleux nsfs API pairing and procfs compatibility overlay")
