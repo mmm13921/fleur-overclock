@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/build-hyperos-full-fs.yml
       - scripts/build_kernel.sh
+      - scripts/configure_cgroup_v2.sh
       - scripts/apply_full_official_419191_fs.py
       - scripts/audit_full_official_419191_fs.py
       - scripts/configure_hyperos_fs.sh
