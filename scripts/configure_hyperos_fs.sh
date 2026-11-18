@@ -7,17 +7,23 @@ if [[ ! -s "$CONFIG" || ! -f "$CONFIG_TOOL" ]]; then
   echo "Kernel .config or scripts/config is missing." >&2
   exit 2
 fi
-for path in fs/ext4/Kconfig fs/ext4/Makefile fs/f2fs/Kconfig fs/f2fs/Makefile fs/susfs.c fs/Makefile include/linux/susfs.h drivers/staging/Kconfig drivers/staging/Makefile drivers/staging/erofs/Kconfig drivers/staging/erofs/Makefile fs/fuse/Kconfig; do
+for path in fs/Kconfig fs/ext4/Kconfig fs/ext4/Makefile fs/f2fs/Kconfig fs/f2fs/Makefile fs/susfs.c fs/Makefile include/linux/susfs.h drivers/staging/Kconfig drivers/staging/Makefile drivers/staging/erofs/Kconfig drivers/staging/erofs/Makefile fs/fuse/Kconfig; do
   if [[ ! -s "$SRC_DIR/$path" ]]; then
     echo "Required filesystem source is missing: $path" >&2
     exit 2
   fi
 done
+grep -q '^config IO_URING$' "$SRC_DIR/fs/Kconfig" || {
+  echo "Official filesystem Kconfig does not provide CONFIG_IO_URING." >&2
+  exit 2
+}
 grep -q '^config F2FS_FS_COMPRESSION$' "$SRC_DIR/fs/f2fs/Kconfig" || {
   echo "Fleux source does not provide the F2FS compression options present in the Sea 4.19 reference." >&2
   exit 2
 }
 bash "$CONFIG_TOOL" --file "$CONFIG" \
+  --enable BLOCK \
+  --enable IO_URING \
   --enable EXT4_FS \
   --enable EXT4_FS_POSIX_ACL \
   --enable EXT4_FS_SECURITY \
@@ -64,6 +70,8 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 required=(
+  BLOCK
+  IO_URING
   EXT4_FS
   EXT4_FS_POSIX_ACL
   EXT4_FS_SECURITY
@@ -118,6 +126,7 @@ done
   echo "reference_kernel_version=4.19.325"
   echo "reference_commit=ae44e42c393b44b1534a7fcd7065366abe6bfe65"
   echo "enabled_filesystems=ext4,f2fs,erofs,fuse,overlayfs,exfat,vfat"
+  echo "async_io=io_uring (CONFIG_IO_URING=y)"
   echo "ext4_xattr_support=built-in (no separate Kconfig symbol in this Fleux tree)"
   echo "f2fs_features=xattr,acl,security,encryption,compression-lzo-lz4-zstd"
   echo "inline_fs_encryption=enabled"

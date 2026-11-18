@@ -65,6 +65,8 @@ enabled = set(line for line in cfg if line.startswith("CONFIG_") and line.endswi
 for item in (
     "CONFIG_KSU=y",
     "CONFIG_KSU_SUSFS=y",
+    "CONFIG_BLOCK=y",
+    "CONFIG_IO_URING=y",
     "CONFIG_STAGING=y",
     "CONFIG_EROFS_FS=y",
     "CONFIG_EROFS_FS_XATTR=y",
@@ -125,6 +127,7 @@ anon_inodes_source = (source / "fs/anon_inodes.c").read_text()
 proc_net_source = (source / "fs/proc/proc_net.c").read_text()
 proc_sysctl_source = (source / "fs/proc/proc_sysctl.c").read_text()
 fs_makefile = (source / "fs/Makefile").read_text()
+fs_kconfig = (source / "fs/Kconfig").read_text()
 proc_makefile = (source / "fs/proc/Makefile").read_text()
 mbcache_source = (source / "fs/mbcache.c").read_text()
 mbcache_header = (source / "include/linux/mbcache.h").read_text()
@@ -215,6 +218,19 @@ require("int do_remount_sb2(" in super_c and "sb->s_op->remount_fs" in super_c,
         "official superblock remount callback is missing")
 require("fs_context_for_reconfigure" not in namespace,
         "the modern fs_context remount path unexpectedly remains")
+require(namespace.count("struct vfsmount *vfs_create_mount(struct fs_context *fc)") == 1 and
+        namespace.count("struct vfsmount *fc_mount(struct fs_context *fc)") == 1 and
+        "EXPORT_SYMBOL(vfs_create_mount);" in namespace and
+        "EXPORT_SYMBOL(fc_mount);" in namespace and
+        namespace.count("vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)") == 1,
+        "fs_context fc_mount bridge is missing or the official legacy mount path was replaced")
+require("config IO_URING" in fs_kconfig and
+        "obj-$(CONFIG_IO_URING)" in fs_makefile and "io_uring.o" in fs_makefile,
+        "IO_URING Kconfig/Kbuild registration is missing")
+io_uring_code = strip_c_comments_and_literals(io_uring_source)
+for syscall in ("SYSCALL_DEFINE2(io_uring_setup", "SYSCALL_DEFINE6(io_uring_enter", "SYSCALL_DEFINE4(io_uring_register"):
+    require(syscall in io_uring_code,
+            "Fleux io_uring syscall implementation is missing: " + syscall)
 require("security_sb_eat_lsm_opts(data, &secdata)" in super_c and
         "security_sb_set_mnt_opts(sb, secdata, 0, NULL)" in super_c and
         "security_sb_kern_mount(sb)" in super_c and

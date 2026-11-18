@@ -1052,6 +1052,68 @@ def apply_fleux_419325_fs_context_api_compat(src, fleux_super_source):
     print("Restored Fleux fs_context/parser/io_uring build objects and VFS superblock helpers")
 
 
+
+
+def apply_fleux_419325_fc_mount_compat(src, fleux_namespace_source):
+    # Import only the fs_context mount-construction bridge. Keep Xiaomi's
+    # legacy vfs_kern_mount() and remount implementation intact.
+    helper_pattern = re.compile(
+        r"(?ms)^struct vfsmount \*vfs_create_mount\(struct fs_context \*fc\)\n"
+        r"\{.*?^\}\nEXPORT_SYMBOL\(vfs_create_mount\);\n\n"
+        r"struct vfsmount \*fc_mount\(struct fs_context \*fc\)\n"
+        r"\{.*?^\}\nEXPORT_SYMBOL\(fc_mount\);\n"
+    )
+    match = helper_pattern.search(fleux_namespace_source)
+    require(match is not None,
+            "Fleux vfs_create_mount()/fc_mount() helpers could not be located")
+    helper_block = match.group(0)
+
+    # SUSFS mount hiding is disabled in this profile. Strip its optional
+    # allocation branch and retain the ordinary alloc_vfsmnt() path only.
+    helper_block = re.sub(
+        r"(?ms)^#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n"
+        r".*?^#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n",
+        "",
+        helper_block,
+    )
+    helper_block = re.sub(r"(?m)^[ \t]*bypass_orig_flow:\n", "", helper_block)
+    require("susfs_" not in helper_block and "bypass_orig_flow:" not in helper_block,
+            "fc_mount compatibility helper retained a disabled SUSFS branch")
+
+    path = src / "fs/namespace.c"
+    namespace = path.read_text()
+    require("struct vfsmount *vfs_create_mount(" not in namespace and
+            "struct vfsmount *fc_mount(" not in namespace,
+            "official namespace.c unexpectedly already defines fs_context mount helpers")
+    if "#include <linux/fs_context.h>" not in namespace:
+        include_anchor = "#include <linux/task_work.h>\n"
+        require(namespace.count(include_anchor) == 1,
+                "official namespace.c has no unique fs_context header insertion point")
+        namespace = namespace.replace(
+            include_anchor, include_anchor + "#include <linux/fs_context.h>\n", 1
+        )
+
+    # Place the two helpers after alloc_vfsmnt()/free_vfsmnt() definitions,
+    # immediately before the untouched legacy vfs_kern_mount() definition.
+    marker = "vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)\n{"
+    marker_pos = namespace.find(marker)
+    require(marker_pos >= 0 and namespace.count(marker) == 1,
+            "official legacy vfs_kern_mount() insertion anchor is missing or ambiguous")
+    insert_pos = namespace.rfind("struct vfsmount *", 0, marker_pos)
+    require(insert_pos >= 0,
+            "official legacy vfs_kern_mount() return-type anchor is missing")
+    namespace = namespace[:insert_pos] + helper_block + "\n\n" + namespace[insert_pos:]
+
+    require(namespace.count("struct vfsmount *vfs_create_mount(") == 1 and
+            namespace.count("struct vfsmount *fc_mount(") == 1 and
+            "EXPORT_SYMBOL(vfs_create_mount);" in namespace and
+            "EXPORT_SYMBOL(fc_mount);" in namespace and
+            namespace.count(marker) == 1,
+            "fc_mount helpers were not integrated without replacing legacy vfs_kern_mount()")
+    path.write_text(namespace)
+    print("Restored Fleux fs_context vfs_create_mount()/fc_mount() bridge; retained official legacy vfs_kern_mount()")
+
+
 def apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source):
     # Keep official eventfd.c except the exported Fleux helper required by
     # include/linux/eventfd.h and the Fleux eventfd semaphore semantics.
@@ -1204,6 +1266,10 @@ def main():
             "Fleux mbcache implementation fs/mbcache.c is missing before replacement")
     fleux_mbcache_source = fleux_mbcache_path.read_bytes()
     fleux_super_source = (src / "fs/super.c").read_text()
+    fleux_namespace_path = src / "fs/namespace.c"
+    require(fleux_namespace_path.is_file(),
+            "Fleux VFS namespace source fs/namespace.c is missing before replacement")
+    fleux_namespace_source = fleux_namespace_path.read_text()
     fleux_api_sources = {}
     for rel in FLEUX_API_PRESERVED_FILES:
         path = src / rel
@@ -1392,6 +1458,7 @@ def main():
     apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source)
     apply_fleux_419325_exfat_buf_lock_namespace_compat(src)
     apply_fleux_419325_fs_context_api_compat(src, fleux_super_source)
+    apply_fleux_419325_fc_mount_compat(src, fleux_namespace_source)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -1472,11 +1539,12 @@ def main():
         "exfat_symbol_namespace=official EXFAT buf_lock() function/prototype/callers renamed exfat_buf_lock() to avoid collision with Fleux MediaTek stp_uart global buf_lock data symbol",
         "fs_context_api=Fleux fs_context.c/fs_parser.c restored and built for current mount-context consumers; official legacy namespace mount/remount code remains",
         "vfs_super_helpers=Fleux sget_fc/set_anon_super_fc/vfs_get_super/get_tree_nodev/get_tree_single merged into official super.c without replacing legacy mount_fs/do_remount_sb2",
+        "fc_mount_api=Fleux vfs_create_mount/fc_mount helpers imported into official namespace.c; official legacy vfs_kern_mount and remount paths retained",
         "vfs_syscall_api=Fleux fs/open.c retained for openat2/close_range/vfs_fchown/vfs_fchmod and current faccessat ABI",
         "vfs_namei_api=Fleux fs/namei.c retained for lookup_positive_unlocked and exported filename_lookup ABI",
         "pseudo_fs_api=Fleux fs/libfs.c and fs/anon_inodes.c retained for init_pseudo and anon_inode_getfd_secure",
         "proc_api=Fleux fs/proc/proc_net.c and proc_sysctl.c retained for BPF net iterator and __register_sysctl_init symbols",
-        "io_uring_api=Fleux fs/io_uring.c retained and linked with CONFIG_IO_URING for arm64 io_uring syscall wrappers",
+        "io_uring_api=Fleux fs/io_uring.c retained, CONFIG_IO_URING forced on, and setup/enter/register syscall wrappers audited for ARM64 syscall-table resolution",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
@@ -1497,7 +1565,7 @@ def main():
         "fleuxsu_hooks=minimal inline hooks restored in exec.c,open.c,read_write.c,stat.c",
         "f2fs_mount_options=checkpoint_merge,nocheckpoint_merge,gc_merge,nogc_merge",
         "f2fs_checkpoint=official 4.19.191 checkpoint worker",
-        "vfs_mount=official 4.19.191 namespace.c and super.c; __mnt_is_readonly uses Fleux bool API",
+        "vfs_mount=official 4.19.191 namespace.c and super.c plus the Fleux fs_context mount-construction bridge; __mnt_is_readonly uses Fleux bool API",
         "fs_context=not present in official 4.19.191 fs/ implementation",
         "kernel_base=Fleux Linux 4.19.325; mixed-version integration requires compile and device validation",
         "hardware_validation=not performed by CI",
