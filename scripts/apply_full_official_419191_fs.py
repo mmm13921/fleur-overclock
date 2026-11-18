@@ -904,17 +904,20 @@ def apply_fleux_419325_namespace_lsm_remount_compat(src):
 
 
 def apply_fleux_419325_namespace_mnt_readonly_compat(src):
-    # Fleux 4.19.325 declares __mnt_is_readonly() as bool in mount.h.
-    # The 4.19.191 donor's int definition conflicts with that public VFS API.
-    # Keep the imported namespace implementation and correct only its return type.
+    # Match harmless whitespace variations in the donor's function declaration.
+    # The public Fleux mount.h API declares this helper as bool.
     namespace_c = src / "fs/namespace.c"
-    replace_once(
-        namespace_c,
-        "int __mnt_is_readonly(struct vfsmount *mnt)\n{",
-        "bool __mnt_is_readonly(struct vfsmount *mnt)\n{",
-        "namespace __mnt_is_readonly Fleux bool API compatibility",
+    text = namespace_c.read_text()
+    pattern = r"(?m)^int\\s+__mnt_is_readonly\\s*\\(\\s*struct\\s+vfsmount\\s*\\*\\s*mnt\\s*\\)\\s*\\n\\s*\\{"
+    updated, count = re.subn(
+        pattern,
+        "bool __mnt_is_readonly(struct vfsmount *mnt)\\n{",
+        text,
+        count=1,
     )
-    updated = namespace_c.read_text()
+    require(count == 1,
+            "namespace __mnt_is_readonly donor definition not found exactly once")
+    namespace_c.write_text(updated)
     require("bool __mnt_is_readonly(struct vfsmount *mnt)" in updated and
             "int __mnt_is_readonly(struct vfsmount *mnt)" not in updated and
             "return (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);" in updated,
