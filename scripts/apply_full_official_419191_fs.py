@@ -930,6 +930,42 @@ def apply_fleux_419325_namespace_mnt_readonly_compat(src):
 
 
 
+def apply_fleux_419325_exfat_buf_lock_namespace_compat(src):
+    # The official EXFAT driver exports a function named buf_lock(), while
+    # Fleux's MediaTek stp_uart.c has a global data symbol with that name.
+    # Rename only the EXFAT function and all references in its own subsystem.
+    exfat_dir = src / "fs/exfat"
+    require(exfat_dir.is_dir(),
+            "official EXFAT source directory is missing")
+    replaced = 0
+    touched = 0
+    for path in sorted(exfat_dir.rglob("*")):
+        if not path.is_file() or path.suffix not in (".c", ".h"):
+            continue
+        text = path.read_text()
+        count = len(re.findall(r"\\bbuf_lock\\b", text))
+        if count:
+            updated = re.sub(r"\\bbuf_lock\\b", "exfat_buf_lock", text)
+            path.write_text(updated)
+            replaced += count
+            touched += 1
+    require(replaced >= 3 and touched >= 3,
+            "EXFAT buf_lock declaration/prototype/call sites were not all found")
+    cache_c = (exfat_dir / "exfat_cache.c").read_text()
+    cache_h = (exfat_dir / "exfat_cache.h").read_text()
+    core_c = (exfat_dir / "exfat_core.c").read_text()
+    require("void exfat_buf_lock(struct super_block *sb, sector_t sec)" in cache_c and
+            "void   exfat_buf_lock(struct super_block *sb, sector_t sec);" in cache_h and
+            "exfat_buf_lock(sb," in core_c,
+            "EXFAT buf_lock rename did not update its definition, prototype and callers")
+    for path in exfat_dir.rglob("*"):
+        if path.is_file() and path.suffix in (".c", ".h"):
+            require(re.search(r"\\bbuf_lock\\b", path.read_text()) is None,
+                    "unrenamed buf_lock identifier remains in " + path.relative_to(src).as_posix())
+    print("EXFAT buf_lock namespaced as exfat_buf_lock in", touched,
+          "files (", replaced, "identifier occurrences )")
+
+
 def apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source):
     # Keep official eventfd.c except the exported Fleux helper required by
     # include/linux/eventfd.h and the Fleux eventfd semaphore semantics.
@@ -1245,6 +1281,7 @@ def main():
     apply_fleux_419325_namespace_mnt_readonly_compat(src)
     apply_fleux_419325_simple_xattr_set_compat(src, fleux_xattr_source)
     apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source)
+    apply_fleux_419325_exfat_buf_lock_namespace_compat(src)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -1322,6 +1359,7 @@ def main():
         "eventfd_api=official fs/eventfd.c with only Fleux exported eventfd_ctx_do_read() retained",
         "userfaultfd_api=Fleux fs/userfaultfd.c retained for 4.19.325 mmap_write_lock, __VM_UFFD_FLAGS and UFFD MINOR API compatibility",
         "mbcache_api=Fleux fs/mbcache.c retained to match include/linux/mbcache.h e_flags, delete_or_get, wait_unused and two-argument __mb_cache_entry_free ABI",
+        "exfat_symbol_namespace=official EXFAT buf_lock() function/prototype/callers renamed exfat_buf_lock() to avoid collision with Fleux MediaTek stp_uart global buf_lock data symbol",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
@@ -1329,7 +1367,7 @@ def main():
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; Fleux fs/mbcache.c retained for the 4.19.325 mbcache structure and lifetime ABI; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; namespace bool __mnt_is_readonly API matched to Fleux mount.h; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API; userfaultfd VMA seqcount API replaced by Fleux mmap_write_lock implementation with __VM_UFFD_FLAGS and UFFD MINOR support",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; Fleux fs/mbcache.c retained for the 4.19.325 mbcache structure and lifetime ABI; EXFAT buf_lock file-local namespace renamed to exfat_buf_lock to avoid the MediaTek stp_uart duplicate global symbol; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; namespace bool __mnt_is_readonly API matched to Fleux mount.h; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API; userfaultfd VMA seqcount API replaced by Fleux mmap_write_lock implementation with __VM_UFFD_FLAGS and UFFD MINOR support",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version,
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",

@@ -119,6 +119,10 @@ eventfd_h = (source / "include/linux/eventfd.h").read_text()
 userfaultfd_source = (source / "fs/userfaultfd.c").read_text()
 mbcache_source = (source / "fs/mbcache.c").read_text()
 mbcache_header = (source / "include/linux/mbcache.h").read_text()
+exfat_cache_source = (source / "fs/exfat/exfat_cache.c").read_text()
+exfat_cache_header = (source / "fs/exfat/exfat_cache.h").read_text()
+exfat_core_source = (source / "fs/exfat/exfat_core.c").read_text()
+stp_uart_source = (source / "drivers/misc/mediatek/connectivity/common/common_main/linux/stp_uart.c").read_text()
 mount_header = (source / "include/linux/mount.h").read_text()
 open_source = (source / "fs/open.c").read_text()
 internal_source = (source / "fs/internal.h").read_text()
@@ -390,6 +394,16 @@ require("entry->e_reusable" not in mbcache_source and
         "entry->e_referenced" not in mbcache_source,
         "obsolete donor mbcache entry fields remain in the retained implementation")
 
+require("void exfat_buf_lock(struct super_block *sb, sector_t sec)" in exfat_cache_source and
+        "void   exfat_buf_lock(struct super_block *sb, sector_t sec);" in exfat_cache_header and
+        "exfat_buf_lock(sb," in exfat_core_source and
+        re.search(r"\\bbuf_lock\\s*\\(", exfat_cache_source) is None and
+        re.search(r"\\bbuf_lock\\s*\\(", exfat_cache_header) is None and
+        re.search(r"\\bbuf_lock\\s*\\(", exfat_core_source) is None,
+        "EXFAT buf_lock function namespace is not fully renamed")
+require(re.search(r"(?m)^spinlock_t buf_lock;", stp_uart_source) is not None,
+        "Fleux MediaTek stp_uart global buf_lock source symbol is missing")
+
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
 dpmaif = dpmaif_path.read_text()
@@ -448,6 +462,7 @@ for token in (
     "namespace remount LSM options",
     "spin_release adapted",
     "userfaultfd VMA seqcount API",
+    "EXFAT buf_lock file-local namespace",
 ):
     require(token in overlay, "overlay manifest is missing: " + token)
 require("eventfd_api=" in fs_summary,
@@ -456,6 +471,8 @@ require("userfaultfd_api=" in fs_summary,
         "report does not confirm the retained Fleux userfaultfd implementation")
 require("mbcache_api=Fleux fs/mbcache.c retained to match include/linux/mbcache.h e_flags, delete_or_get, wait_unused and two-argument __mb_cache_entry_free ABI" in fs_summary,
         "report does not confirm the retained Fleux mbcache/header API pairing")
+require("exfat_symbol_namespace=official EXFAT buf_lock() function/prototype/callers renamed exfat_buf_lock() to avoid collision with Fleux MediaTek stp_uart global buf_lock data symbol" in fs_summary,
+        "report does not confirm the EXFAT/MediaTek buf_lock symbol collision fix")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
 require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version in fs_summary,
@@ -466,6 +483,7 @@ lines = [
     "kernel_base=Fleux Linux 4.19.325",
     "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c/SUSFS and filesystem API overlays",
     "mbcache=Fleux fs/mbcache.c retained with Fleux include/linux/mbcache.h to match e_flags and entry lifetime ABI",
+    "exfat_symbol_namespace=EXFAT function renamed exfat_buf_lock to avoid collision with MediaTek stp_uart global data symbol",
     "vfs_fdtable_api=Fleux fs/file.c retained to match fd_range dup_fd() and close_range ABI",
     "xattr_api=Fleux six-argument simple_xattr_set() removed_size ABI and semantics retained in official fs/xattr.c",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",
