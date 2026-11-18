@@ -117,6 +117,8 @@ xattr_source = (source / "fs/xattr.c").read_text()
 eventfd_c = strip_c_comments_and_literals((source / "fs/eventfd.c").read_text())
 eventfd_h = (source / "include/linux/eventfd.h").read_text()
 userfaultfd_source = (source / "fs/userfaultfd.c").read_text()
+mbcache_source = (source / "fs/mbcache.c").read_text()
+mbcache_header = (source / "include/linux/mbcache.h").read_text()
 mount_header = (source / "include/linux/mount.h").read_text()
 open_source = (source / "fs/open.c").read_text()
 internal_source = (source / "fs/internal.h").read_text()
@@ -371,6 +373,23 @@ require("clear_bit(MBE_REUSABLE_B, &ce->e_flags);" in ext4_xattr,
 require("ce->e_reusable" not in ext4_xattr,
         "obsolete EXT4 mbcache e_reusable field access remains")
 
+require("MBE_REFERENCED_B" in mbcache_header and "MBE_REUSABLE_B" in mbcache_header and
+        "e_flags;" in mbcache_header,
+        "Fleux mbcache header flags/structure ABI is missing")
+require("void __mb_cache_entry_free(struct mb_cache *cache," in mbcache_header and
+        "static inline void mb_cache_entry_put(struct mb_cache *cache," in mbcache_header and
+        "mb_cache_entry_delete_or_get" in mbcache_header and
+        "mb_cache_entry_wait_unused" in mbcache_header,
+        "Fleux mbcache header lifetime/API declarations are incomplete")
+require("void __mb_cache_entry_free(struct mb_cache *cache, struct mb_cache_entry *entry)" in mbcache_source and
+        "mb_cache_entry_delete_or_get" in mbcache_source and
+        "mb_cache_entry_wait_unused" in mbcache_source and
+        "test_bit(MBE_REUSABLE_B, &entry->e_flags)" in mbcache_source,
+        "retained Fleux mbcache implementation does not match its 4.19.325 header ABI")
+require("entry->e_reusable" not in mbcache_source and
+        "entry->e_referenced" not in mbcache_source,
+        "obsolete donor mbcache entry fields remain in the retained implementation")
+
 dpmaif_path = source / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
 require(dpmaif_path.is_file(), "MT6781 DPMAIF source is missing")
 dpmaif = dpmaif_path.read_text()
@@ -391,7 +410,7 @@ require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
         "DPMAIF restore path is missing")
 
 fs_summary = fs_report.read_text()
-require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied" in fs_summary,
+require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, userfaultfd.c, mbcache.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied" in fs_summary,
         "report does not confirm the official fs/ replacement and compatibility overlays")
 require("vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support" in fs_summary,
         "report does not confirm retained Fleux VFS fdtable API implementation")
@@ -409,7 +428,7 @@ require("filesystem_preserved_overlay=Fleux fs/susfs.c" in fs_summary,
         "report does not confirm retained Fleux SUSFS implementation")
 require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
-require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c and explicit compatibility overlays" in fs_summary,
+require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
 overlay = next(
     (line for line in fs_summary.splitlines()
@@ -435,6 +454,8 @@ require("eventfd_api=" in fs_summary,
         "report does not confirm the Fleux eventfd compatibility overlay")
 require("userfaultfd_api=" in fs_summary,
         "report does not confirm the retained Fleux userfaultfd implementation")
+require("mbcache_api=Fleux fs/mbcache.c retained to match include/linux/mbcache.h e_flags, delete_or_get, wait_unused and two-argument __mb_cache_entry_free ABI" in fs_summary,
+        "report does not confirm the retained Fleux mbcache/header API pairing")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
 require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version in fs_summary,
@@ -443,7 +464,8 @@ require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_versio
 lines = [
     "profile=hyperos-full-fs",
     "kernel_base=Fleux Linux 4.19.325",
-    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/userfaultfd.c/SUSFS and filesystem API overlays",
+    "filesystem=official MT6781 Linux 4.19.191 fs/ tree plus Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c/SUSFS and filesystem API overlays",
+    "mbcache=Fleux fs/mbcache.c retained with Fleux include/linux/mbcache.h to match e_flags and entry lifetime ABI",
     "vfs_fdtable_api=Fleux fs/file.c retained to match fd_range dup_fd() and close_range ABI",
     "xattr_api=Fleux six-argument simple_xattr_set() removed_size ABI and semantics retained in official fs/xattr.c",
     "filesystem_tree=all official donor files checked before explicit compatibility overlays",

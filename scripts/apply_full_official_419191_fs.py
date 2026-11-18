@@ -1077,6 +1077,10 @@ def main():
     require(fleux_userfaultfd_path.is_file(),
             "Fleux userfaultfd implementation fs/userfaultfd.c is missing before replacement")
     fleux_userfaultfd_source = fleux_userfaultfd_path.read_bytes()
+    fleux_mbcache_path = src / "fs/mbcache.c"
+    require(fleux_mbcache_path.is_file(),
+            "Fleux mbcache implementation fs/mbcache.c is missing before replacement")
+    fleux_mbcache_source = fleux_mbcache_path.read_bytes()
     fleux_kernfs_path = src / "fs/kernfs"
     require(fleux_kernfs_path.is_dir(),
             "Fleux fs/kernfs directory is missing before replacement")
@@ -1164,6 +1168,10 @@ def main():
         # Retain Fleux 4.19.325 userfaultfd for VMA lock and UFFD flag/minor ABI.
         (target_fs / "userfaultfd.c").write_bytes(fleux_userfaultfd_source)
 
+        # Keep Fleux mbcache paired with include/linux/mbcache.h: the donor
+        # uses removed e_reusable/e_referenced fields and an older free/put ABI.
+        (target_fs / "mbcache.c").write_bytes(fleux_mbcache_source)
+
         # Keep only the dedicated SUSFS implementation from Fleux. The
         # Makefile link is added after donor byte-verification below.
         (target_fs / "susfs.c").write_bytes(fleux_susfs_source)
@@ -1201,9 +1209,11 @@ def main():
             "retained Fleux fs/nsfs.c changed during filesystem replacement")
     require((src / "fs/userfaultfd.c").read_bytes() == fleux_userfaultfd_source,
             "retained Fleux fs/userfaultfd.c changed during filesystem replacement")
+    require((src / "fs/mbcache.c").read_bytes() == fleux_mbcache_source,
+            "retained Fleux fs/mbcache.c changed during filesystem replacement")
     # Verify every installed fs/ file against the official Git blob object.
     for rel in official_files:
-        if rel.startswith("fs/kernfs/") or rel in ("fs/nsfs.c", "fs/file.c", "fs/userfaultfd.c"):
+        if rel.startswith("fs/kernfs/") or rel in ("fs/nsfs.c", "fs/file.c", "fs/userfaultfd.c", "fs/mbcache.c"):
             continue
         expected = run_git(src, ["rev-parse", "FETCH_HEAD:" + rel]).stdout.decode().strip()
         actual = git_blob_sha(src / rel)
@@ -1304,13 +1314,14 @@ def main():
         "filesystem_reference_branch=sea-t-oss",
         "filesystem_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_reference_commit=" + official_sha,
-        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, userfaultfd.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied",
+        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, userfaultfd.c, mbcache.c, SUSFS and targeted API overlays including Fleux namespace bool ABI applied",
         "filesystem_source_files=" + str(len(official_files)),
-        "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c and explicit compatibility overlays",
+        "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c/userfaultfd.c/mbcache.c and explicit compatibility overlays",
         "vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support",
         "namespace_mnt_api=Fleux bool __mnt_is_readonly() declaration matched by namespace.c definition",
         "eventfd_api=official fs/eventfd.c with only Fleux exported eventfd_ctx_do_read() retained",
         "userfaultfd_api=Fleux fs/userfaultfd.c retained for 4.19.325 mmap_write_lock, __VM_UFFD_FLAGS and UFFD MINOR API compatibility",
+        "mbcache_api=Fleux fs/mbcache.c retained to match include/linux/mbcache.h e_flags, delete_or_get, wait_unused and two-argument __mb_cache_entry_free ABI",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
@@ -1318,7 +1329,7 @@ def main():
         "filesystem_preserved_overlay=Fleux fs/susfs.c",
         "task_mmu_soft_dirty_api=Fleux 4.19.325 VMA update under mmap_write_lock; vm_sequence API not required",
         "procfs_security_api=Fleux LSM-aware getprocattr/setprocattr signatures; NULL selector preserves unfiltered legacy behavior",
-        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; namespace bool __mnt_is_readonly API matched to Fleux mount.h; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API; userfaultfd VMA seqcount API replaced by Fleux mmap_write_lock implementation with __VM_UFFD_FLAGS and UFFD MINOR support",
+        "filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; Fleux fs/mbcache.c retained for the 4.19.325 mbcache structure and lifetime ABI; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; exec.c INIT_VMA removed because Fleux vm_area_alloc() uses vma_init(); procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper; namespace bool __mnt_is_readonly API matched to Fleux mount.h; legacy mount_fs/do_remount_sb2 adapted to Fleux mount/remount callbacks and eat_lsm_opts/set_mnt_opts/kern_mount LSM API; namespace remount LSM options parsed and released with Fleux eat_lsm_opts/remount/free_mnt_opts API; VFS dcache spin_release adapted to Fleux two-argument lockdep API; userfaultfd VMA seqcount API replaced by Fleux mmap_write_lock implementation with __VM_UFFD_FLAGS and UFFD MINOR support",
         "filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o",
         "susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version,
         "f2fs_support_headers=include/linux/f2fs_fs.h,include/trace/events/f2fs.h",

@@ -117,3 +117,9 @@ This section is the running record for the isolated experiment. “Patched” me
 - Confirmed the original Fleux 4.19.325 implementation returns `bool` and evaluates the same mount-read-only condition. The compatibility overlay now changes only the imported definition's return type from `int` to `bool`; the official legacy mount/remount implementation remains in place.
 - Added a post-replacement source audit that checks the Fleux header declaration, the final namespace definition, and its read-only condition, plus a manifest entry for this compatibility overlay.
 - Run #102: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44221481889), SHA `4d8a4c8824b4332eb3ff90b4b575ac5d658a014c`, failed on this compile error. No image, AnyKernel ZIP, or release was produced. The next run must validate the bool API fix.
+
+
+### Run #113: mbcache structure and lifetime ABI mismatch
+- Run #113 passed source replacement/audit and progressed through the previous `userfaultfd.c` compile failure. Compilation then stopped in donor `fs/mbcache.c`: the donor reads `e_reusable` / `e_referenced`, declares one-argument `__mb_cache_entry_free()`, and expects an integer-returning `mb_cache_entry_put()`; Fleux 4.19.325 `include/linux/mbcache.h` instead exposes `e_flags` bits, a two-argument free helper, a void-return put helper, and additional `delete_or_get` / `wait_unused` APIs.
+- Applied source-grounded correction: preserve Fleux `fs/mbcache.c` together with Fleux `include/linux/mbcache.h`, and keep the narrow EXT4 `e_reusable` to `MBE_REUSABLE_B` conversion. The build and post-build audits now verify this source/header pairing and record it in the manifests.
+- The next full CI run must still confirm compilation and may expose additional donor/Fleux API mismatches. No AnyKernel ZIP, prerelease, or device-level result is inferred from Run #113.
