@@ -904,17 +904,23 @@ def apply_fleux_419325_namespace_lsm_remount_compat(src):
 
 
 def apply_fleux_419325_namespace_mnt_readonly_compat(src):
-    # Match harmless whitespace variations in the donor's function declaration.
-    # The public Fleux mount.h API declares this helper as bool.
+    # Replace the complete donor helper with the Fleux bool VFS implementation.
+    # Avoid a greedy \\s* before an explicit newline: whitespace matching must
+    # not consume the line break that the pattern subsequently expects.
     namespace_c = src / "fs/namespace.c"
     text = namespace_c.read_text()
-    pattern = r"(?m)^int\s+__mnt_is_readonly\s*\(\s*struct\s+vfsmount\s*\*\s*mnt\s*\)\s*\n\s*\{"
-    updated, count = re.subn(
-        pattern,
-        "bool __mnt_is_readonly(struct vfsmount *mnt)\n{",
-        text,
-        count=1,
+    pattern = (
+        r"(?ms)^int[ \\t]+__mnt_is_readonly[ \\t]*"
+        r"\\([ \\t]*struct[ \\t]+vfsmount[ \\t]*\\*[ \\t]*mnt[ \\t]*\\)"
+        r"[ \\t\\r\\n]*\\{.*?^\\}"
     )
+    replacement = (
+        "bool __mnt_is_readonly(struct vfsmount *mnt)\\n"
+        "{\\n"
+        "\\treturn (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);\\n"
+        "}"
+    )
+    updated, count = re.subn(pattern, replacement, text, count=1)
     require(count == 1,
             "namespace __mnt_is_readonly donor definition not found exactly once")
     namespace_c.write_text(updated)
@@ -922,7 +928,6 @@ def apply_fleux_419325_namespace_mnt_readonly_compat(src):
             "int __mnt_is_readonly(struct vfsmount *mnt)" not in updated and
             "return (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);" in updated,
             "namespace __mnt_is_readonly definition does not match Fleux bool VFS API")
-
 
 
 def main():
