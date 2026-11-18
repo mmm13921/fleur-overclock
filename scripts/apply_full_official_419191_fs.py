@@ -1020,6 +1020,31 @@ def apply_fleux_419325_fs_context_api_compat(src, fleux_super_source):
         anchor, anchor + "\n" + sget_block + "\n\n" + vfs_block + "\n", 1
     )
     super_path.write_text(super_text)
+
+    # The Xiaomi 4.19.191 fs/Kconfig predates io_uring, while the retained
+    # Fleux fs/io_uring.c and ARM64 syscall tables require its Kconfig symbol.
+    # Restore only this option; leave the rest of the official Kconfig intact.
+    kconfig_path = src / "fs/Kconfig"
+    kconfig = kconfig_path.read_text()
+    if not re.search(r"(?m)^config IO_URING$", kconfig):
+        kconfig_anchor = 'source "fs/nls/Kconfig"\\n'
+        require(kconfig.count(kconfig_anchor) == 1,
+                "official fs/Kconfig has no unique NLS insertion point for IO_URING")
+        io_uring_option = (
+            "\\nconfig IO_URING\\n"
+            "\\tbool \\\"Enable io_uring support\\\"\\n"
+            "\\tdepends on BLOCK\\n"
+            "\\thelp\\n"
+            "\\t  This option enables support for io_uring, a Linux-native\\n"
+            "\\t  asynchronous I/O interface.\\n"
+            "\\t  If unsure, say N.\\n"
+        )
+        kconfig = kconfig.replace(kconfig_anchor, kconfig_anchor + io_uring_option, 1)
+        kconfig_path.write_text(kconfig)
+    require(re.search(r"(?m)^config IO_URING$", kconfig) is not None and
+            re.search(r"(?m)^\\s*depends on BLOCK$", kconfig) is not None,
+            "CONFIG_IO_URING Kconfig option was not restored correctly")
+
     require("struct super_block *sget_fc(" in super_text and
             "int set_anon_super_fc(" in super_text and
             "int vfs_get_super(" in super_text and
