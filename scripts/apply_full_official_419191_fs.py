@@ -905,19 +905,17 @@ def apply_fleux_419325_namespace_lsm_remount_compat(src):
 
 def apply_fleux_419325_namespace_mnt_readonly_compat(src):
     # Replace the complete donor helper with the Fleux bool VFS implementation.
-    # Avoid a greedy \\s* before an explicit newline: whitespace matching must
-    # not consume the line break that the pattern subsequently expects.
     namespace_c = src / "fs/namespace.c"
     text = namespace_c.read_text()
     pattern = (
-        r"(?ms)^int[ \\t]+__mnt_is_readonly[ \\t]*"
-        r"\\([ \\t]*struct[ \\t]+vfsmount[ \\t]*\\*[ \\t]*mnt[ \\t]*\\)"
-        r"[ \\t\\r\\n]*\\{.*?^\\}"
+        r"(?ms)^int[ \t]+__mnt_is_readonly[ \t]*"
+        r"\([ \t]*struct[ \t]+vfsmount[ \t]*\*[ \t]*mnt[ \t]*\)"
+        r"[ \t\r\n]*\{.*?^\}"
     )
     replacement = (
-        "bool __mnt_is_readonly(struct vfsmount *mnt)\\n"
-        "{\\n"
-        "\\treturn (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);\\n"
+        "bool __mnt_is_readonly(struct vfsmount *mnt)\n"
+        "{\n"
+        "\treturn (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);\n"
         "}"
     )
     updated, count = re.subn(pattern, replacement, text, count=1)
