@@ -953,6 +953,12 @@ def main():
     require(fleux_nsfs_path.is_file(),
             "Fleux namespace filesystem fs/nsfs.c is missing before replacement")
     fleux_nsfs_source = fleux_nsfs_path.read_bytes()
+    # Fleux's fdtable header and fork callers use the fd_range dup_fd() ABI,
+    # ERR_PTR() failures and close_range support; the 4.19.191 donor is older.
+    fleux_file_path = src / "fs/file.c"
+    require(fleux_file_path.is_file(),
+            "Fleux VFS fdtable implementation fs/file.c is missing before replacement")
+    fleux_file_source = fleux_file_path.read_bytes()
     fleux_open_path = src / "fs/open.c"
     require(fleux_open_path.is_file(),
             "Fleux filesystem fs/open.c is missing before replacement")
@@ -1036,6 +1042,11 @@ def main():
         # ns_get_path() implementation aligned with include/linux/proc_ns.h.
         (target_fs / "nsfs.c").write_bytes(fleux_nsfs_source)
 
+        # Keep Fleux's fdtable implementation: its dup_fd(oldf, fd_range)
+        # ABI, ERR_PTR() contract and close_range support match Fleux headers
+        # and kernel/fork.c; the 4.19.191 version does not.
+        (target_fs / "file.c").write_bytes(fleux_file_source)
+
         # Keep only the dedicated SUSFS implementation from Fleux. The
         # Makefile link is added after donor byte-verification below.
         (target_fs / "susfs.c").write_bytes(fleux_susfs_source)
@@ -1073,7 +1084,7 @@ def main():
             "retained Fleux fs/nsfs.c changed during filesystem replacement")
     # Verify every installed fs/ file against the official Git blob object.
     for rel in official_files:
-        if rel.startswith("fs/kernfs/") or rel == "fs/nsfs.c":
+        if rel.startswith("fs/kernfs/") or rel in ("fs/nsfs.c", "fs/file.c"):
             continue
         expected = run_git(src, ["rev-parse", "FETCH_HEAD:" + rel]).stdout.decode().strip()
         actual = git_blob_sha(src / rel)
@@ -1171,9 +1182,10 @@ def main():
         "filesystem_reference_branch=sea-t-oss",
         "filesystem_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_reference_commit=" + official_sha,
-        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, SUSFS and targeted API overlays applied",
+        "filesystem_scope=complete official fs/ tree installed; Fleux kernfs, nsfs, file.c, SUSFS and targeted API overlays applied",
         "filesystem_source_files=" + str(len(official_files)),
-        "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs and explicit compatibility overlays",
+        "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c and explicit compatibility overlays",
+        "vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
