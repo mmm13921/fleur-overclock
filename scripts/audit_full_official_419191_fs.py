@@ -27,6 +27,28 @@ def strip_c_comments_and_literals(source):
     return re.sub(pattern, " ", source, flags=re.S)
 
 
+
+def xattr_set_arg_counts(source):
+    code = strip_c_comments_and_literals(source)
+    counts = []
+    for match in re.finditer(r"\bsimple_xattr_set\s*\(", code):
+        depth = 1
+        args = 1
+        pos = match.end()
+        while pos < len(code) and depth:
+            ch = code[pos]
+            if ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                depth -= 1
+            elif ch == "," and depth == 1:
+                args += 1
+            pos += 1
+        require(depth == 0, "unbalanced simple_xattr_set() argument list")
+        counts.append(args)
+    return counts
+
+
 require(image.is_file() and image.stat().st_size > 0, "kernel image is missing")
 require(config.is_file(), "kernel config is missing")
 require(fs_report.is_file(), "full official filesystem replacement report is missing")
@@ -92,6 +114,8 @@ require("struct files_struct *dup_fd(struct files_struct *, struct fd_range *)" 
 
 namespace = (source / "fs/namespace.c").read_text()
 xattr_source = (source / "fs/xattr.c").read_text()
+eventfd_c = strip_c_comments_and_literals((source / "fs/eventfd.c").read_text())
+eventfd_h = (source / "include/linux/eventfd.h").read_text()
 mount_header = (source / "include/linux/mount.h").read_text()
 open_source = (source / "fs/open.c").read_text()
 internal_source = (source / "fs/internal.h").read_text()
@@ -127,6 +151,35 @@ require("extern bool __mnt_is_readonly(struct vfsmount *mnt);" in mount_header a
         "int __mnt_is_readonly(struct vfsmount *mnt)" not in namespace and
         "return (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);" in namespace,
         "namespace __mnt_is_readonly definition does not match Fleux bool mount.h API")
+
+eventfd_c = strip_c_comments_and_literals((source / "fs/eventfd.c").read_text())
+eventfd_h = (source / "include/linux/eventfd.h").read_text()
+require(
+    re.search(
+        r"(?m)^void[ \t]+eventfd_ctx_do_read\(struct eventfd_ctx \*ctx,[ \t]*__u64 \*cnt\);$",
+        eventfd_h,
+    ) is not None
+    and re.search(r"\bstatic\s+void\s+eventfd_ctx_do_read\b", eventfd_c) is None
+    and "EXPORT_SYMBOL_GPL(eventfd_ctx_do_read);" in eventfd_c
+    and "lockdep_assert_held(&ctx->wqh.lock);" in eventfd_c
+    and "(ctx->flags & EFD_SEMAPHORE) && ctx->count" in eventfd_c,
+    "eventfd_ctx_do_read does not match the Fleux header ABI and semaphore semantics",
+)
+
+xattr_paths = [
+    source / "include/linux/xattr.h",
+    source / "mm/shmem.c",
+    *sorted((source / "fs").rglob("*.[ch]")),
+]
+xattr_call_count = 0
+for path in xattr_paths:
+    counts = xattr_set_arg_counts(path.read_text())
+    xattr_call_count += len(counts)
+    require(
+        all(count == 6 for count in counts),
+        "simple_xattr_set arity differs from Fleux six-argument ABI: " + str(path),
+    )
+require(xattr_call_count > 0, "simple_xattr_set declarations/callers were not found")
 
 require("ssize_t *removed_size)" in xattr_source and
         xattr_source.count("*removed_size = xattr->size;") == 2 and
@@ -333,6 +386,11 @@ require("filesystem_scope=complete official fs/ tree installed; Fleux kernfs, ns
 require("vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support" in fs_summary,
         "report does not confirm retained Fleux VFS fdtable API implementation")
 require("namespace_mnt_api=Fleux bool __mnt_is_readonly() declaration matched by namespace.c definition" in fs_summary,
+require(
+    "eventfd_api=official fs/eventfd.c with only Fleux exported eventfd_ctx_do_read() retained"
+    in fs_summary,
+    "report does not confirm the Fleux eventfd compatibility overlay",
+)
         "report does not confirm Fleux namespace bool mount API compatibility")
 require("namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API" in fs_summary and
         "proc_namespace_compat=official procfs namespace link adapted to Fleux int-return ns_get_path API" in fs_summary,
@@ -343,10 +401,27 @@ require("filesystem_reference_kernel=Linux 4.19.191" in fs_summary,
         "report does not identify official Linux 4.19.191")
 require("filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c and explicit compatibility overlays" in fs_summary,
         "official donor fs/ byte verification is missing")
-require("filesystem_compatibility_overlay=EXT4 vm_fault_t/__vmalloc/mbcache API and FUSE passthrough V2 ioctl ABI ported from Fleux 4.19.325; FUSE 128-KiB readahead; NLS const-char API; proc task_mmu soft-dirty VMA update under Fleux mmap_write_lock API; procfs LSM-selector API; proc namespace int-return ns_get_path API; faccessat four-argument ABI, exported filename_lookup helper and faccessat2 wrapper" in fs_summary,
-        "filesystem API compatibility overlay manifest is incomplete")
-require("VFS dcache spin_release adapted to Fleux two-argument lockdep API" in fs_summary,
-        "VFS dcache lockdep API compatibility overlay is missing")
+overlay = next(
+    (line for line in fs_summary.splitlines()
+     if line.startswith("filesystem_compatibility_overlay=")),
+    "",
+)
+for token in (
+    "EXT4 vm_fault_t",
+    "FUSE passthrough V2",
+    "NLS const-char",
+    "exec.c INIT_VMA removed",
+    "procfs LSM-selector",
+    "ns_get_path API",
+    "faccessat2 wrapper",
+    "namespace bool __mnt_is_readonly",
+    "legacy mount_fs/do_remount_sb2",
+    "namespace remount LSM options",
+    "spin_release adapted",
+):
+    require(token in overlay, "overlay manifest is missing: " + token)
+require("eventfd_api=" in fs_summary,
+        "report does not confirm the Fleux eventfd compatibility overlay")
 require("filesystem_preserved_overlay_build=fs/Makefile obj-$(CONFIG_KSU_SUSFS) += susfs.o" in fs_summary,
         "retained SUSFS Makefile registration is missing")
 require("susfs_header=Fleux include/linux/susfs.h SUSFS_VERSION " + susfs_version in fs_summary,

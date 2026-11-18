@@ -929,6 +929,50 @@ def apply_fleux_419325_namespace_mnt_readonly_compat(src):
 
 
 
+
+def apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source):
+    # Keep official eventfd.c except the exported Fleux helper required by
+    # include/linux/eventfd.h and the Fleux eventfd semaphore semantics.
+    header = (src / "include/linux/eventfd.h").read_text()
+    require(
+        re.search(
+            r"(?m)^void[ \t]+eventfd_ctx_do_read\(struct eventfd_ctx \*ctx,[ \t]*__u64 \*cnt\);$",
+            header,
+        ) is not None,
+        "Fleux eventfd.h does not declare a non-static eventfd_ctx_do_read()",
+    )
+
+    fleux_pattern = re.compile(
+        r"(?ms)^void eventfd_ctx_do_read\(struct eventfd_ctx \*ctx, __u64 \*cnt\)\n"
+        r"\{.*?^\}\nEXPORT_SYMBOL_GPL\(eventfd_ctx_do_read\);\n"
+    )
+    fleux_match = fleux_pattern.search(fleux_eventfd_source)
+    require(
+        fleux_match is not None,
+        "Fleux eventfd_ctx_do_read() could not be located",
+    )
+
+    path = src / "fs/eventfd.c"
+    donor = path.read_text()
+    donor_pattern = re.compile(
+        r"(?ms)^static void eventfd_ctx_do_read\(struct eventfd_ctx \*ctx, __u64 \*cnt\)\n"
+        r"\{.*?^\}\n"
+    )
+    require(
+        len(donor_pattern.findall(donor)) == 1,
+        "official static eventfd_ctx_do_read() is missing or ambiguous",
+    )
+    updated = donor_pattern.sub(lambda match: fleux_match.group(0), donor, count=1)
+    require(
+        "static void eventfd_ctx_do_read" not in updated
+        and "void eventfd_ctx_do_read(struct eventfd_ctx *ctx, __u64 *cnt)" in updated
+        and "EXPORT_SYMBOL_GPL(eventfd_ctx_do_read);" in updated
+        and "lockdep_assert_held(&ctx->wqh.lock);" in updated
+        and "(ctx->flags & EFD_SEMAPHORE) && ctx->count" in updated,
+        "Fleux eventfd helper ABI or semaphore semantics were not preserved",
+    )
+    path.write_text(updated)
+
 def simple_xattr_set_section(source):
     marker = "/**\n * simple_xattr_set"
     start = source.find(marker)
@@ -1025,6 +1069,10 @@ def main():
     require(fleux_xattr_path.is_file(),
             "Fleux xattr implementation fs/xattr.c is missing before replacement")
     fleux_xattr_source = fleux_xattr_path.read_text()
+    fleux_eventfd_path = src / "fs/eventfd.c"
+    require(fleux_eventfd_path.is_file(),
+            "Fleux eventfd implementation fs/eventfd.c is missing before replacement")
+    fleux_eventfd_source = fleux_eventfd_path.read_text()
     fleux_kernfs_path = src / "fs/kernfs"
     require(fleux_kernfs_path.is_dir(),
             "Fleux fs/kernfs directory is missing before replacement")
@@ -1177,6 +1225,7 @@ def main():
     apply_fleux_419325_namespace_lsm_remount_compat(src)
     apply_fleux_419325_namespace_mnt_readonly_compat(src)
     apply_fleux_419325_simple_xattr_set_compat(src, fleux_xattr_source)
+    apply_fleux_419325_eventfd_do_read_compat(src, fleux_eventfd_source)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
@@ -1251,6 +1300,7 @@ def main():
         "filesystem_verification=official donor fs/ blobs checked byte-identical except preserved Fleux kernfs/nsfs/file.c and explicit compatibility overlays",
         "vfs_fdtable_api=Fleux fs/file.c retained for fd_range dup_fd ABI, ERR_PTR error contract and close_range support",
         "namespace_mnt_api=Fleux bool __mnt_is_readonly() declaration matched by namespace.c definition",
+        "eventfd_api=official fs/eventfd.c with only Fleux exported eventfd_ctx_do_read() retained",
         "kernfs_reference=complete Fleux 4.19.325 fs/kernfs subtree retained to match public kernfs and xattr headers",
         "kernfs_source_files=" + str(len(fleux_kernfs_files)),
         "namespace_reference=Fleux 4.19.325 fs/nsfs.c retained to match include/linux/proc_ns.h int ns_get_path API",
