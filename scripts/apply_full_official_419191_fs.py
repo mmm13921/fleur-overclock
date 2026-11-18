@@ -910,7 +910,7 @@ def apply_fleux_419325_namespace_mnt_readonly_compat(src):
     namespace_c = src / "fs/namespace.c"
     replace_once(
         namespace_c,
-        "int __mnt_is_readonly(struct vfsmount *mnt)\\n{",
+        "int __mnt_is_readonly(struct vfsmount *mnt)\n{",
         "bool __mnt_is_readonly(struct vfsmount *mnt)\\n{",
         "namespace __mnt_is_readonly Fleux bool API compatibility",
     )
