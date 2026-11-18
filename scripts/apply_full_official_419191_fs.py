@@ -928,6 +928,38 @@ def apply_fleux_419325_namespace_mnt_readonly_compat(src):
             "namespace __mnt_is_readonly definition does not match Fleux bool VFS API")
 
 
+
+def simple_xattr_set_section(source):
+    marker = "/**\n * simple_xattr_set"
+    start = source.find(marker)
+    function_start = source.find("int simple_xattr_set(", start if start >= 0 else 0)
+    end_marker = "\nstatic bool xattr_is_trusted"
+    end = source.find(end_marker, function_start)
+    require(start >= 0 and function_start >= start and end > function_start,
+            "simple_xattr_set implementation section could not be located")
+    return start, end
+
+
+def apply_fleux_419325_simple_xattr_set_compat(src, fleux_xattr_source):
+    # Fleux extends simple_xattr_set() with removed_size. Keep the official
+    # xattr.c implementation everywhere else, but retain this exact Fleux
+    # helper so it matches include/linux/xattr.h and the preserved kernfs.
+    path = src / "fs/xattr.c"
+    donor_source = path.read_text()
+    fleux_start, fleux_end = simple_xattr_set_section(fleux_xattr_source)
+    donor_start, donor_end = simple_xattr_set_section(donor_source)
+    updated = (
+        donor_source[:donor_start] +
+        fleux_xattr_source[fleux_start:fleux_end] +
+        donor_source[donor_end:]
+    )
+    require(updated.count("int simple_xattr_set(") == 1 and
+            "ssize_t *removed_size)" in updated and
+            updated.count("*removed_size = xattr->size;") == 2 and
+            "*removed_size = -1;" in updated,
+            "Fleux simple_xattr_set removed_size ABI/semantics were not preserved")
+    path.write_text(updated)
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: apply_full_official_419191_fs.py SOURCE_DIR REPORT_PATH")
@@ -989,6 +1021,10 @@ def main():
     require(fleux_open_path.is_file(),
             "Fleux filesystem fs/open.c is missing before replacement")
     fleux_open_source = fleux_open_path.read_text()
+    fleux_xattr_path = src / "fs/xattr.c"
+    require(fleux_xattr_path.is_file(),
+            "Fleux xattr implementation fs/xattr.c is missing before replacement")
+    fleux_xattr_source = fleux_xattr_path.read_text()
     fleux_kernfs_path = src / "fs/kernfs"
     require(fleux_kernfs_path.is_dir(),
             "Fleux fs/kernfs directory is missing before replacement")
@@ -1140,6 +1176,7 @@ def main():
     apply_fleux_419325_legacy_mount_api_compat(src)
     apply_fleux_419325_namespace_lsm_remount_compat(src)
     apply_fleux_419325_namespace_mnt_readonly_compat(src)
+    apply_fleux_419325_simple_xattr_set_compat(src, fleux_xattr_source)
 
     # Only after all official donor files have passed byte-identity checks,
     # add the single Fleux-specific SUSFS object registration.
