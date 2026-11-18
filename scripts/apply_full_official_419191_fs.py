@@ -908,10 +908,10 @@ def apply_fleux_419325_namespace_mnt_readonly_compat(src):
     # The public Fleux mount.h API declares this helper as bool.
     namespace_c = src / "fs/namespace.c"
     text = namespace_c.read_text()
-    pattern = r"(?m)^int\\s+__mnt_is_readonly\\s*\\(\\s*struct\\s+vfsmount\\s*\\*\\s*mnt\\s*\\)\\s*\\n\\s*\\{"
+    pattern = r"(?m)^int\s+__mnt_is_readonly\s*\(\s*struct\s+vfsmount\s*\*\s*mnt\s*\)\s*\n\s*\{"
     updated, count = re.subn(
         pattern,
-        "bool __mnt_is_readonly(struct vfsmount *mnt)\\n{",
+        "bool __mnt_is_readonly(struct vfsmount *mnt)\n{",
         text,
         count=1,
     )
@@ -922,6 +922,7 @@ def apply_fleux_419325_namespace_mnt_readonly_compat(src):
             "int __mnt_is_readonly(struct vfsmount *mnt)" not in updated and
             "return (mnt->mnt_flags & MNT_READONLY) || sb_rdonly(mnt->mnt_sb);" in updated,
             "namespace __mnt_is_readonly definition does not match Fleux bool VFS API")
+
 
 
 def main():
