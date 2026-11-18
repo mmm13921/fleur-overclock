@@ -15,6 +15,10 @@ The workflow must pass source-tree identity checks, compile the full kernel, ver
 Do not overwrite the known-good kernel or remove the recovery path. Flash only after the image is built successfully and keep the previous boot image available. If the phone cannot mount userdata or reports filesystem errors, restore the known-good boot image; do not format userdata.
 
 
+### VFS fdtable API compatibility
+
+The Xiaomi 4.19.191 fs/file.c implements the older dup_fd(oldf, int *errorp) contract. Fleux 4.19.325 declares dup_fd(oldf, struct fd_range *), returns failures through ERR_PTR(), calls it from kernel/fork.c with the range argument, and includes close_range support. The experiment therefore preserves Fleux's complete fs/file.c rather than trying to adapt only the function declaration. The source audit checks the function signature, helper, error-pointer paths, header declaration, and both fork call sites; the official donor byte-identity check explicitly excludes this compatibility file.
+
 ### NLS API compatibility
 
 The imported NLS implementation is adapted to Fleux's `load_nls(const char *)` declaration by changing both `find_nls` and `load_nls` definitions to const-correct signatures.
@@ -95,6 +99,11 @@ This section is the running record for the isolated experiment. “Patched” me
 - Added a source compatibility overlay and audit assertions against Fleux `include/linux/lockdep.h`. This fix is pending the next complete CI compile.
 - Run #95: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44091603944), SHA `74323f788733620b531f8ce3235b016c5311da4d`, failed at this compile error; no package or release was produced.
 
+
+### Run #98: VFS fdtable dup_fd API mismatch
+- Run #98 reached compilation and failed at fs/file.c:272 because the official donor defines dup_fd(struct files_struct *, int *errorp), while Fleux 4.19.325 declares dup_fd(struct files_struct *, struct fd_range *). Fleux callers also expect ERR_PTR() failures and the Fleux implementation provides close_range support.
+- Preserve the complete Fleux fs/file.c during the filesystem replacement. The source audit now checks the retained implementation against include/linux/fdtable.h and both kernel/fork.c call sites; official donor blob verification excludes only this explicit compatibility file in addition to prior preserved files.
+- Run #98: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/44219548713), SHA 84ec91ca7fde0cf1dd6575eb5b26168cea3e90f6, failed during compilation; no image, AnyKernel ZIP, or release was produced.
 
 ### Runs #96 and #97: SUSFS version guard
 - The Fleux upstream `lineage-24.0` branch advanced its SUSFS header from `v2.3.0` to `v2.4.0` (upstream source commit `e2d900276a445fc9e31592c80df89a6f5e24175d`). Runs #96 and #97 stopped during filesystem replacement preflight because the experiment script still hard-coded `v2.3.0`; neither reached compilation.
