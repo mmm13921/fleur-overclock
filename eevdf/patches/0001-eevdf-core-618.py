@@ -207,7 +207,7 @@ write("kernel/sched/fair.c", fair)
 # protection. Keep the V11 entity_eligible() public symbol for callers.
 fair = read("kernel/sched/fair.c")
 a = fair.index("static struct sched_entity *pick_eevdf(struct cfs_rq *cfs_rq)")
-b = fair.index("\n#include \"pelt.h\"", a)
+b = fair.index("\n#ifdef CONFIG_SCHED_DEBUG\nstruct sched_entity *__pick_last_entity", a)
 old_picker = fair[a:b]
 new_picker = r'''static inline void set_protect_slice(struct cfs_rq *cfs_rq,
 				     struct sched_entity *se)
