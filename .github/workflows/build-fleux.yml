@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - scheduler/hmp-eas-hybrid
+      - hmp-filesystem-integration
     paths:
       - '.github/workflows/build-fleux.yml'
       - 'scripts/build_kernel.sh'
