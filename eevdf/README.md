@@ -5,6 +5,8 @@
 ## ساختار
 - `audit_eevdf_618.py`: ممیزی نمادها و قابلیت‌های EEVDF موجود در سورس V11 در برابر قابلیت‌های موردنیاز Linux 6.18.
 - `patches/0001-eevdf-core-618.py`: لایه اول بک‌پورت اجرایی؛ در build روی سورس V11 اعمال می‌شود.
+- پارامترهای `/proc/sys/kernel`: `sched_base_slice`, `sched_eevdf_place_lag`, `sched_eevdf_place_deadline_initial`, `sched_eevdf_place_rel_deadline`, `sched_eevdf_run_to_parity`, `sched_eevdf_preempt_short`.
+- `sched_attr.sched_runtime` برای custom slice وظیفه‌های fair؛ مقدار صفر یعنی استفاده از base slice.
 - `series`: ترتیب اعمال پچ‌ها پس از آماده‌شدن اولین پچ.
 
 ## وضعیت فعلی
