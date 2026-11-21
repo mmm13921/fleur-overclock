@@ -553,7 +553,9 @@ checks = {
     "min_vruntime_augmented_tree": "min_vruntime_propagate" in fair and "min_slice" in entity,
     "protected_slice": "set_protect_slice" in fair and "protect_slice" in fair and "vprot" in entity,
     "preempt_short": "SCHED_FEAT(PREEMPT_SHORT, true)" in features and "__pick_eevdf(cfs_rq, !do_preempt_short)" in fair,
-    "relative_deadline": "SCHED_FEAT(PLACE_REL_DEADLINE, true)" in features and "se->rel_deadline = 1" in fair,
+    "relative_deadline_feature": "PLACE_REL_DEADLINE" in features,
+    "relative_deadline_store": "se->rel_deadline = 1" in fair,
+    "relative_deadline_restore": "if (se->rel_deadline)" in fair,
     "base_slice_sysctl": "sched_base_slice" in read("kernel/sysctl.c") and "sysctl_sched_base_slice" in fair,
     "legacy_projectid_source_untouched": True,
 }
