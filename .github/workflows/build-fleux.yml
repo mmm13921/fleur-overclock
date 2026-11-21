@@ -82,6 +82,7 @@ jobs:
           cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
           cp artifacts/scheduler-modes-source.patch "$AK_DIR/scheduler-modes-source.patch"
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
+          cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
           cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
           cp docs/scheduler-modes-port.md "$AK_DIR/SCHEDULER-MODES.txt"
           (
@@ -89,7 +90,8 @@ jobs:
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb \
               kernel.config build-manifest.txt scheduler-modes-source.patch \
-              scheduler-modes-audit.txt android-storage-audit.txt SCHEDULER-MODES.txt
+              scheduler-modes-audit.txt official-4.19.191-fs-mount-audit.txt \
+              android-storage-audit.txt SCHEDULER-MODES.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip"
           unzip -l "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
@@ -122,11 +124,14 @@ jobs:
             HMP (`0`) is enabled by default from boot.
             - `2`: Hybrid (EAS until the root domain is overutilized, then HMP-style placement)
 
+            Filesystem compatibility: restores the official Xiaomi MT6781 4.19.191 F2FS source set and Android legacy mount/remount path, keeps FBE/inline-encryption, FUSE, OverlayFS and quota prerequisites enabled, and includes storage audits. This cannot add missing features to an already formatted /data F2FS superblock.
+
             Reference: official Xiaomi Fleur fleur-s-oss kernel 4.14.186; target: Fleux lineage-24.0 kernel 4.19.325. This ports should_hmp() mode semantics and first-stage HMP-style placement only. It does not port the full WALT HMP migration engine. CI success does not imply successful device boot, thermal stability, touch latency or gaming performance. Keep a known-good boot image and recovery path.
           files: |
             artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip
             artifacts/scheduler-modes-source.patch
             artifacts/scheduler-modes-audit.txt
+            artifacts/official-4.19.191-fs-mount-audit.txt
             artifacts/android-storage-audit.txt
             artifacts/build-manifest.txt
             artifacts/SCHEDULER-MODES-SHA256.txt
