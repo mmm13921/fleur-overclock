@@ -14,7 +14,7 @@ Path: /proc/sys/kernel/sched_cpu_mode
 - 1: EAS — retain Fleux's existing Energy Aware Scheduling path.
 - 2: Hybrid — use EAS while the root domain is not overutilized; switch wake/fork/exec placement to HMP-style policy when it is overutilized.
 
-Default: 1 (EAS). This intentionally preserves the unmodified Fleux placement policy during early boot. HMP and Hybrid are selected explicitly at runtime.
+Default: 0 (HMP-style). HMP-style placement is active from boot; EAS and Hybrid remain selectable explicitly at runtime.
 
 Examples as root:
 
