@@ -1,9 +1,9 @@
-name: Fleux V11 HMP plus F2FS Project ID test
-run-name: Fleux V11 HMP Project ID (${{ github.event_name }})
+name: Fleux V11 HMP plus native Xiaomi 4.19.191 Project ID
+run-name: Fleux V11 HMP native Project ID (${{ github.event_name }})
 on:
   push:
     branches:
-      - fleux-v11-hmp-android13-projectid
+      - fleux-v11-hmp-projectid-native-419191
     paths:
       - '.github/workflows/build-v11-hmp-projectid.yml'
       - 'scripts/build_kernel.sh'
@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build-and-package:
-    name: Build Fleux V11 MT6781 HMP and Project ID compatibility
+    name: Build Fleux V11 MT6781 HMP and native Project ID
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
