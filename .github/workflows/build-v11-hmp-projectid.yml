@@ -31,6 +31,7 @@ jobs:
       - name: Apply and audit Android 13 MediaProvider FUSE bridge
         run: |
           set -euo pipefail
+          python3 -m py_compile research/android13-mediaprovider/apply_projectid_ioctl_bridge.py
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
           git clone --depth=1 --branch android13-security-release \
             https://android.googlesource.com/platform/packages/providers/MediaProvider \
