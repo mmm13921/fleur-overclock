@@ -289,7 +289,7 @@ replace_once(
 
 audit_text = """Fleux scheduler CPU modes — source and structural audit
 target_repository=daliboss/fleux
-target_ref=lineage-24.0
+target_ref=v11
 target_kernel=4.19.325
 reference_repository=MiCode-mirror/xiaomi_kernel_opensource
 reference_ref=fleur-s-oss
