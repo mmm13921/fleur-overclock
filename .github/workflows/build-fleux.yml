@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - scheduler/hmp-eas-hybrid
+      - hmp-v2-telegram-storage-fix
     paths:
       - '.github/workflows/build-fleux.yml'
       - 'scripts/build_kernel.sh'
