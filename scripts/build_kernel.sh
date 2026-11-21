@@ -328,6 +328,8 @@ esac
     echo "hardware_validation=required; CI performs structural checks only"
   fi
   if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
+    echo "filesystem_mount_backport=official Xiaomi MT6781 4.19.191 F2FS source and Android legacy remount path"
+    echo "filesystem_mount_audit=$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
     echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
     echo "scheduler_mode_sysctl=/proc/sys/kernel/sched_cpu_mode"
     echo "scheduler_mode_default=0"
@@ -364,7 +366,7 @@ esac
   echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
   echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" || "$BUILD_PROFILE" == "scheduler-modes" ]]; then
     echo "flashable_zip=AnyKernel3"
   else
     echo "flashable_zip=false"
