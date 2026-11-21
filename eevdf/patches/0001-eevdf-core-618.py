@@ -305,13 +305,6 @@ static struct sched_entity *pick_eevdf(struct cfs_rq *cfs_rq)
 }
 '''
 fair = fair[:a] + new_picker + fair[b:]
-# Update min_vruntime to consume the augmented subtree minimum, not just
-# the leftmost entity's own vruntime.
-fair = fair.replace(
-    "struct sched_entity *se = __pick_first_entity(cfs_rq);",
-    "struct sched_entity *se = __pick_root_entity(cfs_rq);",
-    1
-)
 write("kernel/sched/fair.c", fair)
 
 # 5. Add the dedicated base-slice tunable while retaining the old 4.19
