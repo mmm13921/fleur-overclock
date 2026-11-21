@@ -3,7 +3,7 @@ run-name: Fleux V11 HMP Project ID (${{ github.event_name }})
 on:
   push:
     branches:
-      - hmp-v2-v11-projectid-test
+      - fleux-v11-hmp-android13-projectid
     paths:
       - '.github/workflows/build-v11-hmp-projectid.yml'
       - 'scripts/build_kernel.sh'
@@ -42,6 +42,8 @@ jobs:
           grep -q 'FS_IOC_FSGETXATTR' jni/FuseDaemon.cpp
           grep -q 'FS_IOC_FSSETXATTR' jni/FuseDaemon.cpp
           echo "Android 13 AOSP patch applies and required callback symbols are present."
+      - name: Check builder shell syntax
+        run: bash -n scripts/build_kernel.sh
       - name: Install build and packaging dependencies
         run: |
           sudo apt-get update
@@ -84,15 +86,15 @@ jobs:
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
           cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
           cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
-          cp research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch "$AK_DIR/android13-mediaprovider-projectid.patch"
-          cp research/android13-mediaprovider/README.md "$AK_DIR/ANDROID13-MEDIAPROVIDER-README.md"
+          cp research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch artifacts/android13-mediaprovider-projectid.patch
+          cp research/android13-mediaprovider/README.md artifacts/ANDROID13-MEDIAPROVIDER-README.md
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-V11-HMP-ProjectID-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
-              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \\\n              android13-mediaprovider-projectid.patch ANDROID13-MEDIAPROVIDER-README.md
+              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-V11-HMP-ProjectID-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-V11-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/V11-HMP-PROJECTID-SHA256.txt
@@ -133,7 +135,7 @@ jobs:
             artifacts/scheduler-modes-audit.txt
             artifacts/official-4.19.191-fs-mount-audit.txt
             artifacts/android-storage-audit.txt
-            research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch
-            research/android13-mediaprovider/README.md
+            artifacts/android13-mediaprovider-projectid.patch
+            artifacts/ANDROID13-MEDIAPROVIDER-README.md
             artifacts/build-manifest.txt
             artifacts/V11-HMP-PROJECTID-SHA256.txt
