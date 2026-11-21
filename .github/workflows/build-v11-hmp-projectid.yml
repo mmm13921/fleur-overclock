@@ -1,9 +1,9 @@
-name: MeysamDX V1 HMP + Xiaomi 4.19.191 Project ID
-run-name: MeysamDX V1 HMP native Project ID (${{ github.event_name }})
+name: Meys VX HMP + Xiaomi 4.19.191 Project ID
+run-name: Meys VX HMP native Project ID (${{ github.event_name }})
 on:
   push:
     branches:
-      - fleux-v11-hmp-projectid-native-419191
+      - meys-vx-projectid-native-419191
     paths:
       - '.github/workflows/build-v11-hmp-projectid.yml'
       - 'scripts/build_kernel.sh'
@@ -16,11 +16,11 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: meysamdx-v1-hmp-projectid-${{ github.ref }}
+  group: meys-vx-hmp-projectid-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
-    name: Build MeysamDX V1 MT6781 HMP and native Project ID
+    name: Build Meys VX MT6781 HMP and native Project ID
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -66,7 +66,7 @@ jobs:
           test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
-      - name: Build against exact Fleux V11 source
+      - name: Build Meys VX from pinned upstream kernel source
         run: bash scripts/build_kernel.sh "$SOURCE_REF" hmp-storage-projectid
       - name: Package AnyKernel3 test ZIP
         env:
@@ -92,32 +92,32 @@ jobs:
           cp research/android13-mediaprovider/README.md artifacts/ANDROID13-MEDIAPROVIDER-README.md
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/MeysamDX-V1-HMP-ProjectID-AnyKernel3.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-VX-HMP-ProjectID-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
               official-4.19.191-fs-mount-audit.txt android-storage-audit.txt
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/MeysamDX-V1-HMP-ProjectID-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/MeysamDX-V1-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/V11-HMP-PROJECTID-SHA256.txt
-      - name: Upload V11 kernel, AnyKernel ZIP, and source audits
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-VX-HMP-ProjectID-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-VX-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/MEYS-VX-PROJECTID-SHA256.txt
+      - name: Upload Meys VX kernel, AnyKernel ZIP, and source audits
         uses: actions/upload-artifact@v4
         with:
-          name: meysamdx-v1-hmp-projectid-mt6781
+          name: meys-vx-hmp-projectid-mt6781
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
-      - name: Publish experimental V11 prerelease
+      - name: Publish experimental Meys VX prerelease
         uses: softprops/action-gh-release@v2
         with:
           tag_name: fleux-v11-hmp-projectid-${{ github.run_number }}
-          name: MeysamDX V1 HMP + Project ID — build ${{ github.run_number }}
+          name: Meys VX HMP + Project ID — build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
-            MeysamDX V1 experimental MT6781 kernel. The upstream Fleux V11 source is used as the technical base; Fleux is not the kernel/release branding.
+            Meys VX experimental MT6781 kernel. The upstream upstream V11 source is used as the technical base; Fleux is not the kernel/release branding.
 
             Includes HMP/EAS/Hybrid CPU mode selector (HMP default) and an F2FS
             legacy Project ID compatibility path. Project IDs are persisted
@@ -133,7 +133,7 @@ jobs:
             Android 13 MediaProvider build and validation against Xiaomi's ROM.
             Kernel ZIP remains a kernel-side test. Preserve a known-good boot image.
           files: |
-            artifacts/MeysamDX-V1-HMP-ProjectID-AnyKernel3.zip
+            artifacts/Meys-VX-HMP-ProjectID-AnyKernel3.zip
             artifacts/hmp-storage-projectid-source.patch
             artifacts/storage-projectid-audit.txt
             artifacts/scheduler-modes-audit.txt
@@ -142,4 +142,4 @@ jobs:
             artifacts/android13-mediaprovider-projectid.patch
             artifacts/ANDROID13-MEDIAPROVIDER-README.md
             artifacts/build-manifest.txt
-            artifacts/V11-HMP-PROJECTID-SHA256.txt
+            artifacts/MEYS-VX-PROJECTID-SHA256.txt
