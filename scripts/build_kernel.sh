@@ -73,6 +73,10 @@ make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig \
 
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
+if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
+  python3 "$WORKSPACE/scripts/audit_android_storage.py" \
+    "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
+fi
 
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 \
