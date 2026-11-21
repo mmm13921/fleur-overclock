@@ -1,6 +1,9 @@
 name: Fleux official SEA 4.19.191 filesystem backport
 
 on:
+  push:
+    branches:
+      - fix/sea-419191-filesystem-backport
   workflow_dispatch:
     inputs:
       source_ref:
