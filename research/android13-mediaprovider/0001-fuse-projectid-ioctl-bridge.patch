@@ -148,7 +148,7 @@ index 8f0375197fb244ffc73c4368626cbdb700051ed2..00000000000000000000000000000000
 +}
 +
  static struct fuse_lowlevel_ops ops{
-@@ -2171,8 +2299,8 @@ static struct fuse_lowlevel_ops ops{
+@@ -2171,7 +2299,7 @@ static struct fuse_lowlevel_ops ops{
    .access = pf_access, .create = pf_create,
 -  /*.getlk = pf_getlk,
 +  /*.getlk = pf_getlk,
