@@ -40,7 +40,7 @@ replace_once(
 replace_once(
     "kernel/sched/topology.c",
     "unsigned int sysctl_sched_energy_aware = 1;\nDEFINE_MUTEX(sched_energy_mutex);",
-    "unsigned int sysctl_sched_energy_aware = 1;\n"
+    "unsigned int sysctl_sched_energy_aware = 0;\n"
     "#ifdef CONFIG_MACH_MT6781\n"
     "/* Fleur 4.14 mode semantics: 0=HMP, 1=EAS, 2=Hybrid. */\n"
     "unsigned int sysctl_sched_cpu_mode = 0;\n"
@@ -321,6 +321,15 @@ for required in (
         raise SystemExit(f"Fleux scheduler modes: expected defconfig setting missing: {required}")
 
 makefile = (root / "Makefile").read_text()
+# Verify the actual boot defaults.
+topology = (root / "kernel/sched/topology.c").read_text()
+if "unsigned int sysctl_sched_energy_aware = 0;" not in topology:
+    raise SystemExit("HMP default audit: EAS must be disabled at boot")
+if "unsigned int sysctl_sched_cpu_mode = 0;" not in topology:
+    raise SystemExit("HMP default audit: sched_cpu_mode must default to 0")
+if "default_mode=0" not in audit_text or "boot_default=HMP-style" not in audit_text:
+    raise SystemExit("HMP default audit: generated audit does not declare HMP boot default")
+
 if "PATCHLEVEL = 19" not in makefile or "SUBLEVEL = 325" not in makefile:
     raise SystemExit("Expected Fleux target kernel 4.19.325 was not found")
 
