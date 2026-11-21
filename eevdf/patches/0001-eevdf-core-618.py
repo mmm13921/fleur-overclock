@@ -344,15 +344,6 @@ replace_once(
     "\t\t.proc_handler\t= sched_proc_update_handler,\n"
     "\t\t.extra1\t\t= &min_sched_granularity_ns,\n"
     "\t\t.extra2\t\t= &max_sched_granularity_ns,\n"
-    "\t},\n"
-    "\t{\n"
-    "\t\t.procname\t= \"sched_base_slice\",\n"
-    "\t\t.data\t\t= &sysctl_sched_base_slice,\n"
-    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
-    "\t\t.mode\t\t= 0644,\n"
-    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
-    "\t\t.extra1\t\t= &min_sched_granularity_ns,\n"
-    "\t\t.extra2\t\t= &max_sched_granularity_ns,\n"
     "\t},",
     "EEVDF base slice sysctl",
 )
@@ -533,6 +524,15 @@ replace_once(
     "preserve custom slice in legacy scheduler changes",
 )
 
+replace_once(
+    "kernel/sysctl.c",
+    "static struct ctl_table kern_table[] = {",
+    "static int meys_min_sched_base_slice_ns = 100000;\n"
+    "static int meys_max_sched_base_slice_ns = 100000000;\n\n"
+    "static struct ctl_table kern_table[] = {",
+    "EEVDF base slice sysctl bounds",
+)
+
 # 11. Export the EEVDF feature switches as writable /proc/sys/kernel controls.
 replace_once(
     "kernel/sched/fair.c",
@@ -564,6 +564,15 @@ replace_once(
     "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
     "\t\t.mode\t\t= 0644,\n"
     "\t\t.proc_handler\t= proc_dointvec,\n"
+    "\t},\n"
+    "\t{\n"
+    "\t\t.procname\t= \"sched_base_slice\",\n"
+    "\t\t.data\t\t= &sysctl_sched_base_slice,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
+    "\t\t.extra1\t\t= &meys_min_sched_base_slice_ns,\n"
+    "\t\t.extra2\t\t= &meys_max_sched_base_slice_ns,\n"
     "\t},\n"
     "#ifdef CONFIG_SCHED_DEBUG",
     "\t{\n"
