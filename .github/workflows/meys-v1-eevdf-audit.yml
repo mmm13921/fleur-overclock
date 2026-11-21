@@ -5,7 +5,7 @@ on:
       - meys-v1-eevdf
     paths:
       - '.github/workflows/meys-v1-eevdf-audit.yml'
-      - 'research/eevdf-6.18/**'
+      - 'eevdf/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
       - name: Audit existing EEVDF and Linux 6.18 extensions
         run: |
           set -euo pipefail
-          python3 research/eevdf-6.18/audit_eevdf_618.py kernel-src | tee artifacts-eevdf-audit.txt
+          python3 eevdf/audit_eevdf_618.py kernel-src | tee artifacts-eevdf-audit.txt
           grep -q '^core_eevdf=PASS$' artifacts-eevdf-audit.txt
       - name: Upload source audit
         uses: actions/upload-artifact@v4
