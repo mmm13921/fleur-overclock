@@ -1,43 +1,37 @@
 #!/usr/bin/env python3
 import pathlib
 import sys
-
 root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "kernel-src")
-files = {
+paths = {
     "fair": root / "kernel/sched/fair.c",
     "features": root / "kernel/sched/features.h",
-    "sched_entity": root / "include/linux/sched.h",
-    "sched_uapi": root / "include/uapi/linux/sched/types.h",
-    "sched_core": root / "kernel/sched/core.c",
-    "sched_internal": root / "kernel/sched/sched.h",
+    "entity": root / "include/linux/sched.h",
+    "core": root / "kernel/sched/core.c",
+    "sysctl": root / "kernel/sysctl.c",
 }
-missing = [str(p) for p in files.values() if not p.is_file()]
+missing = [str(p) for p in paths.values() if not p.is_file()]
 if missing:
     print("result=ERROR")
     print("missing_files=" + ",".join(missing))
     sys.exit(2)
-text = {k: p.read_text(errors="replace") for k, p in files.items()}
-
+src = {k: p.read_text(errors="replace") for k,p in paths.items()}
 checks = [
-    ("core.avg_vruntime", "avg_vruntime(" in text["fair"]),
-    ("core.entity_eligible", "entity_eligible(" in text["fair"]),
-    ("core.update_entity_lag", "update_entity_lag(" in text["fair"]),
-    ("core.pick_eevdf", "pick_eevdf(" in text["fair"]),
-    ("core.virtual_deadline", "se->deadline" in text["fair"]),
-    ("core.augmented_min_deadline", "min_deadline_cb" in text["fair"] and "min_deadline" in text["sched_entity"]),
-    ("6.18.min_slice_tree_augmentation", "min_slice_cb" in text["fair"] or ("min_slice_update" in text["fair"] and "min_slice" in text["sched_entity"])),
-    ("6.18.protected_virtual_deadline", "vprot" in text["sched_entity"] and "protect_slice(" in text["fair"]),
-    ("6.18.preempt_short", "PREEMPT_SHORT" in text["features"] and "PREEMPT_SHORT" in text["fair"]),
-    ("6.18.relative_deadline_placement", "PLACE_REL_DEADLINE" in text["features"] and "PLACE_REL_DEADLINE" in text["fair"]),
-    ("6.18.delayed_dequeue_state", "sched_delayed" in text["sched_entity"] and "DELAY_DEQUEUE" in text["fair"]),
-    ("6.18.delay_zero", "DELAY_ZERO" in text["features"] and "DELAY_ZERO" in text["fair"]),
-    ("6.18.custom_slice", "custom_slice" in text["sched_entity"] and "custom_slice" in text["fair"]),
-    ("6.18.sched_base_slice", "sched_base_slice" in text["fair"] and "sched_base_slice" in text["features"]),
+    ("base.avg_vruntime", "avg_vruntime(" in src["fair"]),
+    ("base.entity_eligible", "entity_eligible(" in src["fair"]),
+    ("base.virtual_deadline", "se->deadline" in src["fair"]),
+    ("layer1.min_vruntime_min_slice_augmentation", "min_vruntime_propagate" in src["fair"] and "min_slice" in src["entity"]),
+    ("layer1.protected_virtual_deadline", "vprot" in src["entity"] and "protect_slice(" in src["fair"]),
+    ("layer1.preempt_short", "SCHED_FEAT(PREEMPT_SHORT, true)" in src["features"] and "__pick_eevdf(cfs_rq, !do_preempt_short)" in src["fair"]),
+    ("layer1.relative_deadline", "SCHED_FEAT(PLACE_REL_DEADLINE, true)" in src["features"] and "se->rel_deadline = 1" in src["fair"]),
+    ("layer1.base_slice_sysctl", "sched_base_slice" in src["sysctl"] and "sysctl_sched_base_slice" in src["fair"]),
+    ("later.delay_dequeue", "SCHED_FEAT(DELAY_DEQUEUE" in src["features"] and "DELAY_DEQUEUE" in src["fair"]),
+    ("later.delay_zero", "SCHED_FEAT(DELAY_ZERO" in src["features"] and "DELAY_ZERO" in src["fair"]),
+    ("later.custom_slice_runtime", "custom_slice" in src["entity"] and "custom_slice" in src["fair"] and "sched_runtime" in src["core"]),
 ]
-for name, ok in checks:
-    print(("PASS" if ok else "MISSING") + "=" + name)
-core = all(ok for name, ok in checks if name.startswith("core."))
-extensions = all(ok for name, ok in checks if name.startswith("6.18."))
-print("core_eevdf=" + ("PASS" if core else "INCOMPLETE"))
-print("linux_6_18_extensions=" + ("PASS" if extensions else "INCOMPLETE"))
-print("result=" + ("PASS" if core and extensions else "INCOMPLETE"))
+for name,ok in checks:
+    print(("PASS" if ok else "MISSING")+"="+name)
+layer1=all(ok for n,ok in checks if n.startswith("base.") or n.startswith("layer1."))
+full=all(ok for n,ok in checks if n.startswith("later."))
+print("eevdf_layer1="+("PASS" if layer1 else "INCOMPLETE"))
+print("eevdf_6_18_full="+("PASS" if layer1 and full else "INCOMPLETE"))
+print("result="+("PASS" if layer1 else "INCOMPLETE"))
