@@ -315,7 +315,7 @@ config = (root / "arch/arm64/configs/fleur_defconfig").read_text()
 for required in (
     "CONFIG_MACH_MT6781=y",
     "CONFIG_ENERGY_MODEL=y",
-    "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y",
+    "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y",
 ):
     if required not in config:
         raise SystemExit(f"Fleux scheduler modes: expected defconfig setting missing: {required}")
