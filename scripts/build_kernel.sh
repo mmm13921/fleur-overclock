@@ -72,6 +72,7 @@ bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
   python3 "$WORKSPACE/scripts/apply_project_quota_compat.py" \
     "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/project-quota-compat-audit.txt"
+  git -C "$SRC_DIR" diff HEAD --check
 fi
 
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
