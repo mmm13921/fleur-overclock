@@ -20,7 +20,7 @@ ui_print " ";
 ui_print "Fleux CPU Modes: Official Fleur 4.14 logic backport";
 ui_print "Target: Redmi Note 11S 4G / POCO M4 Pro 4G / MT6781";
 ui_print "Runtime selector: /proc/sys/kernel/sched_cpu_mode";
-ui_print "0 = HMP; 1 = EAS (default); 2 = Hybrid";
+ui_print "0 = HMP (default); 1 = EAS; 2 = Hybrid";
 ui_print "HMP uses a PELT/util_est adaptation, not full WALT HMP";
 ui_print "Experimental: retain a known-good boot image";
 ui_print " ";
