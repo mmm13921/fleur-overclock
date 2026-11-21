@@ -106,19 +106,34 @@ require("f2fs_ioc_setproject" in f2fs_file and
         "f2fs_transfer_project_quota" in f2fs_file,
         "F2FS project-id ioctl implementation is missing")
 
+require("if (!dpmaif_ctrl)" in resume_fn and "if (!dpmaif_ctrl)" in suspend_fn,
+        "DPMAIF syscore NULL guards are missing")
+require("md_state = ccci_fsm_get_md_state(dpmaif_ctrl->md_id);" in resume_fn,
+        "modem-state lookup is missing from syscore resume")
+for state in ("GATED", "WAITING_TO_STOP", "INVALID"):
+    require("md_state == " + state in resume_fn,
+            "modem-state guard for " + state + " is missing")
+require("dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON" in resume_fn and
+        "dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_EXCEPTION" in resume_fn,
+        "DPMAIF hardware-state guard is missing")
+require("dpmaif_resume(dpmaif_ctrl->hif_id);" in resume_fn,
+        "DPMAIF restore callback is missing")
+require("register_syscore_ops(&dpmaif_sysops);" in dpmaif and
+        ".suspend = dpmaif_syssuspend" in dpmaif and
+        ".resume = dpmaif_sysresume" in dpmaif,
+        "DPMAIF syscore callback registration is incomplete")
+
 lines = [
     "profile=hyperos-compat",
     "kernel_image=Image.gz-dtb",
     "appended_dtb=verified",
     "root_manager=KernelSU enabled",
     "kernel_su_hook=CONFIG_KSU_SUSFS inline hook for Non-GKI 4.19",
-    "filesystem_stack=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",\n    "project_quota=CONFIG_QUOTA+NETLINK; F2FS PRJQUOTA/EXTRA_ATTR ioctl path verified",
+    "filesystem_stack=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
+    "project_quota=CONFIG_QUOTA+NETLINK; F2FS PRJQUOTA/EXTRA_ATTR ioctl path verified",
     "filesystem_encryption=enabled",
-    "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official Linux 4.19.191)",
-    "mount_vfs=official 4.19.191 legacy do_remount and do_remount_sb2 path; umount flag validation; mount ownership guard",
-    "f2fs_mount_options=checkpoint_merge,nocheckpoint_merge,gc_merge,nogc_merge restored",
-    "f2fs_checkpoint=official 4.19.191 checkpoint merge worker and synchronous fallback restored",
-    "f2fs_stack=official 4.19.191 fs/f2fs tree plus matching F2FS UAPI and trace definitions",
+    "vfs_mount_backport=not applied; no broad VFS/F2FS transplant",
+    "f2fs_project_quota=targeted ioctl/project-id compatibility audited",
     "filesystem_interceptors=NoMount disabled; SUSFS runtime feature flags disabled",
     "modem_pm=MT6781 DPMAIF syscore suspend/resume path retained",
     "modem_resume_guard=GATED,WAITING_TO_STOP,INVALID skipped; PWRON/EXCEPTION restored",
