@@ -362,7 +362,7 @@ replace_once(
 replace_once(
     "kernel/sched/fair.c",
     "se->slice = sysctl_sched_min_granularity;\n\n\t/*\n\t * EEVDF: vd_i = ve_i + r_i / w_i",
-    "se->slice = sysctl_sched_base_slice;\n\n\t/*\n\t * EEVDF: vd_i = ve_i + r_i / w_i",
+    "if (!se->custom_slice)\n\t\tse->slice = sysctl_sched_base_slice;\n\n\t/*\n\t * EEVDF: vd_i = ve_i + r_i / w_i",
     "EEVDF deadline request sizing",
 )
 replace_once(
@@ -487,7 +487,51 @@ preempt:
 fair = fair[:start] + new_wakeup + fair[end:]
 write("kernel/sched/fair.c", fair)
 
-# 11. Initialize the new entity state and use the base slice on fork.
+# 11. Implement the Linux 6.18 custom fair-slice interface using the existing
+# sched_attr.sched_runtime field for SCHED_NORMAL/BATCH/IDLE (DL keeps its meaning).
+replace_once(
+    "kernel/sched/core.c",
+    "\telse if (fair_policy(policy))\n"
+    "\t\tp->static_prio = NICE_TO_PRIO(attr->sched_nice);",
+    "\telse if (fair_policy(policy)) {\n"
+    "\t\tp->static_prio = NICE_TO_PRIO(attr->sched_nice);\n"
+    "\t\tif (attr->sched_runtime) {\n"
+    "\t\t\tp->se.custom_slice = 1;\n"
+    "\t\t\tp->se.slice = clamp_t(u64, attr->sched_runtime,\n"
+    "\t\t\t\t\t      NSEC_PER_MSEC / 10,\n"
+    "\t\t\t\t\t      NSEC_PER_MSEC * 100);\n"
+    "\t\t} else {\n"
+    "\t\t\tp->se.custom_slice = 0;\n"
+    "\t\t\tp->se.slice = sysctl_sched_base_slice;\n"
+    "\t\t}\n"
+    "\t}",
+    "custom fair slice sched_setattr handling",
+)
+replace_once(
+    "kernel/sched/core.c",
+    "\telse\n"
+    "\t\tkattr.sched_nice = task_nice(p);",
+    "\telse {\n"
+    "\t\tkattr.sched_nice = task_nice(p);\n"
+    "\t\tif (p->se.custom_slice)\n"
+    "\t\t\tkattr.sched_runtime = p->se.slice;\n"
+    "\t}",
+    "custom fair slice sched_getattr handling",
+)
+replace_once(
+    "kernel/sched/core.c",
+    "\t\t.sched_nice\t= PRIO_TO_NICE(p->static_prio),\n"
+    "\t};\n\n"
+    "\t/* Fixup the legacy SCHED_RESET_ON_FORK hack. */",
+    "\t\t.sched_nice\t= PRIO_TO_NICE(p->static_prio),\n"
+    "\t};\n\n"
+    "\tif (p->se.custom_slice)\n"
+    "\t\tattr.sched_runtime = p->se.slice;\n\n"
+    "\t/* Fixup the legacy SCHED_RESET_ON_FORK hack. */",
+    "preserve custom slice in legacy scheduler changes",
+)
+
+# 12. Initialize the new entity state and use the base slice on fork.
 replace_once(
     "kernel/sched/core.c",
     "\tp->se.vlag\t\t\t= 0;\n"
@@ -516,11 +560,11 @@ checks = {
 missing = [name for name, ok in checks.items() if not ok]
 lines = ["Meys V1 EEVDF Linux 6.18 backport — layer 1 audit",
          "target=Fleux V11 / Linux 4.19.325",
-         "implemented=augmented min_vruntime+min_slice tree, protected virtual deadline, PREEMPT_SHORT, PLACE_REL_DEADLINE, sched_base_slice sysctl"]
+         "implemented=augmented min_vruntime+min_slice tree, protected virtual deadline, PREEMPT_SHORT, PLACE_REL_DEADLINE, sched_base_slice sysctl, per-task custom slice via sched_attr.sched_runtime"]
 for name, ok in checks.items():
     lines.append(("PASS=" if ok else "FAIL=") + name)
 lines += [
-    "not_yet_implemented=DELAY_DEQUEUE, DELAY_ZERO, sched_delayed lifecycle, sched_setattr custom_slice ABI",
+    "not_yet_implemented=DELAY_DEQUEUE, DELAY_ZERO, sched_delayed lifecycle",
     "build_status=NOT_RUN_BY_PATCHER",
     "device_boot_status=NOT_TESTED",
 ]
