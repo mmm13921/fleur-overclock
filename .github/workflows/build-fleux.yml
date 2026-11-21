@@ -86,15 +86,15 @@ jobs:
           cp docs/scheduler-modes-port.md "$AK_DIR/SCHEDULER-MODES.txt"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-v2-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb \
               kernel.config build-manifest.txt scheduler-modes-source.patch \
               scheduler-modes-audit.txt android-storage-audit.txt SCHEDULER-MODES.txt
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-v2-AnyKernel3.zip"
           unzip -l "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
             | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz-dtb|scheduler-modes-audit.txt|LICENSE'
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-v2-AnyKernel3.zip" \
             | tee artifacts/SCHEDULER-MODES-SHA256.txt
       - name: Upload kernel image, flashable ZIP, and source evidence
         uses: actions/upload-artifact@v4
@@ -106,8 +106,8 @@ jobs:
       - name: Publish prerelease with kernel ZIP and scheduler patch
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: scheduler-hmp-eas-hybrid-${{ github.run_number }}
-          name: Fleux HMP / EAS / Hybrid — MT6781 build ${{ github.run_number }}
+          tag_name: hmp-v2
+          name: Fleux HMP v2 — MT6781 / fleur
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
