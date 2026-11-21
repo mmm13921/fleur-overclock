@@ -11,6 +11,15 @@ This directory keeps the source-level patch applicators used by the experimental
 | 0003 | `apply/0003-fleur-hmp-eas-hybrid-scheduler.py` | Fleux 4.19.325 scheduler | Adds `/proc/sys/kernel/sched_cpu_mode`: 0=HMP-style (default), 1=EAS, 2=Hybrid. This is a PELT/util_est adaptation and **not** a full WALT HMP port. |
 | 0004 | `apply/0004-android13-mediaprovider-fuse-projectid-bridge.py` | Android 13 MediaProvider userspace | Adds a restricted FUSE ioctl bridge for FS_IOC_FSGETXATTR/FS_IOC_FSSETXATTR. This is userspace source work; it is not part of the kernel and is not a flashable kernel patch. |
 
+## Supporting build/configuration files
+
+- `config/0005-cgroup-v2-build-config.sh` — build-time cgroup-v2 kernel configuration helper.
+- `config/0006-hyperos-filesystem-build-config.sh` — HyperOS filesystem-related kernel config helper.
+- `installers/anykernel-hmp-eas-hybrid.sh` — AnyKernel installer metadata/script for the scheduler-mode test image.
+- `installers/anykernel-f2fs-projectid-test.sh` — AnyKernel installer metadata/script for the F2FS Project ID test image.
+
+The installer scripts are packaging helpers, not source patches; they do not implement HMP or F2FS behavior themselves.
+
 ## Build-time patch order
 
 The kernel build applies 0001, 0002, then 0003 to the pinned Fleux V11 source. Patch 0004 is applied separately to the pinned AOSP Android 13 MediaProvider source tree.
