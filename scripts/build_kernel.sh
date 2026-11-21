@@ -339,11 +339,8 @@ esac
   echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
   echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-    echo "flashable_zip=AnyKernel3"
-  else
-    echo "flashable_zip=false"
-  fi
+  echo "flashable_zip=false"
+  echo "artifact_contents=Image.gz-dtb,kernel.config,source.patch,audit_reports,build-manifest"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
   sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config"
