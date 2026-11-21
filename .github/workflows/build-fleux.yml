@@ -8,6 +8,7 @@ on:
       - '.github/workflows/build-fleux.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/audit_android_storage.py'
       - 'scripts/anykernel_scheduler_modes.sh'
       - 'docs/scheduler-modes-port.md'
   workflow_dispatch:
@@ -80,13 +81,14 @@ jobs:
           cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
           cp artifacts/scheduler-modes-source.patch "$AK_DIR/scheduler-modes-source.patch"
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
+          cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
           cp docs/scheduler-modes-port.md "$AK_DIR/SCHEDULER-MODES.txt"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb \
               kernel.config build-manifest.txt scheduler-modes-source.patch \
-              scheduler-modes-audit.txt SCHEDULER-MODES.txt
+              scheduler-modes-audit.txt android-storage-audit.txt SCHEDULER-MODES.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip"
           unzip -l "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
@@ -113,8 +115,8 @@ jobs:
             Experimental Fleux 4.19.325 scheduler-mode build for Redmi Note 11S 4G / fleur / MT6781.
 
             Runtime selector: `/proc/sys/kernel/sched_cpu_mode`
-            - `0`: HMP-style PELT/util_est placement (adapted from official Fleur 4.14 mode logic)
-            - `1`: existing Fleux EAS placement (default)
+            - `0`: HMP-style PELT/util_est placement (boot default; adapted from official Fleur 4.14 mode logic)
+            - `1`: existing Fleux EAS placement
             - `2`: Hybrid (EAS until the root domain is overutilized, then HMP-style placement)
 
             Reference: official Xiaomi Fleur fleur-s-oss kernel 4.14.186; target: Fleux lineage-24.0 kernel 4.19.325. This ports should_hmp() mode semantics and first-stage HMP-style placement only. It does not port the full WALT HMP migration engine. CI success does not imply successful device boot, thermal stability, touch latency or gaming performance. Keep a known-good boot image and recovery path.
@@ -122,5 +124,6 @@ jobs:
             artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip
             artifacts/scheduler-modes-source.patch
             artifacts/scheduler-modes-audit.txt
+            artifacts/android-storage-audit.txt
             artifacts/build-manifest.txt
             artifacts/SCHEDULER-MODES-SHA256.txt
