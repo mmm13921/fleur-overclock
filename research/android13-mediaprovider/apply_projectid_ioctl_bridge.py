@@ -33,17 +33,14 @@ replace_once(
     "ioctl callback insertion",
 )
 replace_once(
-    "  /*.getlk = pf_getlk,\n"
-    "  .setlk = pf_setlk,\n"
-    "  .bmap = pf_bmap,\n"
-    "  .ioctl = pf_ioctl,\n"
-    "  .poll = pf_poll,*/",
-    "  /*.getlk = pf_getlk,\n"
-    "  .setlk = pf_setlk,\n"
-    "  .bmap = pf_bmap,\n"
-    "  .poll = pf_poll,*/\n"
-    "  .ioctl = pf_projectid_ioctl,",
-    "low-level ops registration",
+    "  .ioctl = pf_ioctl,\n",
+    "",
+    "remove disabled ioctl placeholder from comment block",
+)
+replace_once(
+    "  .poll = pf_poll,*/\n",
+    "  .poll = pf_poll,*/\n  .ioctl = pf_projectid_ioctl,\n",
+    "register project-ID ioctl callback",
 )
 
 path.write_text(source)
