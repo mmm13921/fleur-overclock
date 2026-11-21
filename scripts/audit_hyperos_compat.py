@@ -86,68 +86,9 @@ require(suspend_match is not None, "DPMAIF syscore suspend function is missing")
 resume_fn = resume_match.group(0)
 suspend_fn = suspend_match.group(0)
 
-# Audit the actual Android VFS and F2FS mount paths against the official 4.19.191 donor.
-namespace = (source / "fs/namespace.c").read_text()
-internal = (source / "fs/internal.h").read_text()
-super_c = (source / "fs/super.c").read_text()
-f2fs_h = (source / "fs/f2fs/f2fs.h").read_text()
-f2fs_super = (source / "fs/f2fs/super.c").read_text()
-f2fs_checkpoint = (source / "fs/f2fs/checkpoint.c").read_text()
-f2fs_uapi = (source / "include/linux/f2fs_fs.h").read_text()
-
-require("int do_remount_sb2(struct vfsmount *mnt, struct super_block *sb, int sb_flags, void *data, int force);" in internal,
-        "legacy 4.19.191 do_remount_sb2 prototype is missing")
-require("int do_remount_sb2(" in super_c and "sb->s_op->remount_fs" in super_c,
-        "legacy superblock remount_fs callback is missing")
-umount_match = re.search(
-    r"int ksys_umount\(char __user \*name, int flags\)\s*\{.*?\n\}",
-    namespace, re.S)
-require(umount_match is not None, "legacy ksys_umount is missing")
-umount_fn = umount_match.group(0)
-require(umount_fn.find("if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))")
-        < umount_fn.find("user_path_mountpoint_at"),
-        "umount flag validation does not precede path lookup")
-remount_match = re.search(
-    r"static int do_remount\(struct path \*path, int ms_flags, int sb_flags,.*?\n\}",
-    namespace, re.S)
-require(remount_match is not None, "legacy Android do_remount is missing")
-remount_fn = remount_match.group(0)
-require("do_remount_sb2(path->mnt, sb, sb_flags, data, 0)" in remount_fn,
-        "legacy Android remount does not call do_remount_sb2")
-require("change_mount_ro_state(mnt, mnt_flags)" in remount_fn,
-        "legacy bind-remount is not adapted to the 4.19.325 mount-attribute helper")
-require("fs_context_for_reconfigure" not in remount_fn and
-        "parse_monolithic_mount_data" not in remount_fn,
-        "legacy Android remount still routes through fs_context")
-change_type_match = re.search(
-    r"static int do_change_type\(struct path \*path, int ms_flags\)\s*\{.*?\n\}",
-    namespace, re.S)
-require(change_type_match is not None and
-        "if (!check_mnt(mnt))" in change_type_match.group(0) and
-        "goto out_unlock;" in change_type_match.group(0),
-        "VFS mount-namespace ownership guard is missing")
-
-for option in ('"checkpoint_merge"', '"nocheckpoint_merge"', '"gc_merge"', '"nogc_merge"'):
-    require(option in f2fs_super,
-            "official F2FS mount-option parser is missing " + option)
-require("F2FS_MOUNT_MERGE_CHECKPOINT" in f2fs_h and
-        "F2FS_MOUNT_GC_MERGE" in f2fs_h,
-        "official F2FS checkpoint/GC merge flags are missing")
-require("f2fs_issue_checkpoint" in f2fs_checkpoint and
-        "f2fs_start_ckpt_thread" in f2fs_checkpoint and
-        "f2fs_stop_ckpt_thread" in f2fs_checkpoint,
-        "official F2FS checkpoint merge worker implementation is incomplete")
-require("f2fs_init_ckpt_req_control" in f2fs_h and
-        "f2fs_init_ckpt_req_control" in f2fs_super and
-        "f2fs_start_ckpt_thread" in f2fs_super and
-        "f2fs_stop_ckpt_thread" in f2fs_super,
-        "official F2FS checkpoint worker is not initialized/stopped through mount lifecycle")
-require("F2FS_FS_COMPRESSION" in (source / "fs/f2fs/Kconfig").read_text(),
-        "official F2FS compression support is missing")
-require("f2fs_add_link" in f2fs_h and "fscrypt_is_nokey_name" in f2fs_h,
-        "F2FS encrypted filename protection is missing")
-require("F2FS_EXTRA_ATTR" in f2fs_uapi,
-        "F2FS on-disk inode attribute definitions are missing")
+# F2FS Project ID, Project Quota, FS_IOC_FSSETXATTR and inheritance
+# are validated by audit_android_storage.py. Do not replace the complete
+# F2FS tree or VFS remount implementation for this issue.
 
 require("register_syscore_ops(&dpmaif_sysops);" in dpmaif,
         "DPMAIF syscore callbacks are not registered")
@@ -176,10 +117,9 @@ lines = [
     "filesystem_stack=ext4,f2fs,erofs,exfat,vfat,fuse,overlayfs",
     "filesystem_encryption=enabled",
     "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official Linux 4.19.191)",
-    "mount_vfs=official 4.19.191 legacy do_remount and do_remount_sb2 path; umount flag validation; mount ownership guard",
-    "f2fs_mount_options=checkpoint_merge,nocheckpoint_merge,gc_merge,nogc_merge restored",
-    "f2fs_checkpoint=official 4.19.191 checkpoint merge worker and synchronous fallback restored",
-    "f2fs_stack=official 4.19.191 fs/f2fs tree plus matching F2FS UAPI and trace definitions",
+    "mount_vfs=Fleux 4.19.325 VFS remount path retained unchanged",
+    "f2fs_project_quota=FS_IOC_FSSETXATTR, project ID persistence and PROJINHERIT checked by android-storage-audit",
+    "f2fs_stack=Fleux F2FS implementation retained; no wholesale 4.19.191 tree replacement",
     "filesystem_interceptors=NoMount disabled; SUSFS runtime feature flags disabled",
     "modem_pm=MT6781 DPMAIF syscore suspend/resume path retained",
     "modem_resume_guard=GATED,WAITING_TO_STOP,INVALID skipped; PWRON/EXCEPTION restored",
