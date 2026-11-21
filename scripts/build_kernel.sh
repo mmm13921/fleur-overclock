@@ -53,7 +53,6 @@ case "$BUILD_PROFILE" in
     ;;
   hyperos-compat)
     python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR"
-    python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
     ;;
 esac
 
@@ -70,6 +69,10 @@ make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig \
 
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
+if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+  python3 "$WORKSPACE/scripts/apply_project_quota_compat.py" \
+    "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/project-quota-compat-audit.txt"
+fi
 
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 \
