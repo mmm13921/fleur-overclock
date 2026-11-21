@@ -107,24 +107,23 @@ jobs:
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
-      - name: Publish experimental Meys VX prerelease
+      - name: Publish Meys VX experimental prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fleux-v11-hmp-projectid-${{ github.run_number }}
+          tag_name: meys-vx-projectid-${{ github.run_number }}
           name: Meys VX HMP + Project ID — build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
-            Meys VX experimental MT6781 kernel. The upstream upstream V11 source is used as the technical base; Fleux is not the kernel/release branding.
+            Meys VX experimental MT6781 kernel. The upstream V11 source repository is retained only as the technical source base; the kernel and release branding is Meys VX.
 
-            Includes HMP/EAS/Hybrid CPU mode selector (HMP default) and an F2FS
-            legacy Project ID compatibility path. Project IDs are persisted
-            only when the on-disk inode format has enough EXTRA_ATTR space;
-            unsupported legacy inodes accept the ioctl as a no-op so vold can
-            continue app-directory setup. This does not provide project-quota
-            accounting/enforcement without an on-disk PRJQUOTA feature.
+            Includes the HMP/EAS/Hybrid CPU mode selector (HMP default) and
+            the native F2FS Project ID implementation backported from Xiaomi
+            sea-t-oss 4.19.191, including inode project-ID persistence, quota
+            transfer and project inheritance. Real project quota still
+            requires compatible on-disk EXTRA_ATTR and PRJQUOTA features.
 
             The Android 13 MediaProvider FUSE ioctl bridge source patch is
             included as a separate release asset and validated for clean
