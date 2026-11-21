@@ -1,0 +1,97 @@
+name: Meys V1 EEVDF kernel build
+run-name: Meys V1 EEVDF (${{ github.event_name }})
+on:
+  push:
+    branches:
+      - meys-v1-eevdf
+    paths:
+      - '.github/workflows/build-meys-v1-eevdf.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/apply_f2fs_projectid_compat.py'
+      - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/apply_official_419191_fs_mount.py'
+      - 'scripts/anykernel_meys_v1_eevdf.sh'
+      - 'eevdf/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: meys-v1-eevdf-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: v11
+      BUILD_PROFILE: meys-v1-eevdf
+    steps:
+      - name: Check out Meys V1 builder
+        uses: actions/checkout@v4
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Validate builder scripts
+        run: |
+          set -euo pipefail
+          bash -n scripts/build_kernel.sh
+          python3 -m py_compile eevdf/patches/0001-eevdf-core-618.py eevdf/audit_eevdf_618.py
+      - name: Build Meys V1 from pinned Fleux V11
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
+      - name: Package Meys V1 AnyKernel3 test ZIP
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_meys_v1_eevdf.sh "$AK_DIR/anykernel.sh"
+          cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
+          cp artifacts/kernel.config "$AK_DIR/kernel.config"
+          cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
+          cp artifacts/meys-v1-eevdf-source.patch "$AK_DIR/meys-v1-eevdf-source.patch"
+          cp artifacts/storage-projectid-audit.txt "$AK_DIR/storage-projectid-audit.txt"
+          cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
+          cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
+          cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
+          cp artifacts/eevdf-layer1-audit.txt "$AK_DIR/eevdf-layer1-audit.txt"
+          cp artifacts/eevdf-audit.txt "$AK_DIR/eevdf-audit.txt"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-AnyKernel3.zip" \
+              META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
+              build-manifest.txt meys-v1-eevdf-source.patch \
+              storage-projectid-audit.txt scheduler-modes-audit.txt \
+              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
+              eevdf-layer1-audit.txt eevdf-audit.txt
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-AnyKernel3.zip" | tee artifacts/MEYS-V1-EEVDF-SHA256.txt
+      - name: Upload Meys V1 kernel test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-v1-eevdf-mt6781
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
