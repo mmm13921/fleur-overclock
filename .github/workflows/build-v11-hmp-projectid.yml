@@ -1,5 +1,5 @@
 name: Fleux V11 HMP plus F2FS Project ID test
-run-name: Fleux V11 HMP Project ID (\${{ github.event_name }})
+run-name: Fleux V11 HMP Project ID (${{ github.event_name }})
 on:
   push:
     branches:
@@ -11,11 +11,12 @@ on:
       - 'scripts/apply_scheduler_modes.py'
       - 'scripts/apply_official_419191_fs_mount.py'
       - 'scripts/anykernel_scheduler_modes.sh'
+      - 'research/android13-mediaprovider/**'
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: fleux-v11-hmp-projectid-\${{ github.ref }}
+  group: fleux-v11-hmp-projectid-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
@@ -27,6 +28,20 @@ jobs:
     steps:
       - name: Check out builder
         uses: actions/checkout@v4
+      - name: Validate Android 13 MediaProvider FUSE bridge
+        run: |
+          set -euo pipefail
+          git clone --depth=1 --branch android13-security-release \
+            https://android.googlesource.com/platform/packages/providers/MediaProvider \
+            "$RUNNER_TEMP/MediaProvider"
+          cd "$RUNNER_TEMP/MediaProvider"
+          git apply --check "$GITHUB_WORKSPACE/research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch"
+          git apply "$GITHUB_WORKSPACE/research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch"
+          grep -q 'static void pf_projectid_ioctl' jni/FuseDaemon.cpp
+          grep -q '.ioctl = pf_projectid_ioctl' jni/FuseDaemon.cpp
+          grep -q 'FS_IOC_FSGETXATTR' jni/FuseDaemon.cpp
+          grep -q 'FS_IOC_FSSETXATTR' jni/FuseDaemon.cpp
+          echo "Android 13 AOSP patch applies and required callback symbols are present."
       - name: Install build and packaging dependencies
         run: |
           sudo apt-get update
@@ -69,13 +84,15 @@ jobs:
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
           cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
           cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
+          cp research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch "$AK_DIR/android13-mediaprovider-projectid.patch"
+          cp research/android13-mediaprovider/README.md "$AK_DIR/ANDROID13-MEDIAPROVIDER-README.md"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-V11-HMP-ProjectID-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
-              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt
+              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \\\n              android13-mediaprovider-projectid.patch ANDROID13-MEDIAPROVIDER-README.md
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-V11-HMP-ProjectID-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-V11-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/V11-HMP-PROJECTID-SHA256.txt
@@ -89,9 +106,9 @@ jobs:
       - name: Publish experimental V11 prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fleux-v11-hmp-projectid-\${{ github.run_number }}
-          name: Fleux V11 HMP + Project ID — build \${{ github.run_number }}
-          target_commitish: \${{ github.sha }}
+          tag_name: fleux-v11-hmp-projectid-${{ github.run_number }}
+          name: Fleux V11 HMP + Project ID — build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
           fail_on_unmatched_files: true
@@ -103,10 +120,12 @@ jobs:
             reports project IDs using EXTRA_ATTR when PRJQUOTA is absent; it
             does not provide quota accounting/enforcement.
 
-            This kernel does not implement the Android 13 MediaProvider FUSE
-            ioctl bridge. The userspace MediaProvider change is separate and
-            must be built/tested against the matching Android 13 ROM. This ZIP
-            is a kernel-side test only. Preserve a known-good boot image.
+            The Android 13 MediaProvider FUSE ioctl bridge source patch is
+            included as a separate release asset and validated for clean
+            application to the pinned AOSP Android 13 branch. It is NOT built
+            into this kernel ZIP or a flashable APK. It still requires a full
+            Android 13 MediaProvider build and validation against Xiaomi's ROM.
+            Kernel ZIP remains a kernel-side test. Preserve a known-good boot image.
           files: |
             artifacts/Fleux-V11-HMP-ProjectID-AnyKernel3.zip
             artifacts/hmp-storage-projectid-source.patch
@@ -114,5 +133,7 @@ jobs:
             artifacts/scheduler-modes-audit.txt
             artifacts/official-4.19.191-fs-mount-audit.txt
             artifacts/android-storage-audit.txt
+            research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch
+            research/android13-mediaprovider/README.md
             artifacts/build-manifest.txt
             artifacts/V11-HMP-PROJECTID-SHA256.txt
