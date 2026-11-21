@@ -263,30 +263,27 @@ replace_once(
 
 replace_once(
     "kernel/sched/fair.c",
-    "\trcu_read_unlock();\n\n#ifdef CONFIG_NO_HZ_COMMON\n"
-    "\tif (nohz_kick_needed(cpu_rq(new_cpu), true))",
-    "\trcu_read_unlock();\n\n"
+    "\tresult = SELECT_TASK_RQ_FAIR(p, prev_cpu, sd_flag, wake_flags,\n"
+    "\t\tsibling_count_hint);\n"
+    "#ifdef CONFIG_MTK_SCHED_CPU_PREFER",
+    "\tresult = SELECT_TASK_RQ_FAIR(p, prev_cpu, sd_flag, wake_flags,\n"
+    "\t\tsibling_count_hint);\n"
     "#if defined(CONFIG_MACH_MT6781) && defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)\n"
     "\t{\n"
     "\t\tunsigned int cpu_mode = READ_ONCE(sysctl_sched_cpu_mode);\n"
+    "\t\tstruct root_domain *rd = cpu_rq(prev_cpu)->rd;\n"
     "\t\tbool overutilized = rd && READ_ONCE(rd->overutilized);\n"
-    "\t\tif ((cpu_mode == 0 || (cpu_mode == 2 && overutilized)) &&\n"
-    "\t\t    (sd_flag & (SD_BALANCE_WAKE | SD_BALANCE_FORK | SD_BALANCE_EXEC))) {\n"
+    "\t\tif (cpu_mode == 0 || (cpu_mode == 2 && overutilized)) {\n"
     "\t\t\tbool force_big = p->mm && (sd_flag & SD_BALANCE_FORK);\n"
     "\t\t\tint hmp_cpu;\n"
     "\n"
-    "\t\t\trcu_read_lock();\n"
     "\t\t\thmp_cpu = fleux_hmp_select_cpu(p, force_big);\n"
-    "\t\t\trcu_read_unlock();\n"
-    "\t\t\tif (hmp_cpu >= 0) {\n"
-    "\t\t\t\tnew_cpu = hmp_cpu;\n"
-    "\t\t\t\tselect_reason = LB_IDLEST;\n"
-    "\t\t\t}\n"
+    "\t\t\tif (hmp_cpu >= 0)\n"
+    "\t\t\t\tresult = (result & ~LB_CPU_MASK) | hmp_cpu;\n"
     "\t\t}\n"
     "\t}\n"
-    "#endif\n\n"
-    "#ifdef CONFIG_NO_HZ_COMMON\n"
-    "\tif (nohz_kick_needed(cpu_rq(new_cpu), true))",
+    "#endif\n"
+    "#ifdef CONFIG_MTK_SCHED_CPU_PREFER",
     "official-style HMP/Hybrid placement hook",
 )
 
