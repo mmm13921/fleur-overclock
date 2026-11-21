@@ -43,7 +43,7 @@ replace_once(
     "unsigned int sysctl_sched_energy_aware = 1;\n"
     "#ifdef CONFIG_MACH_MT6781\n"
     "/* Fleur 4.14 mode semantics: 0=HMP, 1=EAS, 2=Hybrid. */\n"
-    "unsigned int sysctl_sched_cpu_mode = 1;\n"
+    "unsigned int sysctl_sched_cpu_mode = 0;\n"
     "#endif\n"
     "DEFINE_MUTEX(sched_energy_mutex);",
     "scheduler mode state",
@@ -299,7 +299,7 @@ reference_mode_logic=official should_hmp() in kernel/sched/hmp.h
 result=PASS
 mode_values=0:HMP,1:EAS,2:Hybrid
 mode_sysctl=/proc/sys/kernel/sched_cpu_mode
-default_mode=1
+default_mode=0
 mode_0=HMP-style PELT/util_est wake/fork/exec placement; EAS disabled
 mode_1=existing Fleux EAS placement
 mode_2=EAS while root_domain is not overutilized; HMP-style placement while overutilized
@@ -307,7 +307,7 @@ fork_policy=non-kernel fork prefers fastest allowed CPU capacity domain, matchin
 task_demand_signal=PELT/util_est/uclamp; WALT loadwop_avg is not available in Fleux
 heavy_task_boundary=650/1024 retained as an initial heuristic only; not equivalent to 4.14 WALT loadwop_avg
 hmp_scope=mode selection and first-stage placement only; full WALT HMP active migration/push-pull/idle-pull/group migration not ported
-boot_default=EAS to preserve Fleux scheduling until a user explicitly selects HMP or Hybrid
+boot_default=HMP-style placement; EAS and Hybrid remain selectable at runtime
 hardware_validation=required; not performed by CI
 benchmark_validation=not performed by CI
 """
@@ -321,6 +321,15 @@ for required in (
         raise SystemExit(f"Fleux scheduler modes: expected defconfig setting missing: {required}")
 
 makefile = (root / "Makefile").read_text()
+# Verify the actual boot defaults.
+topology = (root / "kernel/sched/topology.c").read_text()
+if "unsigned int sysctl_sched_energy_aware = 0;" not in topology:
+    raise SystemExit("HMP default audit: EAS must be disabled at boot")
+if "unsigned int sysctl_sched_cpu_mode = 0;" not in topology:
+    raise SystemExit("HMP default audit: sched_cpu_mode must default to 0")
+if "default_mode=0" not in audit_text or "boot_default=HMP-style" not in audit_text:
+    raise SystemExit("HMP default audit: generated audit does not declare HMP boot default")
+
 if "PATCHLEVEL = 19" not in makefile or "SUBLEVEL = 325" not in makefile:
     raise SystemExit("Expected Fleux target kernel 4.19.325 was not found")
 
