@@ -19,7 +19,7 @@ case "$SOURCE_REF" in
 esac
 
 case "$BUILD_PROFILE" in
-  baseline|oc1|oc2|oc3|hyperos-compat|scheduler-modes) ;;
+  baseline|oc1|oc2|oc3|hyperos-compat|scheduler-modes|storage-projectid) ;;
   *)
     echo "Unsupported build profile: $BUILD_PROFILE" >&2
     exit 2
@@ -59,6 +59,10 @@ case "$BUILD_PROFILE" in
     python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
     python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
     ;;
+  storage-projectid)
+    python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
+    python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
+    ;;
 esac
 
 git -C "$SRC_DIR" diff HEAD --check
@@ -77,6 +81,13 @@ bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
   python3 "$WORKSPACE/scripts/audit_android_storage.py" \
     "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
+elif [[ "$BUILD_PROFILE" == "storage-projectid" ]]; then
+  grep -qx "CONFIG_QUOTA=y" "$OUT_DIR/.config"
+  grep -qx "CONFIG_F2FS_FS=y" "$OUT_DIR/.config"
+  grep -qx "CONFIG_F2FS_FS_XATTR=y" "$OUT_DIR/.config"
+  grep -qx "CONFIG_F2FS_FS_ENCRYPTION=y" "$OUT_DIR/.config"
+  test -s "$ARTIFACT_DIR/storage-projectid-audit.txt"
+  grep -q "^result=PASS$" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 fi
 
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
@@ -310,6 +321,9 @@ case "$BUILD_PROFILE" in
   scheduler-modes)
     git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/scheduler-modes-source.patch"
     ;;
+  storage-projectid)
+    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/storage-projectid-source.patch"
+    ;;
 esac
 
 {
@@ -326,6 +340,12 @@ esac
     echo "modem_pm_compatibility=MT6781 DPMAIF syscore suspend/resume path hardened"
     echo "modem_pm_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume"
     echo "hardware_validation=required; CI performs structural checks only"
+  fi
+  if [[ "$BUILD_PROFILE" == "storage-projectid" ]]; then
+    echo "filesystem_mount_backport=official Xiaomi MT6781 4.19.191 F2FS source and Android legacy remount path"
+    echo "f2fs_projectid_compat=store/read i_projid with EXTRA_ATTR when on-disk PRJQUOTA is absent"
+    echo "f2fs_project_quota_enforcement=unchanged; metadata-only fallback is not quota enforcement"
+    echo "storage_projectid_audit=$ARTIFACT_DIR/storage-projectid-audit.txt"
   fi
   if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
     echo "filesystem_mount_backport=official Xiaomi MT6781 4.19.191 F2FS source and Android legacy remount path"
@@ -384,6 +404,8 @@ esac
     sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
   elif [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
     sha256sum "$ARTIFACT_DIR/scheduler-modes-source.patch" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt"
+  elif [[ "$BUILD_PROFILE" == "storage-projectid" ]]; then
+    sha256sum "$ARTIFACT_DIR/storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
   fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 
