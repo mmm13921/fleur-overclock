@@ -440,7 +440,9 @@ replace_once(
 )
 
 # 10. PREEMPT_SHORT: a newly eligible task with a shorter request may cancel
-# the current task's protected slice.
+# the current task's protected slice. Refresh after the earlier on-disk
+# transformations so this final function replacement cannot discard them.
+fair = read("kernel/sched/fair.c")
 start = fair.index("static void check_preempt_wakeup(struct rq *rq, struct task_struct *p, int wake_flags)")
 end = fair.index("\nstatic struct task_struct *", start)
 old_wakeup = fair[start:end]
