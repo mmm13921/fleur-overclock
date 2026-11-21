@@ -17,11 +17,25 @@ jobs:
         uses: actions/checkout@v4
       - name: Fetch pinned V11 kernel source
         run: git clone --depth=1 --branch v11 https://gitlab.com/daliboss/fleux.git kernel-src
-      - name: Audit existing EEVDF and Linux 6.18 extensions
+      - name: Apply Meys V1 EEVDF layer 1
+        run: |
+          set -euo pipefail
+          python3 -m py_compile eevdf/patches/0001-eevdf-core-618.py eevdf/audit_eevdf_618.py
+          python3 eevdf/patches/0001-eevdf-core-618.py kernel-src artifacts-eevdf-layer1-audit.txt
+          git -C kernel-src diff --check
+      - name: Audit EEVDF backport layers
         run: |
           set -euo pipefail
           python3 eevdf/audit_eevdf_618.py kernel-src | tee artifacts-eevdf-audit.txt
-          grep -q '^core_eevdf=PASS$' artifacts-eevdf-audit.txt
+          grep -q '^eevdf_layer1=PASS
+      - name: Upload source audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-v1-eevdf-source-audit
+          path: artifacts-eevdf-*.txt
+          if-no-files-found: error
+          retention-days: 30
+ artifacts-eevdf-audit.txt
       - name: Upload source audit
         uses: actions/upload-artifact@v4
         with:
