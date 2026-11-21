@@ -48,9 +48,9 @@ old = """static int f2fs_ioc_setproject(struct file *filp, __u32 projid)
 
 	if (!F2FS_FITS_IN_INODE(F2FS_INODE(ipage), fi->i_extra_isize,
 								i_projid)) {
-		err = -EOVERFLOW;
 		f2fs_put_page(ipage, 1);
-		return err;
+		/* Legacy images may have EXTRA_ATTR but no room for i_projid. */
+		return quota_enabled ? -EOVERFLOW : 0;
 	}
 	f2fs_put_page(ipage, 1);
 
@@ -168,8 +168,8 @@ report.write_text("\n".join((
     "normal_project_quota_path=unchanged when on-disk PRJQUOTA is enabled",
     "compatibility_path=store inode project ID when EXTRA_ATTR exists; return success without persistence when legacy EXTRA_ATTR is absent and PRJQUOTA is disabled",
     "project_inheritance=children inherit project ID when parent PROJINHERIT is set and EXTRA_ATTR exists",
-    "legacy_no_extra_attr_behavior=FSSETXATTR succeeds as a no-op so vold app-directory setup does not fail; project ID is not persisted",
-    "metadata_persistence_requirement=on-disk EXTRA_ATTR and sufficient per-inode extra size",
+    "legacy_unsupported_metadata_behavior=FSSETXATTR succeeds as a no-op if EXTRA_ATTR is absent or i_projid does not fit; project ID is not persisted",
+    "metadata_persistence_requirement=on-disk EXTRA_ATTR and sufficient per-inode extra size; otherwise safe no-op when PRJQUOTA is disabled",
     "quota_enforcement=requires a filesystem formatted with PRJQUOTA; this compatibility path does not provide enforcement",
     "data_safety=no superblock feature bits modified; no data partition reformat or mount-option mutation",
 )) + "\n")
