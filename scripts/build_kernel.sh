@@ -53,7 +53,6 @@ case "$BUILD_PROFILE" in
     ;;
   hyperos-compat)
     python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR"
-    python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
     ;;
 esac
 
@@ -70,6 +69,11 @@ make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig \
 
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
+if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
+  python3 "$WORKSPACE/scripts/apply_project_quota_compat.py" \
+    "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/project-quota-compat-audit.txt"
+  git -C "$SRC_DIR" diff HEAD --check
+fi
 
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
   CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 \
@@ -302,7 +306,7 @@ esac
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
   echo "filesystem_profile=hyperos-safe"
-  echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official 4.19.191)"
+  echo "project_quota_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official 4.19.191)"
   echo "filesystem_interceptors=nomount disabled; susfs feature flags disabled; inline hook retained"
   if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     echo "modem_pm_compatibility=MT6781 DPMAIF syscore suspend/resume path hardened"
@@ -335,11 +339,8 @@ esac
   echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
   echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-    echo "flashable_zip=AnyKernel3"
-  else
-    echo "flashable_zip=false"
-  fi
+  echo "flashable_zip=false"
+  echo "artifact_contents=Image.gz-dtb,kernel.config,source.patch,audit_reports,build-manifest"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
   sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config"
@@ -350,7 +351,7 @@ esac
   elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
     sha256sum "$ARTIFACT_DIR/oc3-source.patch"
   elif [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-    sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
+    sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt" "$ARTIFACT_DIR/project-quota-compat-audit.txt"
   fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 
