@@ -56,6 +56,7 @@ case "$BUILD_PROFILE" in
     python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
     ;;
   scheduler-modes)
+    python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
     python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
     ;;
 esac
@@ -380,7 +381,7 @@ esac
   elif [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
     sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
   elif [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
-    sha256sum "$ARTIFACT_DIR/scheduler-modes-source.patch" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+    sha256sum "$ARTIFACT_DIR/scheduler-modes-source.patch" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt"
   fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 
