@@ -102,7 +102,7 @@ if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
   grep -q '^result=PASS$' "$ARTIFACT_DIR/scheduler-modes-audit.txt"
   grep -q '^CONFIG_MACH_MT6781=y$' "$ARTIFACT_DIR/kernel.config"
   grep -q '^CONFIG_ENERGY_MODEL=y$' "$ARTIFACT_DIR/kernel.config"
-  grep -q '^CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y$' "$ARTIFACT_DIR/kernel.config"
+  grep -q '^CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y$' "$ARTIFACT_DIR/kernel.config"
 elif [[ "$BUILD_PROFILE" == "oc2" ]]; then
   python3 "$WORKSPACE/scripts/audit_oc2_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
 elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
@@ -325,12 +325,13 @@ esac
   if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
     echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
     echo "scheduler_mode_sysctl=/proc/sys/kernel/sched_cpu_mode"
-    echo "scheduler_mode_default=1"
+    echo "scheduler_mode_default=0"
     echo "scheduler_mode_hybrid=EAS while root domain is not overutilized; HMP-style placement while overutilized"
     echo "scheduler_mode_reference=MiCode-mirror/xiaomi_kernel_opensource@fleur-s-oss (official 4.14.186)"
     echo "scheduler_mode_target=daliboss/fleux@lineage-24.0 (4.19.325)"
     echo "scheduler_hmp_port=official should_hmp mode semantics; PELT+util_est capacity-based placement; full WALT migration engine not included"
     echo "scheduler_mode_audit=$ARTIFACT_DIR/scheduler-modes-audit.txt"
+echo "filesystem_profile=hyperos-safe; F2FS project quota prerequisites audited"
     echo "device_config=MT6781 fleur_defconfig"
   fi
   if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
