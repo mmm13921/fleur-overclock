@@ -8,7 +8,7 @@ OUT_DIR="${OUT_DIR:-$WORKSPACE/out}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$WORKSPACE/artifacts}"
 TOOLCHAIN_DIR="${TOOLCHAIN_DIR:-}"
 if [[ "$SOURCE_REF" != "v11" ]]; then
-  echo "This Meys VX build is pinned to upstream V11; refusing source ref: $SOURCE_REF" >&2
+  echo "This Meys build is pinned to upstream V11; refusing source ref: $SOURCE_REF" >&2
   exit 2
 fi
 if [[ "$BUILD_PROFILE" != "hmp-storage-projectid" ]]; then
@@ -34,10 +34,10 @@ git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
 export SUBARCH=arm64
-export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-MeysVX}"
+export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-Meys}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
-"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "-MeysVX"
+"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "-Meys"
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
@@ -68,7 +68,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
-  echo "kernel_version=4.19.325-MeysVX"
+  echo "kernel_version=4.19.325-Meys"
   echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
