@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply MT6781 HMP/EAS/Hybrid runtime modes to Fleux 4.19."""
+"""Backport the Fleur 4.14 HMP/EAS/Hybrid mode selector to Fleux 4.19."""
 from pathlib import Path
 import sys
 
@@ -34,36 +34,73 @@ replace_once(
     "\t\tvoid *buffer, size_t *lenp, loff_t *ppos);\n"
     "#endif\n"
     "#endif",
-    "sysctl header declaration",
+    "scheduler sysctl declarations",
 )
+
 replace_once(
     "kernel/sched/topology.c",
     "unsigned int sysctl_sched_energy_aware = 1;\nDEFINE_MUTEX(sched_energy_mutex);",
     "unsigned int sysctl_sched_energy_aware = 1;\n"
     "#ifdef CONFIG_MACH_MT6781\n"
-    "/* 0 = HMP-style, 1 = EAS, 2 = Hybrid. */\n"
-    "unsigned int sysctl_sched_cpu_mode = 2;\n"
+    "/* Fleur 4.14 mode semantics: 0=HMP, 1=EAS, 2=Hybrid. */\n"
+    "unsigned int sysctl_sched_cpu_mode = 1;\n"
     "#endif\n"
     "DEFINE_MUTEX(sched_energy_mutex);",
     "scheduler mode state",
 )
-replace_once(
-    "kernel/sched/topology.c",
-    "ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);\n"
+
+old_handlers = (
+    "int sched_energy_aware_handler(struct ctl_table *table, int write,\n"
+    "\t\tvoid *buffer, size_t *lenp, loff_t *ppos)\n"
+    "{\n"
+    "\tint ret, state;\n"
+    "\n"
+    "\tif (write && !capable(CAP_SYS_ADMIN))\n"
+    "\t\treturn -EPERM;\n"
+    "\n"
+    "\tret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);\n"
     "\tif (!ret && write) {\n"
-    "\t\tstate = static_branch_unlikely(&sched_energy_present);",
-    "ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);\n"
-    "\tif (!ret && write) {\n"
-    "#ifdef CONFIG_MACH_MT6781\n"
-    "\t\tWRITE_ONCE(sysctl_sched_cpu_mode, sysctl_sched_energy_aware ? 1 : 0);\n"
-    "#endif\n"
-    "\t\tstate = static_branch_unlikely(&sched_energy_present);",
-    "legacy EAS sysctl synchronization",
+    "\t\tstate = static_branch_unlikely(&sched_energy_present);\n"
+    "\t\tif (state != sysctl_sched_energy_aware) {\n"
+    "\t\t\tmutex_lock(&sched_energy_mutex);\n"
+    "\t\t\tsched_energy_update = 1;\n"
+    "\t\t\trebuild_sched_domains();\n"
+    "\t\t\tsched_energy_update = 0;\n"
+    "\t\t\tmutex_unlock(&sched_energy_mutex);\n"
+    "\t\t}\n"
+    "\t}\n"
+    "\n"
+    "\treturn ret;\n"
+    "}"
 )
-replace_once(
-    "kernel/sched/topology.c",
-    "\treturn ret;\n}\n#endif\n\nstatic void free_pd(struct perf_domain *pd)",
-    "\treturn ret;\n}\n"
+new_handlers = (
+    "int sched_energy_aware_handler(struct ctl_table *table, int write,\n"
+    "\t\tvoid *buffer, size_t *lenp, loff_t *ppos)\n"
+    "{\n"
+    "\tint ret, state;\n"
+    "\n"
+    "\tif (write && !capable(CAP_SYS_ADMIN))\n"
+    "\t\treturn -EPERM;\n"
+    "\n"
+    "\tret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);\n"
+    "\tif (!ret && write) {\n"
+    "\t\tmutex_lock(&sched_energy_mutex);\n"
+    "#ifdef CONFIG_MACH_MT6781\n"
+    "\t\tWRITE_ONCE(sysctl_sched_cpu_mode,\n"
+    "\t\t\tREAD_ONCE(sysctl_sched_energy_aware) ? 1 : 0);\n"
+    "#endif\n"
+    "\t\tstate = static_branch_unlikely(&sched_energy_present);\n"
+    "\t\tif (state != READ_ONCE(sysctl_sched_energy_aware)) {\n"
+    "\t\t\tsched_energy_update = 1;\n"
+    "\t\t\trebuild_sched_domains();\n"
+    "\t\t\tsched_energy_update = 0;\n"
+    "\t\t}\n"
+    "\t\tmutex_unlock(&sched_energy_mutex);\n"
+    "\t}\n"
+    "\n"
+    "\treturn ret;\n"
+    "}\n"
+    "\n"
     "#ifdef CONFIG_MACH_MT6781\n"
     "int sched_cpu_mode_handler(struct ctl_table *table, int write,\n"
     "\t\tvoid *buffer, size_t *lenp, loff_t *ppos)\n"
@@ -76,8 +113,8 @@ replace_once(
     "\n"
     "\tret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);\n"
     "\tif (!ret && write) {\n"
-    "\t\tmutex_lock(&sched_energy_mutex);\n"
     "\t\tenable_eas = READ_ONCE(sysctl_sched_cpu_mode) != 0;\n"
+    "\t\tmutex_lock(&sched_energy_mutex);\n"
     "\t\tWRITE_ONCE(sysctl_sched_energy_aware, enable_eas);\n"
     "\t\tstate = static_branch_unlikely(&sched_energy_present);\n"
     "\t\tif (state != enable_eas) {\n"
@@ -90,10 +127,15 @@ replace_once(
     "\n"
     "\treturn ret;\n"
     "}\n"
-    "#endif\n"
-    "#endif\n\nstatic void free_pd(struct perf_domain *pd)",
-    "runtime CPU mode handler",
+    "#endif"
 )
+replace_once(
+    "kernel/sched/topology.c",
+    old_handlers,
+    new_handlers,
+    "EAS and CPU-mode sysctl handlers",
+)
+
 replace_once(
     "kernel/sysctl.c",
     "\t\t.procname\t= \"sched_energy_aware\",\n"
@@ -127,62 +169,87 @@ replace_once(
     "#endif\n"
     "#endif\n"
     "#ifdef CONFIG_PROVE_LOCKING",
-    "sysctl table entry",
+    "CPU-mode sysctl table entry",
 )
+
 helper = """#if defined(CONFIG_MACH_MT6781) && defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
-/* First-stage port of the MTK 4.14 HMP policy, adapted to 4.19 PELT/util_est. */
-#define FLEUX_HMP_HEAVY_UTIL 650
-static int fleux_hmp_select_cpu(struct task_struct *p)
+/*
+ * First-stage HMP placement port for Fleux 4.19.
+ * Fleur 4.14 uses WALT loadwop_avg; this tree uses PELT/util_est.
+ * 650 is retained only as a starting threshold, not an equivalent metric.
+ */
+#define FLEUX_HMP_HEAVY_UTIL 650UL
+static int fleux_hmp_select_cpu(struct task_struct *p, bool force_big)
 {
-	const struct cpumask *allowed = &p->cpus_allowed;
-	unsigned long task_util = uclamp_task_util(p);
-	unsigned long min_cap = ULONG_MAX, max_cap = 0, target_cap;
-	int cpu, pass, best;
-	for_each_cpu(cpu, allowed) {
-		unsigned long cap;
-		if (!cpu_online(cpu))
-			continue;
-		cap = capacity_orig_of(cpu);
-		if (!cap)
-			continue;
-		min_cap = min(min_cap, cap);
-		max_cap = max(max_cap, cap);
-	}
-	if (!max_cap || min_cap == max_cap)
-		return -1;
-	target_cap = task_util >= FLEUX_HMP_HEAVY_UTIL ? max_cap : min_cap;
-	for (pass = 0; pass < 2; pass++) {
-		unsigned long best_util = ULONG_MAX, best_capacity = 1;
-		best = -1;
-		if (pass && task_util >= FLEUX_HMP_HEAVY_UTIL)
-			break;
-		for_each_cpu(cpu, allowed) {
-			unsigned long orig_cap, curr_cap, util;
-			if (!cpu_online(cpu))
-				continue;
-			orig_cap = capacity_orig_of(cpu);
-			if (!orig_cap)
-				continue;
-			if (!pass && orig_cap != target_cap)
-				continue;
-			if (pass && orig_cap == target_cap)
-				continue;
-			curr_cap = capacity_of(cpu);
-			if (!curr_cap)
-				continue;
-			util = cpu_util_without(cpu, p);
-			if (task_util < FLEUX_HMP_HEAVY_UTIL && util + task_util > curr_cap)
-				continue;
-			if (best < 0 || util * best_capacity < best_util * curr_cap) {
-				best = cpu;
-				best_util = util;
-				best_capacity = curr_cap;
-			}
-		}
-		if (best >= 0)
-			return best;
-	}
-	return -1;
+\tconst struct cpumask *allowed = &p->cpus_allowed;
+\tunsigned long task_util = force_big ? 0 : uclamp_task_util(p);
+\tunsigned long min_cap = ULONG_MAX, max_cap = 0, target_cap;
+\tint cpu, pass;
+
+\tfor_each_cpu(cpu, allowed) {
+\t\tunsigned long cap;
+
+\t\tif (!cpu_online(cpu) || cpu_isolated(cpu))
+\t\t\tcontinue;
+\t\tcap = capacity_orig_of(cpu);
+\t\tif (!cap)
+\t\t\tcontinue;
+\t\tmin_cap = min(min_cap, cap);
+\t\tmax_cap = max(max_cap, cap);
+\t}
+
+\tif (!max_cap)
+\t\treturn -1;
+
+\t/* Official 4.14 HMP fork placement prefers the fastest allowed domain. */
+\ttarget_cap = (force_big || task_util >= FLEUX_HMP_HEAVY_UTIL) ?
+\t\tmax_cap : min_cap;
+
+\tfor (pass = 0; pass < 2; pass++) {
+\t\tunsigned long best_util = ULONG_MAX, best_capacity = 1;
+\t\tint best_cpu = -1;
+
+\t\tfor_each_cpu(cpu, allowed) {
+\t\t\tunsigned long orig_cap, curr_cap, util;
+
+\t\t\tif (!cpu_online(cpu) || cpu_isolated(cpu))
+\t\t\t\tcontinue;
+
+\t\t\torig_cap = capacity_orig_of(cpu);
+\t\t\tif (!orig_cap)
+\t\t\t\tcontinue;
+\t\t\tif (!pass && orig_cap != target_cap)
+\t\t\t\tcontinue;
+\t\t\tif (pass && orig_cap == target_cap)
+\t\t\t\tcontinue;
+
+\t\t\tcurr_cap = capacity_of(cpu);
+\t\t\tif (!curr_cap)
+\t\t\t\tcontinue;
+
+\t\t\tutil = cpu_util_without(cpu, p) + task_util;
+\t\t\t/* Light tasks spill to a faster domain only when LITTLE lacks room. */
+\t\t\tif (!force_big && task_util < FLEUX_HMP_HEAVY_UTIL &&
+\t\t\t    !pass && util > curr_cap)
+\t\t\t\tcontinue;
+
+\t\t\tif (best_cpu < 0 ||
+\t\t\t    util * best_capacity < best_util * curr_cap) {
+\t\t\t\tbest_cpu = cpu;
+\t\t\t\tbest_util = util;
+\t\t\t\tbest_capacity = curr_cap;
+\t\t\t}
+\t\t}
+
+\t\tif (best_cpu >= 0)
+\t\t\treturn best_cpu;
+
+\t\t/* Heavy tasks/forks must not be demoted to a slower cluster. */
+\t\tif (force_big || task_util >= FLEUX_HMP_HEAVY_UTIL)
+\t\t\tbreak;
+\t}
+
+\treturn -1;
 }
 #endif
 
@@ -191,59 +258,75 @@ replace_once(
     "kernel/sched/fair.c",
     "static int\nSELECT_TASK_RQ_FAIR(struct task_struct *p, int prev_cpu, int sd_flag,",
     helper + "static int\nSELECT_TASK_RQ_FAIR(struct task_struct *p, int prev_cpu, int sd_flag,",
-    "HMP placement helper insertion",
+    "PELT-adapted HMP placement helper",
 )
+
 replace_once(
     "kernel/sched/fair.c",
-    "\tint sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);\n"
-    "\tint select_reason = LB_PREV;\n\n"
-    "\tif (sd_flag & SD_BALANCE_WAKE) {",
-    "\tint sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);\n"
-    "\tint select_reason = LB_PREV;\n"
+    "\trcu_read_unlock();\n\n#ifdef CONFIG_NO_HZ_COMMON\n"
+    "\tif (nohz_kick_needed(cpu_rq(new_cpu), true))",
+    "\trcu_read_unlock();\n\n"
     "#if defined(CONFIG_MACH_MT6781) && defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)\n"
-    "\tunsigned int cpu_mode = READ_ONCE(sysctl_sched_cpu_mode);\n"
-    "\tif ((sd_flag & (SD_BALANCE_WAKE | SD_BALANCE_FORK)) &&\n"
-    "\t    (cpu_mode == 0 || (cpu_mode == 2 && READ_ONCE(rd->overutilized)))) {\n"
-    "\t\tnew_cpu = fleux_hmp_select_cpu(p);\n"
-    "\t\tif (new_cpu >= 0)\n"
-    "\t\t\treturn LB_IDLEST | new_cpu;\n"
-    "\t}\n"
-    "#endif\n"
+    "\t{\n"
+    "\t\tunsigned int cpu_mode = READ_ONCE(sysctl_sched_cpu_mode);\n"
+    "\t\tbool overutilized = rd && READ_ONCE(rd->overutilized);\n"
+    "\t\tif ((cpu_mode == 0 || (cpu_mode == 2 && overutilized)) &&\n"
+    "\t\t    (sd_flag & (SD_BALANCE_WAKE | SD_BALANCE_FORK | SD_BALANCE_EXEC))) {\n"
+    "\t\t\tbool force_big = p->mm && (sd_flag & SD_BALANCE_FORK);\n"
+    "\t\t\tint hmp_cpu;\n"
     "\n"
-    "\tif (sd_flag & SD_BALANCE_WAKE) {",
-    "HMP mode selection hook",
+    "\t\t\trcu_read_lock();\n"
+    "\t\t\thmp_cpu = fleux_hmp_select_cpu(p, force_big);\n"
+    "\t\t\trcu_read_unlock();\n"
+    "\t\t\tif (hmp_cpu >= 0) {\n"
+    "\t\t\t\tnew_cpu = hmp_cpu;\n"
+    "\t\t\t\tselect_reason = LB_IDLEST;\n"
+    "\t\t\t}\n"
+    "\t\t}\n"
+    "\t}\n"
+    "#endif\n\n"
+    "#ifdef CONFIG_NO_HZ_COMMON\n"
+    "\tif (nohz_kick_needed(cpu_rq(new_cpu), true))",
+    "official-style HMP/Hybrid placement hook",
 )
-replace_once(
-    "kernel/sched/fair.c",
-    "\t\tif (static_branch_unlikely(&sched_energy_present)) {",
-    "#if defined(CONFIG_MACH_MT6781) && defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)\n"
-    "\t\tif ((cpu_mode == 1 || (cpu_mode == 2 && !READ_ONCE(rd->overutilized))) &&\n"
-    "\t\t    static_branch_unlikely(&sched_energy_present)) {\n"
-    "#else\n"
-    "\t\tif (static_branch_unlikely(&sched_energy_present)) {\n"
-    "#endif",
-    "EAS/Hybrid wake placement gate",
-)
-audit_text = """Fleux MT6781 scheduler mode port — structural audit
-source_kernel=Fleux 4.19.325
-port_reference=Fleur 4.14.336 HMP selection policy
+
+audit_text = """Fleux scheduler CPU modes — source and structural audit
+target_repository=daliboss/fleux
+target_ref=lineage-24.0
+target_kernel=4.19.325
+reference_repository=MiCode-mirror/xiaomi_kernel_opensource
+reference_ref=fleur-s-oss
+reference_kernel=4.14.186
+reference_device=Redmi Note 11S / MT6781 / fleur
+reference_mode_logic=official should_hmp() in kernel/sched/hmp.h
 result=PASS
-mode_values=0:HMP-style,1:EAS,2:Hybrid
+mode_values=0:HMP,1:EAS,2:Hybrid
 mode_sysctl=/proc/sys/kernel/sched_cpu_mode
-default_mode=2
-mode_0=EAS disabled; HMP-style capacity/utilization placement on wake/fork
-mode_1=existing Fleux EAS wake placement
-mode_2=EAS while root domain is not overutilized; HMP-style placement on overutilized wake/fork
-heavy_task_boundary=650/1024
-task_demand_signal=PELT/util_est/uclamp; legacy 4.14 WALT loadwop_avg not copied
-hmp_scope=wake/fork placement only; legacy active migration, push/pull and group migration not ported
-hardware_validation=required
+default_mode=1
+mode_0=HMP-style PELT/util_est wake/fork/exec placement; EAS disabled
+mode_1=existing Fleux EAS placement
+mode_2=EAS while root_domain is not overutilized; HMP-style placement while overutilized
+fork_policy=non-kernel fork prefers fastest allowed CPU capacity domain, matching official HMP intent
+task_demand_signal=PELT/util_est/uclamp; WALT loadwop_avg is not available in Fleux
+heavy_task_boundary=650/1024 retained as an initial heuristic only; not equivalent to 4.14 WALT loadwop_avg
+hmp_scope=mode selection and first-stage placement only; full WALT HMP active migration/push-pull/idle-pull/group migration not ported
+boot_default=EAS to preserve Fleux scheduling until a user explicitly selects HMP or Hybrid
+hardware_validation=required; not performed by CI
 benchmark_validation=not performed by CI
 """
 config = (root / "arch/arm64/configs/fleur_defconfig").read_text()
-for required in ("CONFIG_MACH_MT6781=y", "CONFIG_ENERGY_MODEL=y", "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y"):
+for required in (
+    "CONFIG_MACH_MT6781=y",
+    "CONFIG_ENERGY_MODEL=y",
+    "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y",
+):
     if required not in config:
         raise SystemExit(f"Fleux scheduler modes: expected defconfig setting missing: {required}")
+
+makefile = (root / "Makefile").read_text()
+if "PATCHLEVEL = 19" not in makefile or "SUBLEVEL = 325" not in makefile:
+    raise SystemExit("Expected Fleux target kernel 4.19.325 was not found")
+
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(audit_text)
 print(audit_text, end="")

@@ -325,9 +325,11 @@ esac
   if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
     echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
     echo "scheduler_mode_sysctl=/proc/sys/kernel/sched_cpu_mode"
-    echo "scheduler_mode_default=2"
+    echo "scheduler_mode_default=1"
     echo "scheduler_mode_hybrid=EAS while root domain is not overutilized; HMP-style placement while overutilized"
-    echo "scheduler_hmp_port=PELT+util_est capacity-based wake/fork placement; legacy WALT migration engine not included"
+    echo "scheduler_mode_reference=MiCode-mirror/xiaomi_kernel_opensource@fleur-s-oss (official 4.14.186)"
+    echo "scheduler_mode_target=daliboss/fleux@lineage-24.0 (4.19.325)"
+    echo "scheduler_hmp_port=official should_hmp mode semantics; PELT+util_est capacity-based placement; full WALT migration engine not included"
     echo "scheduler_mode_audit=$ARTIFACT_DIR/scheduler-modes-audit.txt"
     echo "device_config=MT6781 fleur_defconfig"
   fi

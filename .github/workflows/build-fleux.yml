@@ -1,5 +1,5 @@
-name: Fleux HMP EAS Hybrid scheduler build
-run-name: Fleux scheduler modes (${{ github.event_name }})
+name: Fleux official Fleur 4.14 CPU modes backport
+run-name: Fleux CPU modes backport (${{ github.event_name }})
 on:
   push:
     branches:
@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build-and-package:
-    name: Build MT6781 HMP EAS Hybrid kernel and AnyKernel3 ZIP
+    name: Build MT6781 official CPU-mode backport and AnyKernel3 ZIP
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -113,11 +113,11 @@ jobs:
             Experimental Fleux 4.19.325 scheduler-mode build for Redmi Note 11S 4G / fleur / MT6781.
 
             Runtime selector: `/proc/sys/kernel/sched_cpu_mode`
-            - `0`: HMP-style capacity-based wake/fork placement
-            - `1`: existing Fleux EAS placement
-            - `2`: Hybrid (EAS until the root domain is overutilized, then HMP-style wake/fork placement)
+            - `0`: HMP-style PELT/util_est placement (adapted from official Fleur 4.14 mode logic)
+            - `1`: existing Fleux EAS placement (default)
+            - `2`: Hybrid (EAS until the root domain is overutilized, then HMP-style placement)
 
-            Important: this is a first-stage HMP-style policy using PELT/util_est and CPU capacity. It is **not** a full legacy 4.14 WALT HMP migration engine. No physical-device boot, thermal, touch-latency or gaming stability testing is implied by CI success. Keep a known-good boot image and recovery path.
+            Reference: official Xiaomi Fleur fleur-s-oss kernel 4.14.186; target: Fleux lineage-24.0 kernel 4.19.325. This ports should_hmp() mode semantics and first-stage HMP-style placement only. It does not port the full WALT HMP migration engine. CI success does not imply successful device boot, thermal stability, touch latency or gaming performance. Keep a known-good boot image and recovery path.
           files: |
             artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip
             artifacts/scheduler-modes-source.patch

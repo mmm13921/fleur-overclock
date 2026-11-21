@@ -1,26 +1,38 @@
-# Fleux HMP / EAS / Hybrid Scheduler Modes
+# Fleur 4.14 CPU modes backport to Fleux 4.19
 
-This build targets Fleux Linux 4.19.325 for MT6781 using fleur_defconfig. The workflow checks out upstream Fleux branch lineage-24.0.
+## Source and destination
+
+- Reference: Xiaomi official Fleur kernel, MiCode-mirror/xiaomi_kernel_opensource, ref fleur-s-oss, Linux 4.14.186.
+- Target: daliboss/fleux, ref lineage-24.0, Linux 4.19.325.
+- The reference mode decision is the official should_hmp() logic in kernel/sched/hmp.h, together with the SELECT_TASK_RQ_FAIR() HMP path in the official kernel/sched/fair.c.
 
 ## Runtime selector
 
 Path: /proc/sys/kernel/sched_cpu_mode
 
-Values: 0 = HMP-style, 1 = EAS, 2 = Hybrid (default).
+- 0: HMP — disable EAS and use the target's PELT/util_est capacity-based HMP-style placement.
+- 1: EAS — retain Fleux's existing Energy Aware Scheduling path.
+- 2: Hybrid — use EAS while the root domain is not overutilized; switch wake/fork/exec placement to HMP-style policy when it is overutilized.
 
-Run as root:
+Default: 1 (EAS). This intentionally preserves the unmodified Fleux placement policy during early boot. HMP and Hybrid are selected explicitly at runtime.
+
+Examples as root:
 
     cat /proc/sys/kernel/sched_cpu_mode
     echo 0 > /proc/sys/kernel/sched_cpu_mode
     echo 1 > /proc/sys/kernel/sched_cpu_mode
     echo 2 > /proc/sys/kernel/sched_cpu_mode
 
-The sysctl accepts values 0..2 and requires root/CAP_SYS_ADMIN.
+Writing the legacy /proc/sys/kernel/sched_energy_aware knob remains supported: 0 maps to mode 0 and 1 maps to mode 1.
 
-## Port scope and limitations
+## Port boundary
 
-The Fleur 4.14 HMP implementation uses legacy loadwop_avg/WALT fields and interfaces that do not exist unchanged in Fleux 4.19. The port therefore uses the target tree's PELT/util_est, uclamp and CPU-capacity data. It preserves the 4.14 heavy-task boundary (650/1024) as an initial threshold, not as a validated optimal value.
+The official 4.14 HMP implementation depends on WALT (loadwop_avg), HMP domains, dynamic up/down migration thresholds, active migration, periodic migration, idle pull and group-specific accounting. Fleux 4.19 does not carry that HMP/WALT implementation, so copying hmp.c directly would not be a valid 4.19 backport.
 
-This is a first-stage HMP placement port. It does not port the entire legacy HMP engine: active up/down migration, periodic forced migration, idle pull, thread-group migration, and all WALT-specific accounting remain absent. Existing 4.19 CFS load balancing remains responsible for ordinary active balancing.
+This port transfers the CPU mode semantics and the initial task-placement policy only. The HMP-style placement is adapted to Fleux's PELT, util_est, uclamp and CPU-capacity APIs. A non-kernel fork prefers the fastest allowed capacity domain, following the official 4.14 HMP fork-placement intent. The value 650 is only an initial PELT/util_est heuristic; it is not numerically equivalent to the official WALT loadwop_avg >= 650 threshold.
 
-The workflow checks patch structure, compiles the kernel, packages an AnyKernel3 ZIP, and uploads the image/config/patch/audit. CI cannot validate boot, touch/input latency, frame-time, thermal behaviour, or benchmark gains. Keep a known-good boot image for recovery.
+This is not a full legacy HMP engine. Full WALT accounting, active up/down migration, periodic forced migration, idle pull and thread-group migration are not included. Existing Fleux CFS load balancing continues to handle ordinary balancing.
+
+## Validation
+
+CI validates patch anchors, config requirements, compilation and package integrity. It cannot validate device boot, runtime mode transitions, touch latency, frame pacing, thermals or game performance. The previous test image failed to reach Android on the device; do not treat a successful new compile as proof of a successful boot. Keep a known-good boot image and recovery path.
