@@ -1,4 +1,4 @@
-name: Fleux official SEA 4.19.191 filesystem backport
+name: Fleux minimal SEA 4.19.191 project quota backport
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
         default: lineage-24.0
         type: string
       build_profile:
-        description: Apply the official Xiaomi SEA 4.19.191 F2FS and Android VFS mount backport
+        description: Apply only the official Xiaomi SEA 4.19.191 F2FS project-quota code when it differs
         required: true
         default: hyperos-compat
         type: choice
@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build fleur kernel with official SEA 4.19.191 filesystem reference
+    name: Build fleur kernel with minimal SEA project-quota compatibility
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -81,7 +81,7 @@ jobs:
       - name: Build Fleux with selected filesystem profile
         run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
 
-      - name: Upload kernel image, official-source audit, and build manifest
+      - name: Upload kernel image, project-quota audit, and build manifest
         uses: actions/upload-artifact@v4
         with:
           name: fleux-sea-419191-${{ env.BUILD_PROFILE }}
