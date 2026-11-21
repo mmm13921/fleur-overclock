@@ -7,7 +7,7 @@ This directory keeps the source-level patch applicators used by the experimental
 | ID | File | Target | What it changes |
 |---|---|---|---|
 | 0001 | `apply/0001-official-419191-filesystem-mount-backport.py` | Fleux 4.19.325 kernel | Restores the matched Xiaomi Fleur 4.19.191 F2FS source set and legacy Android VFS remount path, while adapting the changed 4.19.325 helper call sites. This is a broad filesystem/mount backport, not a small isolated diff. |
-| 0002 | `apply/0002-f2fs-projectid-metadata-compat.py` | Fleux F2FS kernel | Experimental inode Project ID metadata fallback when EXTRA_ATTR exists but PRJQUOTA is not enabled. It does **not** enable quota accounting or quota enforcement. |
+| 0002 | `apply/0002-f2fs-projectid-metadata-compat.py` | Fleux F2FS kernel | Stores inode Project IDs when EXTRA_ATTR is available without PRJQUOTA; on legacy userdata lacking EXTRA_ATTR, accepts FSSETXATTR as a no-op so vold setup can continue. It does **not** enable project-quota accounting or enforcement. |
 | 0003 | `apply/0003-fleur-hmp-eas-hybrid-scheduler.py` | Fleux 4.19.325 scheduler | Adds `/proc/sys/kernel/sched_cpu_mode`: 0=HMP-style (default), 1=EAS, 2=Hybrid. This is a PELT/util_est adaptation and **not** a full WALT HMP port. |
 | 0004 | `apply/0004-android13-mediaprovider-fuse-projectid-bridge.py` | Android 13 MediaProvider userspace | Adds a restricted FUSE ioctl bridge for FS_IOC_FSGETXATTR/FS_IOC_FSSETXATTR. This is userspace source work; it is not part of the kernel and is not a flashable kernel patch. |
 
@@ -30,7 +30,8 @@ The canonical build entry points and audits remain in `scripts/` and `research/a
 
 - Patch scripts use exact source anchors and fail closed if the expected source layout changes.
 - CI source checks and kernel compilation do not prove successful boot or runtime behavior on the Redmi Note 11S.
-- The F2FS metadata fallback does not provide project-quota enforcement.
+- The F2FS compatibility path persists IDs only when EXTRA_ATTR exists; on older images without EXTRA_ATTR it returns success without persistence to avoid breaking vold setup. Neither mode provides project-quota enforcement unless userdata was formatted with PRJQUOTA.
+- Enabling PRJQUOTA on an existing userdata partition requires a supported migration/reformat path; this build never flips on-disk feature bits or reformats /data.
 - The Android 13 FUSE bridge still requires compilation against the ROM's matching MediaProvider/libfuse integration and on-device validation.
 - HMP mode 0 is HMP-style task placement using PELT/util_est, not the complete Xiaomi 4.14 WALT HMP implementation.
 
