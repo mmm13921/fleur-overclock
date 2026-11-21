@@ -28,20 +28,22 @@ jobs:
     steps:
       - name: Check out builder
         uses: actions/checkout@v4
-      - name: Validate Android 13 MediaProvider FUSE bridge
+      - name: Apply and audit Android 13 MediaProvider FUSE bridge
         run: |
           set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
           git clone --depth=1 --branch android13-security-release \
             https://android.googlesource.com/platform/packages/providers/MediaProvider \
             "$RUNNER_TEMP/MediaProvider"
-          cd "$RUNNER_TEMP/MediaProvider"
-          git apply --check "$GITHUB_WORKSPACE/research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch"
-          git apply "$GITHUB_WORKSPACE/research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch"
-          grep -q 'static void pf_projectid_ioctl' jni/FuseDaemon.cpp
-          grep -q '.ioctl = pf_projectid_ioctl' jni/FuseDaemon.cpp
-          grep -q 'FS_IOC_FSGETXATTR' jni/FuseDaemon.cpp
-          grep -q 'FS_IOC_FSSETXATTR' jni/FuseDaemon.cpp
-          echo "Android 13 AOSP patch applies and required callback symbols are present."
+          python3 "$GITHUB_WORKSPACE/research/android13-mediaprovider/apply_projectid_ioctl_bridge.py" "$RUNNER_TEMP/MediaProvider"
+          git -C "$RUNNER_TEMP/MediaProvider" diff --check
+          grep -q 'static void pf_projectid_ioctl' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          grep -q '.ioctl = pf_projectid_ioctl' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          grep -q 'FS_IOC_FSGETXATTR' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          grep -q 'FS_IOC_FSSETXATTR' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          git -C "$RUNNER_TEMP/MediaProvider" diff -- jni/FuseDaemon.cpp > "$GITHUB_WORKSPACE/artifacts/android13-mediaprovider-projectid.patch"
+          test -s "$GITHUB_WORKSPACE/artifacts/android13-mediaprovider-projectid.patch"
+          echo "Android 13 AOSP source transformation and diff checks passed."
       - name: Check builder shell syntax
         run: bash -n scripts/build_kernel.sh
       - name: Install build and packaging dependencies
@@ -86,7 +88,6 @@ jobs:
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
           cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
           cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
-          cp research/android13-mediaprovider/0001-fuse-projectid-ioctl-bridge.patch artifacts/android13-mediaprovider-projectid.patch
           cp research/android13-mediaprovider/README.md artifacts/ANDROID13-MEDIAPROVIDER-README.md
           (
             cd "$AK_DIR"
