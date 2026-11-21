@@ -359,7 +359,7 @@ esac
     echo "scheduler_hmp_port=V11 Fleux 4.19.325; PELT/util_est first-stage placement; not full WALT HMP"
     echo "scheduler_mode_audit=$ARTIFACT_DIR/scheduler-modes-audit.txt"
   fi
-  if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
+  if [[ "$BUILD_PROFILE" == "scheduler-modes" || "$BUILD_PROFILE" == "hmp-storage-projectid" ]]; then
     echo "filesystem_mount_backport=official Xiaomi MT6781 4.19.191 F2FS source and Android legacy remount path"
     echo "filesystem_mount_audit=$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
     echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
@@ -367,7 +367,7 @@ esac
     echo "scheduler_mode_default=0"
     echo "scheduler_mode_hybrid=EAS while root domain is not overutilized; HMP-style placement while overutilized"
     echo "scheduler_mode_reference=MiCode-mirror/xiaomi_kernel_opensource@fleur-s-oss (official 4.14.186)"
-    echo "scheduler_mode_target=daliboss/fleux@lineage-24.0 (4.19.325)"
+    echo "scheduler_mode_target=daliboss/fleux@v11 (4.19.325)"
     echo "scheduler_hmp_port=official should_hmp mode semantics; PELT+util_est capacity-based placement; full WALT migration engine not included"
     echo "scheduler_mode_audit=$ARTIFACT_DIR/scheduler-modes-audit.txt"
     echo "device_config=MT6781 fleur_defconfig"
@@ -398,7 +398,7 @@ esac
   echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
   echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" || "$BUILD_PROFILE" == "scheduler-modes" ]]; then
+  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" || "$BUILD_PROFILE" == "scheduler-modes" || "$BUILD_PROFILE" == "hmp-storage-projectid" ]]; then
     echo "flashable_zip=AnyKernel3"
   else
     echo "flashable_zip=false"
@@ -712,6 +712,8 @@ esac
     sha256sum "$ARTIFACT_DIR/scheduler-modes-source.patch" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt"
   elif [[ "$BUILD_PROFILE" == "storage-projectid" ]]; then
     sha256sum "$ARTIFACT_DIR/storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
+  elif [[ "$BUILD_PROFILE" == "hmp-storage-projectid" ]]; then
+    sha256sum "$ARTIFACT_DIR/hmp-storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt"
   fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 
