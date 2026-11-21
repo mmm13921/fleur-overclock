@@ -627,7 +627,7 @@ replace_once(
     "\t\t.extra1\t\t= &zero,\n"
     "\t\t.extra2\t\t= &one,\n"
     "\t},\n"
-    "\t#ifdef CONFIG_SCHED_DEBUG",
+    "#ifdef CONFIG_SCHED_DEBUG",
     "EEVDF runtime sysctl table",
 )
 
