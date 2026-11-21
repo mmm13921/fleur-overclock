@@ -1,9 +1,9 @@
-name: Meys VX HMP + Xiaomi 4.19.191 Project ID
-run-name: Meys VX HMP native Project ID (${{ github.event_name }})
+name: Meys HMP + Xiaomi 4.19.191 Project ID
+run-name: Meys HMP native Project ID (${{ github.event_name }})
 on:
   push:
     branches:
-      - meys-vx-projectid-native-419191
+      - meys-hmp-projectid-419191
     paths:
       - '.github/workflows/build-v11-hmp-projectid.yml'
       - 'scripts/build_kernel.sh'
@@ -16,11 +16,11 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: meys-vx-hmp-projectid-${{ github.ref }}
+  group: meys-hmp-projectid-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
-    name: Build Meys VX MT6781 HMP and native Project ID
+    name: Build Meys MT6781 HMP and native Project ID
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -66,7 +66,7 @@ jobs:
           test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
-      - name: Build Meys VX from pinned upstream kernel source
+      - name: Build Meys from pinned upstream kernel source
         run: bash scripts/build_kernel.sh "$SOURCE_REF" hmp-storage-projectid
       - name: Package AnyKernel3 test ZIP
         env:
@@ -100,24 +100,24 @@ jobs:
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-VX-HMP-ProjectID-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-VX-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/MEYS-VX-PROJECTID-SHA256.txt
-      - name: Upload Meys VX kernel, AnyKernel ZIP, and source audits
+      - name: Upload Meys kernel, AnyKernel ZIP, and source audits
         uses: actions/upload-artifact@v4
         with:
-          name: meys-vx-hmp-projectid-mt6781
+          name: meys-hmp-projectid-mt6781
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
-      - name: Publish Meys VX experimental prerelease
+      - name: Publish Meys experimental prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: meys-vx-projectid-${{ github.run_number }}
-          name: Meys VX HMP + Project ID — build ${{ github.run_number }}
+          tag_name: meys-projectid-${{ github.run_number }}
+          name: Meys HMP + Project ID — build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
-            Meys VX experimental MT6781 kernel. The upstream V11 source repository is retained only as the technical source base; the kernel and release branding is Meys VX.
+            Meys experimental MT6781 kernel. The upstream V11 source repository is retained only as the technical source base; the kernel and release branding is Meys.
 
             Includes the HMP/EAS/Hybrid CPU mode selector (HMP default) and
             the native F2FS Project ID implementation backported from Xiaomi
