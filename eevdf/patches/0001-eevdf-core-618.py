@@ -565,6 +565,14 @@ replace_once(
     "\t\t.mode\t\t= 0644,\n"
     "\t\t.proc_handler\t= proc_dointvec,\n"
     "\t},\n"
+    "#ifdef CONFIG_SCHED_DEBUG",
+    "\t{\n"
+    "\t\t.procname\t= \"sched_child_runs_first\",\n"
+    "\t\t.data\t\t= &sysctl_sched_child_runs_first,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec,\n"
+    "\t},\n"
     "\t{\n"
     "\t\t.procname\t= \"sched_base_slice\",\n"
     "\t\t.data\t\t= &sysctl_sched_base_slice,\n"
@@ -573,14 +581,6 @@ replace_once(
     "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
     "\t\t.extra1\t\t= &meys_min_sched_base_slice_ns,\n"
     "\t\t.extra2\t\t= &meys_max_sched_base_slice_ns,\n"
-    "\t},\n"
-    "#ifdef CONFIG_SCHED_DEBUG",
-    "\t{\n"
-    "\t\t.procname\t= \"sched_child_runs_first\",\n"
-    "\t\t.data\t\t= &sysctl_sched_child_runs_first,\n"
-    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
-    "\t\t.mode\t\t= 0644,\n"
-    "\t\t.proc_handler\t= proc_dointvec,\n"
     "\t},\n"
     "\t{\n"
     "\t\t.procname\t= \"sched_eevdf_place_lag\",\n"
@@ -627,9 +627,10 @@ replace_once(
     "\t\t.extra1\t\t= &zero,\n"
     "\t\t.extra2\t\t= &one,\n"
     "\t},\n"
-    "#ifdef CONFIG_SCHED_DEBUG",
+    "\t#ifdef CONFIG_SCHED_DEBUG",
     "EEVDF runtime sysctl table",
 )
+
 fair = read("kernel/sched/fair.c")
 for old, new in (
     ("sched_feat(PLACE_LAG)", "READ_ONCE(sysctl_sched_eevdf_place_lag)"),
