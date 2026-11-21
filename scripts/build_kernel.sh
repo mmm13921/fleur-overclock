@@ -106,7 +106,7 @@ if [[ "$BUILD_PROFILE" == "scheduler-modes" ]]; then
 fi
 test -s "$ARTIFACT_DIR/android-storage-audit.txt"
 grep -q '^result=PASS$' "$ARTIFACT_DIR/android-storage-audit.txt"
-elif [[ "$BUILD_PROFILE" == "oc2" ]]; then
+if [[ "$BUILD_PROFILE" == "oc2" ]]; then
   python3 "$WORKSPACE/scripts/audit_oc2_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
 elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
   python3 "$WORKSPACE/scripts/audit_oc3_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
