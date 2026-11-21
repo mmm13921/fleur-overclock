@@ -117,7 +117,9 @@ jobs:
 
             Runtime selector: `/proc/sys/kernel/sched_cpu_mode`
             - `0`: HMP-style PELT/util_est placement (adapted from official Fleur 4.14 mode logic)
-            - `1`: existing Fleux EAS placement (default)
+            - `1`: existing Fleux EAS placement
+
+            HMP (`0`) is enabled by default from boot.
             - `2`: Hybrid (EAS until the root domain is overutilized, then HMP-style placement)
 
             Reference: official Xiaomi Fleur fleur-s-oss kernel 4.14.186; target: Fleux lineage-24.0 kernel 4.19.325. This ports should_hmp() mode semantics and first-stage HMP-style placement only. It does not port the full WALT HMP migration engine. CI success does not imply successful device boot, thermal stability, touch latency or gaming performance. Keep a known-good boot image and recovery path.
