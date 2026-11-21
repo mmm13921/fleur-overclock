@@ -39,7 +39,7 @@ replace_once(
 
 replace_once(
     "kernel/sched/topology.c",
-    "unsigned int sysctl_sched_energy_aware = 0;\nDEFINE_MUTEX(sched_energy_mutex);",
+    "unsigned int sysctl_sched_energy_aware = 1;\nDEFINE_MUTEX(sched_energy_mutex);",
     "unsigned int sysctl_sched_energy_aware = 1;\n"
     "#ifdef CONFIG_MACH_MT6781\n"
     "/* Fleur 4.14 mode semantics: 0=HMP, 1=EAS, 2=Hybrid. */\n"
