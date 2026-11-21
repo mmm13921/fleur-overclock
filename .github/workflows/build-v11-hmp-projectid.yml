@@ -119,10 +119,12 @@ jobs:
           body: |
             Experimental MT6781 build based on the exact Fleux V11 source tag.
 
-            Includes HMP/EAS/Hybrid CPU mode selector (HMP default) and the F2FS
-            inode project-ID compatibility fallback. The fallback stores and
-            reports project IDs using EXTRA_ATTR when PRJQUOTA is absent; it
-            does not provide quota accounting/enforcement.
+            Includes HMP/EAS/Hybrid CPU mode selector (HMP default) and an F2FS
+            legacy Project ID compatibility path. Project IDs are persisted
+            only when the on-disk inode format has enough EXTRA_ATTR space;
+            unsupported legacy inodes accept the ioctl as a no-op so vold can
+            continue app-directory setup. This does not provide project-quota
+            accounting/enforcement without an on-disk PRJQUOTA feature.
 
             The Android 13 MediaProvider FUSE ioctl bridge source patch is
             included as a separate release asset and validated for clean
