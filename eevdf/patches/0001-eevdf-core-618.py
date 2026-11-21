@@ -533,7 +533,108 @@ replace_once(
     "preserve custom slice in legacy scheduler changes",
 )
 
-# 12. Initialize the new entity state and use the base slice on fork.
+# 11. Export the EEVDF feature switches as writable /proc/sys/kernel controls.
+replace_once(
+    "kernel/sched/fair.c",
+    "unsigned int sysctl_sched_base_slice\t\t\t= 700000ULL;",
+    "unsigned int sysctl_sched_base_slice\t\t\t= 700000ULL;\n"
+    "unsigned int sysctl_sched_eevdf_place_lag\t\t= 1;\n"
+    "unsigned int sysctl_sched_eevdf_place_deadline_initial\t= 1;\n"
+    "unsigned int sysctl_sched_eevdf_place_rel_deadline\t= 1;\n"
+    "unsigned int sysctl_sched_eevdf_run_to_parity\t\t= 1;\n"
+    "unsigned int sysctl_sched_eevdf_preempt_short\t\t= 1;",
+    "EEVDF runtime feature controls",
+)
+replace_once(
+    "include/linux/sched/sysctl.h",
+    "extern unsigned int sysctl_sched_base_slice;",
+    "extern unsigned int sysctl_sched_base_slice;\n"
+    "extern unsigned int sysctl_sched_eevdf_place_lag;\n"
+    "extern unsigned int sysctl_sched_eevdf_place_deadline_initial;\n"
+    "extern unsigned int sysctl_sched_eevdf_place_rel_deadline;\n"
+    "extern unsigned int sysctl_sched_eevdf_run_to_parity;\n"
+    "extern unsigned int sysctl_sched_eevdf_preempt_short;",
+    "EEVDF runtime feature declarations",
+)
+replace_once(
+    "kernel/sysctl.c",
+    "\t{\n"
+    "\t\t.procname\t= \"sched_child_runs_first\",\n"
+    "\t\t.data\t\t= &sysctl_sched_child_runs_first,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec,\n"
+    "\t},\n"
+    "#ifdef CONFIG_SCHED_DEBUG",
+    "\t{\n"
+    "\t\t.procname\t= \"sched_child_runs_first\",\n"
+    "\t\t.data\t\t= &sysctl_sched_child_runs_first,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec,\n"
+    "\t},\n"
+    "\t{\n"
+    "\t\t.procname\t= \"sched_eevdf_place_lag\",\n"
+    "\t\t.data\t\t= &sysctl_sched_eevdf_place_lag,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
+    "\t\t.extra1\t\t= &zero,\n"
+    "\t\t.extra2\t\t= &one,\n"
+    "\t},\n"
+    "\t{\n"
+    "\t\t.procname\t= \"sched_eevdf_place_deadline_initial\",\n"
+    "\t\t.data\t\t= &sysctl_sched_eevdf_place_deadline_initial,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
+    "\t\t.extra1\t\t= &zero,\n"
+    "\t\t.extra2\t\t= &one,\n"
+    "\t},\n"
+    "\t{\n"
+    "\t\t.procname\t= \"sched_eevdf_place_rel_deadline\",\n"
+    "\t\t.data\t\t= &sysctl_sched_eevdf_place_rel_deadline,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
+    "\t\t.extra1\t\t= &zero,\n"
+    "\t\t.extra2\t\t= &one,\n"
+    "\t},\n"
+    "\t{\n"
+    "\t\t.procname\t= \"sched_eevdf_run_to_parity\",\n"
+    "\t\t.data\t\t= &sysctl_sched_eevdf_run_to_parity,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
+    "\t\t.extra1\t\t= &zero,\n"
+    "\t\t.extra2\t\t= &one,\n"
+    "\t},\n"
+    "\t{\n"
+    "\t\t.procname\t= \"sched_eevdf_preempt_short\",\n"
+    "\t\t.data\t\t= &sysctl_sched_eevdf_preempt_short,\n"
+    "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
+    "\t\t.mode\t\t= 0644,\n"
+    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
+    "\t\t.extra1\t\t= &zero,\n"
+    "\t\t.extra2\t\t= &one,\n"
+    "\t},\n"
+    "#ifdef CONFIG_SCHED_DEBUG",
+    "EEVDF runtime sysctl table",
+)
+fair = read("kernel/sched/fair.c")
+for old, new in (
+    ("sched_feat(PLACE_LAG)", "READ_ONCE(sysctl_sched_eevdf_place_lag)"),
+    ("sched_feat(PLACE_DEADLINE_INITIAL)", "READ_ONCE(sysctl_sched_eevdf_place_deadline_initial)"),
+    ("sched_feat(PLACE_REL_DEADLINE)", "READ_ONCE(sysctl_sched_eevdf_place_rel_deadline)"),
+    ("sched_feat(RUN_TO_PARITY)", "READ_ONCE(sysctl_sched_eevdf_run_to_parity)"),
+    ("sched_feat(PREEMPT_SHORT)", "READ_ONCE(sysctl_sched_eevdf_preempt_short)"),
+):
+    if old not in fair:
+        raise SystemExit("Missing EEVDF feature use: " + old)
+    fair = fair.replace(old, new)
+write("kernel/sched/fair.c", fair)
+
+# 13. Initialize the new entity state and use the base slice on fork.
 replace_once(
     "kernel/sched/core.c",
     "\tp->se.vlag\t\t\t= 0;\n"
@@ -564,7 +665,7 @@ checks = {
 missing = [name for name, ok in checks.items() if not ok]
 lines = ["Meys V1 EEVDF Linux 6.18 backport — layer 1 audit",
          "target=Fleux V11 / Linux 4.19.325",
-         "implemented=augmented min_vruntime+min_slice tree, protected virtual deadline, PREEMPT_SHORT, PLACE_REL_DEADLINE, sched_base_slice sysctl, per-task custom slice via sched_attr.sched_runtime"]
+         "implemented=augmented min_vruntime+min_slice tree, protected virtual deadline, PREEMPT_SHORT, PLACE_REL_DEADLINE, sched_base_slice, /proc/sys/kernel EEVDF feature controls, per-task custom slice via sched_attr.sched_runtime"]
 for name, ok in checks.items():
     lines.append(("PASS=" if ok else "FAIL=") + name)
 lines += [
