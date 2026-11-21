@@ -145,14 +145,30 @@ if text.count(old_get) != 1:
     raise SystemExit("Project-ID compatibility patch: fsxattr getter did not match exactly once")
 text = text.replace(old_get, new_get, 1)
 path.write_text(text)
+
+# Preserve Android project-ID inheritance for children created under app dirs.
+namei_path = src / "fs/f2fs/namei.c"
+namei = namei_path.read_text()
+old_inherit = """if (f2fs_sb_has_project_quota(sbi) &&
+		(F2FS_I(dir)->i_flags & F2FS_PROJINHERIT_FL))"""
+new_inherit = """if ((f2fs_sb_has_project_quota(sbi) ||
+	     f2fs_sb_has_extra_attr(sbi)) &&
+		(F2FS_I(dir)->i_flags & F2FS_PROJINHERIT_FL))"""
+if namei.count(old_inherit) != 1:
+    raise SystemExit("Project-ID compatibility patch: inode project inheritance site did not match exactly once")
+namei = namei.replace(old_inherit, new_inherit, 1)
+namei_path.write_text(namei)
+
 report.parent.mkdir(parents=True, exist_ok=True)
 report.write_text("\n".join((
     "result=PASS",
     "target=F2FS Android FS_IOC_FSSETXATTR project-id compatibility",
     "normal_project_quota_path=unchanged when on-disk PRJQUOTA is enabled",
     "compatibility_path=store and report inode project ID when EXTRA_ATTR is present but PRJQUOTA is absent",
+    "project_inheritance=children inherit project ID when parent PROJINHERIT is set and EXTRA_ATTR exists",
     "quota_accounting=not enabled by compatibility path; no false claim of quota enforcement",
     "extra_attr_requirement=per-inode F2FS extra attribute must fit i_projid",
+    "inheritance_requirement=on-disk EXTRA_ATTR feature must be enabled",
     "data_safety=no superblock feature bits modified; no data partition reformat or mount-option mutation",
 )) + "\n")
 print(report.read_text(), end="")
