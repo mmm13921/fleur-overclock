@@ -16,8 +16,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: meys-v1-eevdf-${{ github.ref }}
-  cancel-in-progress: true
+  group: meys-v1-eevdf-${{ github.run_id }}
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-24.04
