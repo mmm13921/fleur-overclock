@@ -1,12 +1,12 @@
 set -Eeuo pipefail
-SOURCE_REF="\${1:-v11}"
-BUILD_PROFILE="\${2:-hmp-storage-projectid}"
+SOURCE_REF="${1:-v11}"
+BUILD_PROFILE="${2:-hmp-storage-projectid}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
-WORKSPACE="\${GITHUB_WORKSPACE:-$PWD}"
-SRC_DIR="\${SRC_DIR:-$WORKSPACE/kernel-src}"
-OUT_DIR="\${OUT_DIR:-$WORKSPACE/out}"
-ARTIFACT_DIR="\${ARTIFACT_DIR:-$WORKSPACE/artifacts}"
-TOOLCHAIN_DIR="\${TOOLCHAIN_DIR:-}"
+WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
+SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
+OUT_DIR="${OUT_DIR:-$WORKSPACE/out}"
+ARTIFACT_DIR="${ARTIFACT_DIR:-$WORKSPACE/artifacts}"
+TOOLCHAIN_DIR="${TOOLCHAIN_DIR:-}"
 if [[ "$SOURCE_REF" != "v11" ]]; then
   echo "This Meys build is pinned to upstream V11; refusing source ref: $SOURCE_REF" >&2
   exit 2
@@ -45,8 +45,8 @@ git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
 export SUBARCH=arm64
-export KBUILD_BUILD_USER="\${KBUILD_BUILD_USER:-Meys}"
-export KBUILD_BUILD_HOST="\${KBUILD_BUILD_HOST:-reproducible-runner}"
+export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-Meys}"
+export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$KERNEL_LOCALVERSION"
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
@@ -85,7 +85,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   else
     echo "kernel_name=Meys"
   fi
-  echo "kernel_version=4.19.325\${KERNEL_LOCALVERSION}"
+  echo "kernel_version=4.19.325${KERNEL_LOCALVERSION}"
   echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
@@ -102,6 +102,6 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   [[ ! -f "$ARTIFACT_DIR/eevdf-layer1-audit.txt" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt")
   [[ ! -f "$ARTIFACT_DIR/eevdf-audit.txt" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-audit.txt")
   [[ ! -f "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
-  sha256sum "\${HASH_INPUTS[@]}"
+  sha256sum "${HASH_INPUTS[@]}"
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
