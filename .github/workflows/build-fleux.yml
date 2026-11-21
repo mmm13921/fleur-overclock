@@ -18,7 +18,7 @@ on:
         default: lineage-24.0
         type: string
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: fleux-scheduler-modes-${{ github.ref }}
   cancel-in-progress: false
@@ -100,3 +100,27 @@ jobs:
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
+      - name: Publish prerelease with kernel ZIP and scheduler patch
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: scheduler-hmp-eas-hybrid-${{ github.run_number }}
+          name: Fleux HMP / EAS / Hybrid — MT6781 build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Experimental Fleux 4.19.325 scheduler-mode build for Redmi Note 11S 4G / fleur / MT6781.
+
+            Runtime selector: `/proc/sys/kernel/sched_cpu_mode`
+            - `0`: HMP-style capacity-based wake/fork placement
+            - `1`: existing Fleux EAS placement
+            - `2`: Hybrid (EAS until the root domain is overutilized, then HMP-style wake/fork placement)
+
+            Important: this is a first-stage HMP-style policy using PELT/util_est and CPU capacity. It is **not** a full legacy 4.14 WALT HMP migration engine. No physical-device boot, thermal, touch-latency or gaming stability testing is implied by CI success. Keep a known-good boot image and recovery path.
+          files: |
+            artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip
+            artifacts/scheduler-modes-source.patch
+            artifacts/scheduler-modes-audit.txt
+            artifacts/build-manifest.txt
+            artifacts/SCHEDULER-MODES-SHA256.txt
