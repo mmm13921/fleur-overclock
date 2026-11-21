@@ -33,4 +33,5 @@ This is **not** a flashable APK and is **not** compiled into the kernel ZIP.
 A full Android 13 platform build and testing against Xiaomi's matching
 MediaProvider/libfuse integration are still required. The backing F2FS kernel
 must also support the project-ID ioctls; the FUSE bridge cannot create that
-filesystem support by itself.
+filesystem support by itself. The current `vold` log signature is a kernel/F2FS
+path, not proof that this MediaProvider bridge is needed.
