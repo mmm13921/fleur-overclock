@@ -81,14 +81,16 @@ new = """static int f2fs_ioc_setproject(struct file *filp, __u32 projid)
 	int err;
 
 	/*
-	 * Android vold tags app directories through FS_IOC_FSSETXATTR.
-	 * Some existing /data images have EXTRA_ATTR but were formatted
-	 * without PRJQUOTA. Preserve the inode project ID in that case,
-	 * without claiming quota accounting or enforcement is available.
-	 * Filesystems with PRJQUOTA retain the normal quota-transfer path.
+	 * PRJQUOTA and EXTRA_ATTR are on-disk format features. Never modify
+	 * superblock feature bits at mount time. For legacy userdata without
+	 * EXTRA_ATTR, accept vold's tagging request as a compatibility no-op:
+	 * quota isolation is unavailable, but app-directory setup must not fail.
 	 */
-	if (!f2fs_has_extra_attr(inode))
+	if (!f2fs_has_extra_attr(inode)) {
+		if (!quota_enabled)
+			return 0;
 		return -EOPNOTSUPP;
+	}
 
 	kprojid = make_kprojid(&init_user_ns, (projid_t)projid);
 	if (projid_eq(kprojid, F2FS_I(inode)->i_projid))
@@ -164,11 +166,11 @@ report.write_text("\n".join((
     "result=PASS",
     "target=F2FS Android FS_IOC_FSSETXATTR project-id compatibility",
     "normal_project_quota_path=unchanged when on-disk PRJQUOTA is enabled",
-    "compatibility_path=store and report inode project ID when EXTRA_ATTR is present but PRJQUOTA is absent",
+    "compatibility_path=store inode project ID when EXTRA_ATTR exists; return success without persistence when legacy EXTRA_ATTR is absent and PRJQUOTA is disabled",
     "project_inheritance=children inherit project ID when parent PROJINHERIT is set and EXTRA_ATTR exists",
-    "quota_accounting=not enabled by compatibility path; no false claim of quota enforcement",
-    "extra_attr_requirement=per-inode F2FS extra attribute must fit i_projid",
-    "inheritance_requirement=on-disk EXTRA_ATTR feature must be enabled",
+    "legacy_no_extra_attr_behavior=FSSETXATTR succeeds as a no-op so vold app-directory setup does not fail; project ID is not persisted",
+    "metadata_persistence_requirement=on-disk EXTRA_ATTR and sufficient per-inode extra size",
+    "quota_enforcement=requires a filesystem formatted with PRJQUOTA; this compatibility path does not provide enforcement",
     "data_safety=no superblock feature bits modified; no data partition reformat or mount-option mutation",
 )) + "\n")
 print(report.read_text(), end="")
