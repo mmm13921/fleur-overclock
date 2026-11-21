@@ -1,13 +1,21 @@
-name: Fleux HyperOS-safe filesystem kernel build
+name: Fleux official SEA 4.19.191 filesystem backport
 
 on:
   workflow_dispatch:
     inputs:
       source_ref:
-        description: Fleux upstream branch or tag; lineage-24.0 tracks the current source
+        description: Fleux upstream branch or tag
         required: true
         default: lineage-24.0
         type: string
+      build_profile:
+        description: Apply the official Xiaomi SEA 4.19.191 F2FS and Android VFS mount backport
+        required: true
+        default: hyperos-compat
+        type: choice
+        options:
+          - hyperos-compat
+          - baseline
 
 permissions:
   contents: read
@@ -18,23 +26,30 @@ concurrency:
 
 jobs:
   build:
-    name: Build fleur_defconfig with HyperOS filesystem support
+    name: Build fleur kernel with official SEA 4.19.191 filesystem reference
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 180
     env:
       SOURCE_REF: ${{ inputs.source_ref || 'lineage-24.0' }}
+      BUILD_PROFILE: ${{ inputs.build_profile || 'hyperos-compat' }}
     steps:
       - name: Check out builder
         uses: actions/checkout@v4
 
-      - name: Validate source ref
+      - name: Validate build inputs
         shell: bash
         run: |
+          set -euo pipefail
           case "$SOURCE_REF" in
-            v∞)
-              ;;
             ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*)
               echo "Invalid source ref: $SOURCE_REF" >&2
+              exit 2
+              ;;
+          esac
+          case "$BUILD_PROFILE" in
+            hyperos-compat|baseline) ;;
+            *)
+              echo "Invalid build profile: $BUILD_PROFILE" >&2
               exit 2
               ;;
           esac
@@ -60,13 +75,13 @@ jobs:
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
 
-      - name: Build Fleux kernel with HyperOS-safe filesystem configuration
-        run: bash scripts/build_kernel.sh "$SOURCE_REF"
+      - name: Build Fleux with selected filesystem profile
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
 
-      - name: Upload kernel image, filesystem audit, and build manifest
+      - name: Upload kernel image, official-source audit, and build manifest
         uses: actions/upload-artifact@v4
         with:
-          name: fleux-hyperos-filesystem-safe
+          name: fleux-sea-419191-${{ env.BUILD_PROFILE }}
           path: artifacts/
           if-no-files-found: error
           retention-days: 14
