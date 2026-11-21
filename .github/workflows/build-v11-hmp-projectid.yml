@@ -113,7 +113,8 @@ jobs:
           tag_name: meys-projectid-${{ github.run_number }}
           name: Meys HMP + Project ID — build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          prerelease: true
+          prerelease: false
+          make_latest: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
