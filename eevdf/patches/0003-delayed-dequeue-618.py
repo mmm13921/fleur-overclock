@@ -192,7 +192,7 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 
 fair = read("kernel/sched/fair.c")
 if "static void set_delayed(struct sched_entity *se)" not in fair:
-    anchor = "static void\ndequeue_entity("
+    anchor = "static bool\ndequeue_entity("
     if anchor not in fair:
         raise SystemExit("dequeue_entity insertion anchor missing")
     helpers = r'''
@@ -331,6 +331,9 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		cfs_rq->h_nr_running -= h_nr_queued;
 		cfs_rq->h_nr_runnable -= h_nr_runnable;
 
+		if (cfs_rq_throttled(cfs_rq))
+			break;
+
 		/* Do not dequeue a group entity while its cfs_rq has other tasks. */
 		if (cfs_rq->load.weight) {
 			se = parent_entity(se);
@@ -350,6 +353,8 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		WARN_ON_ONCE(cfs_rq->h_nr_runnable < h_nr_runnable);
 		cfs_rq->h_nr_running -= h_nr_queued;
 		cfs_rq->h_nr_runnable -= h_nr_runnable;
+		if (cfs_rq_throttled(cfs_rq))
+			break;
 	}
 
 	if (!se)
@@ -553,6 +558,12 @@ new = (
 if old not in read("kernel/sched/core.c"):
     raise SystemExit("__schedule sleep/deactivate anchor missing")
 replace_once("kernel/sched/core.c", old, new, "deferred block accounting")
+replace_once(
+    "kernel/sched/core.c",
+    "if (prev->flags & PF_WQ_WORKER) {",
+    "if (!prev->on_rq && (prev->flags & PF_WQ_WORKER)) {",
+    "workqueue notification only after final block",
+)
 
 # A wakeup of a delayed entity must reinsert it using DELAY_ZERO semantics.
 core = read("kernel/sched/core.c")
