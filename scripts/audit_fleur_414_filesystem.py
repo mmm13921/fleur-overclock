@@ -60,6 +60,11 @@ def blob_id(src, treeish, path):
     result = run_git(src, ["rev-parse", treeish + ":" + path], check=False)
     return result.stdout.decode().strip() if result.returncode == 0 else None
 
+def fuse_protocol(text):
+    major = re.search(r"(?m)^#define FUSE_KERNEL_VERSION (\\d+)$", text)
+    minor = re.search(r"(?m)^#define FUSE_KERNEL_MINOR_VERSION (\\d+)$", text)
+    return (major.group(1) + "." + minor.group(1)) if major and minor else "unknown"
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: audit_fleur_414_filesystem.py SOURCE_DIR REPORT_PATH")
@@ -90,6 +95,13 @@ def main():
             "official Fleur source is " + reference_version +
             ", expected " + EXPECTED_REFERENCE_VERSION)
 
+    reference_fuse_uapi = run_git(src, ["show", "FETCH_HEAD:include/uapi/linux/fuse.h"]).stdout.decode(errors="replace")
+    base_fuse_uapi = run_git(src, ["show", "HEAD:include/uapi/linux/fuse.h"]).stdout.decode(errors="replace")
+    reference_fuse = fuse_protocol(reference_fuse_uapi)
+    base_fuse = fuse_protocol(base_fuse_uapi)
+    reference_fuse_passthrough = "FUSE_PASSTHROUGH" in reference_fuse_uapi
+    base_fuse_passthrough = "FUSE_PASSTHROUGH" in base_fuse_uapi
+
     lines = [
         "result=PASS",
         "mode=read-only source inventory; no kernel source files modified",
@@ -99,6 +111,10 @@ def main():
         "reference_kernel=Linux " + reference_version,
         "build38_source_kernel=Linux " + base_version,
         "build38_source_commit=" + run_git(src, ["rev-parse", "HEAD"]).stdout.decode().strip(),
+        "reference_fuse_protocol=" + reference_fuse,
+        "build38_fuse_protocol=" + base_fuse,
+        "reference_fuse_passthrough=" + str(reference_fuse_passthrough).lower(),
+        "build38_fuse_passthrough=" + str(base_fuse_passthrough).lower(),
     ]
 
     for subsystem, paths in SUBSYSTEMS.items():
