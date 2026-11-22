@@ -11,7 +11,7 @@ if [[ "$SOURCE_REF" != "v11" ]]; then
   echo "This Meys build is pinned to upstream V11; refusing source ref: $SOURCE_REF" >&2
   exit 2
 fi
-if [[ "$BUILD_PROFILE" != "hmp-storage-projectid" ]]; then
+if [[ "$BUILD_PROFILE" != "meys-projectid-30-eevdf-modem" ]]; then
   echo "Unsupported build profile: $BUILD_PROFILE" >&2
   exit 2
 fi
@@ -30,6 +30,12 @@ git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
 python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" > "$ARTIFACT_DIR/modem-pm-audit.txt"
+grep -q "Applied MT6781 DPMAIF syscore PM safety patch." "$ARTIFACT_DIR/modem-pm-audit.txt"
+python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSPACE/eevdf/audit_eevdf_618.py"
+python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
+python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
+grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
@@ -37,7 +43,7 @@ export SUBARCH=arm64
 export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-Meys}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
-"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "-Meys"
+"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "-Meys-EEVDF"
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
@@ -68,6 +74,8 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
+  echo "modem_dpmaif_pm=MT6781 syscore resume state guard; not a full 4.14 modem driver port"
+  echo "eevdf=Linux 6.18 semantic backport layer 1; DELAY_DEQUEUE and DELAY_ZERO not implemented"
   echo "kernel_version=4.19.325-Meys"
   echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
   echo "scheduler_mode_default=0"
@@ -81,6 +89,6 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch"
+  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt"
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
