@@ -208,8 +208,6 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	account_entity_dequeue(cfs_rq, se);
 
 	return_cfs_rq_runtime(cfs_rq);
-	update_cfs_group(se);
-
 	if ((flags & (DEQUEUE_SAVE | DEQUEUE_MOVE)) != DEQUEUE_SAVE)
 		update_min_vruntime(cfs_rq);
 
@@ -246,6 +244,7 @@ static void set_delayed(struct sched_entity *se)
 		WARN_ON_ONCE(!cfs_rq->h_nr_runnable);
 		cfs_rq->h_nr_runnable--;
 		se_update_runnable(se);
+		update_cfs_group(se);
 	}
 }
 
@@ -259,6 +258,7 @@ static void clear_delayed(struct sched_entity *se)
 	for_each_sched_entity(se) {
 		cfs_rq_of(se)->h_nr_runnable++;
 		se_update_runnable(se);
+		update_cfs_group(se);
 	}
 }
 
@@ -388,12 +388,12 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
 		update_load_avg(cfs_rq, se, UPDATE_TG);
-		se_update_runnable(se);
-		update_cfs_group(se);
 		WARN_ON_ONCE(cfs_rq->h_nr_running < h_nr_queued);
 		WARN_ON_ONCE(cfs_rq->h_nr_runnable < h_nr_runnable);
 		cfs_rq->h_nr_running -= h_nr_queued;
 		cfs_rq->h_nr_runnable -= h_nr_runnable;
+		se_update_runnable(se);
+		update_cfs_group(se);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
 	}
@@ -461,10 +461,10 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
 		update_load_avg(cfs_rq, se, UPDATE_TG);
-		se_update_runnable(se);
-		update_cfs_group(se);
 		cfs_rq->h_nr_running++;
 		cfs_rq->h_nr_runnable += h_nr_runnable;
+		se_update_runnable(se);
+		update_cfs_group(se);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
 	}
