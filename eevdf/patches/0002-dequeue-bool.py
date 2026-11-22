@@ -116,14 +116,25 @@ classes = {
 for path, name in classes.items():
     convert_dequeue_function(path, name)
 
+def has_bool_dequeue(path, name):
+    src = read(path)
+    pattern = re.compile(r"(?m)^static\s+bool\s+" + re.escape(name) + r"\s*\(")
+    matches = list(pattern.finditer(src))
+    if len(matches) != 1:
+        return False
+    open_brace = src.find("{", matches[0].end())
+    if open_brace < 0:
+        return False
+    close_brace = find_body_end(src, open_brace)
+    body = src[open_brace + 1:close_brace]
+    return re.search(r"\breturn\s+true\s*;", body) is not None
+
 checks = {
     "class_pointer_bool": "bool (*dequeue_task)" in read("kernel/sched/sched.h"),
     "core_wrapper_bool": "static inline bool dequeue_task(" in read("kernel/sched/core.c"),
     "core_returns_class_result": "return p->sched_class->dequeue_task(rq, p, flags);" in read("kernel/sched/core.c"),
     "all_scheduler_classes_bool": all(
-        re.search(r"static bool\s+" + name + r"\s*\(", read(path)) is not None
-        and "return true;" in read(path)[read(path).find(name):read(path).find(name) + 5000]
-        for path, name in classes.items()
+        has_bool_dequeue(path, name) for path, name in classes.items()
     ),
 }
 lines = [
