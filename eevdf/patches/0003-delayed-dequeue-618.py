@@ -696,20 +696,10 @@ if core.count(old_iowait) != 2:
     raise SystemExit("expected both SMP and UP try_to_wake_up iowait paths")
 write("kernel/sched/core.c", core.replace(old_iowait, new_iowait))
 
-# A wakeup of a delayed entity must reinsert it using DELAY_ZERO semantics.
-core = read("kernel/sched/core.c")
-old = "\t\tupdate_rq_clock(rq);\n\t\tttwu_do_wakeup(rq, p, wake_flags, &rf);"
-if old not in core:
-    raise SystemExit("ttwu_remote wakeup anchor missing")
-replace_once(
-    "kernel/sched/core.c", old,
-    "\t\tupdate_rq_clock(rq);\n"
-    "\t\tif (p->se.sched_delayed)\n"
-    "\t\t\tenqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);\n"
-    "\t\tttwu_do_wakeup(rq, p, wake_flags, &rf);",
-    "delayed wakeup requeue",
-)
-
+# A delayed entity remains queued. ttwu_remote() must only flip its
+# state and run wakeup-preemption; enqueueing it again would double-account
+# nr_running, util_est and schedtune. The fair enqueue path handles the
+# ENQUEUE_DELAYED case only when a real enqueue is required.
 replace_once(
     "kernel/sched/fair.c",
     "static void set_next_buddy(struct sched_entity *se)\n{\n\tif (entity_is_task(se)",
@@ -909,7 +899,7 @@ checks = {
     "hierarchical_runnable_counter": "h_nr_runnable" in read("kernel/sched/sched.h"),
     "dequeue_entity_can_defer": "static bool\ndequeue_entity(" in fair and "set_delayed(se);" in fair,
     "delayed_hierarchy_accounting": "static int dequeue_entities(" in fair and "h_nr_runnable -= h_nr_runnable" in fair,
-    "delayed_wakeup_requeue": "ENQUEUE_NOCLOCK | ENQUEUE_DELAYED" in core,
+    "delayed_wakeup_requeue": "requeue_delayed_entity(se);" in fair and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" not in core,
     "delayed_pick_cleanup": "DEQUEUE_SLEEP | DEQUEUE_DELAYED" in fair,
     "delayed_next_buddy_guard": "!cfs_rq->next->sched_delayed" in fair and "!pse->sched_delayed" in fair and "if (se->sched_delayed)" in fair,
     "deferred_block_accounting": "void __block_task(" in core and "if (dequeue_task(rq, prev" in core,
