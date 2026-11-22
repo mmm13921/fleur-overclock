@@ -31,13 +31,13 @@
 | سند | موضوع |
 |---|---|
 | [تاریخچه جامع](history.md) | مسیر پروژه و تصمیم‌های مهم |
-| [دستگاه و پلتفرم](device-platform.md) | مشخصات fleur، boot، DTB، CPU/GPU و سازگاری |
+| [دستگاه و پلتفرم](device-platform.md) | مشخصات fleur، DTB، CPU/GPU و سازگاری |\n| [Boot و AnyKernel](boot-anykernel.md) | boot image، DTB، خطای Unsupported device و انتشار ZIP |
 | [Build baselines](build-baselines.md) | Build 30، 38، 49 و نسخه‌های EEVDF |
 | [مودم و DPMAIF](modem-dpmaif.md) | PM guard، تلاش‌های modem 4.14 و تست رادیو |
 | [باگ داده و storage](storage-data.md) | Telegram، Recorder، FUSE، F2FS، Project ID و MediaProvider |
-| [HMP/EAS/Hybrid](hmp-scheduler.md) | selector، topology و تنظیمات scheduler |
+| [HMP/EAS/Hybrid](hmp-scheduler.md) | selector، topology و تنظیمات scheduler |\n| [Performance و Touch/GPU](performance-touch-gpu.md) | COD، لمس، فرکانس‌ها، VM و app retention |
 | [EEVDF 6.18](builds/eevdf-618.md) | بک‌پورت، خطاهای compile و بررسی معنایی |
-| [خطاهای CI](builds/known-ci-failures.md) | AnyKernel و خطاهای عمومی workflow/build |
+| [خطاهای CI](builds/known-ci-failures.md) | خطاهای عمومی workflow/build |\n| [فهرست خطاهای بیلد](builds/build-failures-index.md) | index خطاهای شناخته‌شده و root causeها |
 
 ## ساختار پیشنهادی برای گزارش بیلد
 
