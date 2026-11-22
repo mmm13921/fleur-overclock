@@ -91,6 +91,25 @@ def main():
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(blob.stdout)
 
+    # Linux 4.14 stores the F2FS disk-time cache as timespec64. Fleux
+    # 4.19.325 inode timestamps are also timespec64, but timespec_equal()
+    # accepts 32-bit struct timespec. Adapt only the three exact call sites.
+    header_path = src / "fs/f2fs/f2fs.h"
+    f2fs_header = header_path.read_text()
+    time_pairs = (
+        ("timespec_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)",
+         "timespec64_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)"),
+        ("timespec_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)",
+         "timespec64_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)"),
+        ("timespec_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)",
+         "timespec64_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)"),
+    )
+    for old_call, new_call in time_pairs:
+        require(f2fs_header.count(old_call) == 1,
+                "expected exactly one legacy timestamp comparison: " + old_call)
+        f2fs_header = f2fs_header.replace(old_call, new_call, 1)
+    header_path.write_text(f2fs_header)
+
     f2fs_file = (src / "fs/f2fs/file.c").read_text()
     f2fs_header = (src / "fs/f2fs/f2fs.h").read_text()
     f2fs_super = (src / "fs/f2fs/super.c").read_text()
@@ -143,6 +162,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
+        "api_compat=three timespec_equal calls converted to timespec64_equal for 4.19.325 inode timestamps",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
