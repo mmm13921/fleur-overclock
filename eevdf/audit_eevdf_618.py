@@ -53,7 +53,7 @@ checks = [
     ("layer3.group_runnable_weight", "return cfs_rq->h_nr_runnable;" in src["fair"]),
     ("layer3.cfs_throttle_accounting", "DEQUEUE_THROTTLE" in src["fair"] and "runnable_delta = cfs_rq->h_nr_runnable;" in src["fair"]),
     ("layer3.delayed_runnable_throttle_boundary", src["fair"].count("if (!entity_is_task(se) && cfs_rq_throttled(se->my_q))") == 2),
-    ("layer3.fork_state_init", "p->se.sched_delayed" in src["core"] and "p->se.custom_slice" in src["core"]),
+    ("layer3.fork_state_init", "p->se.sched_delayed\\t\\t= 0;" in src["core"] and "p->se.rel_deadline\\t\\t= 0;" in src["core"] and "p->se.custom_slice\\t\\t= 0;" in src["core"]),
     ("layer3.scheduler_class_change_cleanup", "DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK" in src["core"]),
     ("layer3.special_task_state_bypass", "dequeue_flags |= DEQUEUE_SPECIAL" in src["core"]),
     ("layer3.wait_task_inactive_cleanup", "dequeue_task(rq, p, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["core"]),
