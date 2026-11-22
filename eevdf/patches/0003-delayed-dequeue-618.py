@@ -69,7 +69,7 @@ def replace_function(path, name, replacement):
     # V11 has both one-line and split-line return-type/function-name layouts.
     pat = re.compile(
         r"(?m)^[ \t]*(?:(?:static|inline|extern|__maybe_unused)\s+)*"
-        r"[A-Za-z_][A-Za-z0-9_\s\*]*?\n?[ \t]*" + re.escape(name) + r"\s*\("
+        r"[A-Za-z_][A-Za-z0-9_\s\*]*?\n?[ \t]*(?<![A-Za-z0-9_])" + re.escape(name) + r"\s*\("
     )
     candidates = []
     for m in pat.finditer(src):
