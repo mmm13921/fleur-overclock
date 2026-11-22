@@ -682,6 +682,53 @@ replace_once("kernel/sched/core.c", old, new, "deferred block accounting")
 # Keep the V11 workqueue sleeping notification unconditional: a task delayed
 # on the fair runqueue is still sleeping and must release worker concurrency.
 
+# PSI dequeue must not clear TSK_RUNNING twice for an already-delayed task.
+replace_once(
+    "kernel/sched/stats.h",
+    "static inline void psi_dequeue(struct task_struct *p, bool sleep)\n"
+    "{\n"
+    "\tint clear = TSK_RUNNING, set = 0;\n\n"
+    "\tif (static_branch_likely(&psi_disabled))\n"
+    "\t\treturn;\n\n"
+    "\tif (!sleep) {\n"
+    "\t\tif (p->flags & PF_MEMSTALL)\n"
+    "\t\t\tclear |= TSK_MEMSTALL;\n"
+    "\t} else {\n"
+    "\t\tif (p->in_iowait)\n"
+    "\t\t\tset |= TSK_IOWAIT;\n"
+    "\t}\n\n"
+    "\tpsi_task_change(p, clear, set);\n"
+    "}",
+    "static inline void psi_dequeue(struct task_struct *p, bool sleep)\n"
+    "{\n"
+    "\tint clear = TSK_RUNNING, set = 0;\n\n"
+    "\tif (static_branch_likely(&psi_disabled))\n"
+    "\t\treturn;\n\n"
+    "\tif (p->se.sched_delayed) {\n"
+    "\t\tif (!sleep) {\n"
+    "\t\t\tpsi_task_change(p, p->psi_flags, 0);\n"
+    "\t\t\treturn;\n"
+    "\t\t}\n"
+    "\t\tclear &= p->psi_flags;\n"
+    "\t\tif (p->in_iowait && !(p->psi_flags & TSK_IOWAIT))\n"
+    "\t\t\tset |= TSK_IOWAIT;\n"
+    "\t\tif (!p->in_iowait && (p->psi_flags & TSK_IOWAIT))\n"
+    "\t\t\tclear |= TSK_IOWAIT;\n"
+    "\t\tpsi_task_change(p, clear, set);\n"
+    "\t\treturn;\n"
+    "\t}\n\n"
+    "\tif (!sleep) {\n"
+    "\t\tif (p->flags & PF_MEMSTALL)\n"
+    "\t\t\tclear |= TSK_MEMSTALL;\n"
+    "\t} else {\n"
+    "\t\tif (p->in_iowait)\n"
+    "\t\t\tset |= TSK_IOWAIT;\n"
+    "\t}\n\n"
+    "\tpsi_task_change(p, clear, set);\n"
+    "}",
+    "avoid duplicate PSI dequeue for delayed tasks",
+)
+
 # Preserve the real PSI state when moving a delayed task between cgroups.
 replace_once(
     "kernel/sched/psi.c",
