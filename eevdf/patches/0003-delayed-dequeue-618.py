@@ -763,7 +763,7 @@ write("kernel/sched/fair.c", fair)
 # The group unregister path appears before the fair dequeue helper definition.
 replace_once(
     "kernel/sched/fair.c",
-    "void unregister_fair_sched_group(struct task_group *tg)",
+    "void unregister_fair_sched_group(struct task_group *tg)\n{",
     "static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags);\n\n"
     "void unregister_fair_sched_group(struct task_group *tg)",
     "early delayed-dequeue prototype for group teardown",
