@@ -447,7 +447,8 @@ new_wakeup = r'''static void check_preempt_wakeup(struct rq *rq, struct task_str
 		return;
 	if (unlikely(throttled_hierarchy(cfs_rq_of(pse))))
 		return;
-	if (sched_feat(NEXT_BUDDY) && !(wake_flags & WF_FORK))
+	if (sched_feat(NEXT_BUDDY) && !(wake_flags & WF_FORK) &&
+	    !pse->sched_delayed)
 		set_next_buddy(pse);
 	if (test_tsk_need_resched(curr))
 		return;
