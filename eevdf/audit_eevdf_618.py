@@ -37,7 +37,7 @@ checks = [
     ("layer2.dequeue_bool_api", "bool (*dequeue_task)" in src["sched_class"] and "static inline bool dequeue_task(" in src["core"] and all(re.search(r"static bool\s+dequeue_task_" + n + r"\s*\(", src[k]) is not None for k,n in (("fair","fair"),("deadline","dl"),("idle","idle"),("rt","rt"),("stop","stop")))),
     ("later.delay_dequeue", "SCHED_FEAT(DELAY_DEQUEUE" in src["features"] and "DELAY_DEQUEUE" in src["fair"]),
     ("later.delay_zero", "SCHED_FEAT(DELAY_ZERO" in src["features"] and "DELAY_ZERO" in src["fair"]),
-    ("later.custom_slice_runtime", "custom_slice" in src["entity"] and "custom_slice" in src["fair"] and "if (attr->sched_runtime)" in src["core"] and "attr->sched_runtime != p->se.slice" in src["core"] and "kattr.sched_runtime = p->se.slice" in src["core"]),
+    ("later.group_custom_slice", "custom_slice" in src["entity"] and "se->custom_slice = 1;" in src["fair"] and "if (!se->custom_slice)\n\t\tse->slice = sysctl_sched_base_slice;" in src["fair"] and "attr->sched_runtime != p->se.slice" not in src["core"]),
     ("layer3.delayed_state_field", "sched_delayed" in src["entity"]),
     ("layer3.hierarchical_runnable_counter", "h_nr_runnable" in src["sched_class"]),
     ("layer3.delayed_dequeue_entity", "static bool\ndequeue_entity(" in src["fair"] and "set_delayed(se);" in src["fair"]),
