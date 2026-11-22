@@ -115,7 +115,7 @@ def main():
                 "expected exactly one legacy timestamp comparison: " + old_call)
         f2fs_header = f2fs_header.replace(old_call, new_call, 1)
     fourth_time, fourth_count = re.subn(
-        r"timespec_equal\\(F2FS_I\\(inode\\)->i_disk_time \\+ 3,\\s*&F2FS_I\\(inode\\)->i_crtime\\)",
+        r"timespec_equal\(F2FS_I\(inode\)->i_disk_time \+ 3,\s*&F2FS_I\(inode\)->i_crtime\)",
         "timespec64_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
         f2fs_header,
         count=1,
