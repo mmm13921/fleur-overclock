@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - meys-v1-eevdf
+      - meys-vx-v14-modem-4.14
     paths:
       - '.github/workflows/build-meys-v1-eevdf.yml'
       - 'scripts/build_kernel.sh'
