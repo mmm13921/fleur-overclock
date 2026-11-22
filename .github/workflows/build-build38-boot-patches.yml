@@ -5,10 +5,12 @@ on:
     branches:
       - meys-build38-boot-patches
       - meys-eevdf-618-full
+      - test/fleur-414-filesystem-rebuild
     paths:
       - '.github/workflows/build-build38-boot-patches.yml'
       - '.github/workflows/build-v11-hmp-projectid.yml'
       - 'scripts/build_kernel.sh'
+      - 'scripts/audit_fleur_414_filesystem.py'
       - 'scripts/apply_modem_pm_compat.py'
       - 'eevdf/**'
       - 'scripts/apply_f2fs_projectid_compat.py'
@@ -124,6 +126,7 @@ jobs:
           cp artifacts/boot-patches-audit.txt "$AK_DIR/boot-patches-audit.txt"
           cp patches/boot_patches.md "$AK_DIR/boot_patches.md"
           cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
+          cp artifacts/fleur-4.14.186-filesystem-reference-audit.txt "$AK_DIR/fleur-4.14.186-filesystem-reference-audit.txt"
           cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
           cp research/android13-mediaprovider/README.md artifacts/ANDROID13-MEDIAPROVIDER-README.md
           (
@@ -132,7 +135,7 @@ jobs:
               META-INF tools LICENSE README.md anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
-              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
+              official-4.19.191-fs-mount-audit.txt fleur-4.14.186-filesystem-reference-audit.txt android-storage-audit.txt \
               modem-pm-audit.txt eevdf-layer1-audit.txt eevdf-dequeue-bool-audit.txt eevdf-audit.txt \
               boot-patches-audit.txt boot_patches.md
           )
@@ -169,6 +172,7 @@ jobs:
             artifacts/storage-projectid-audit.txt
             artifacts/scheduler-modes-audit.txt
             artifacts/official-4.19.191-fs-mount-audit.txt
+            artifacts/fleur-4.14.186-filesystem-reference-audit.txt
             artifacts/android-storage-audit.txt
             artifacts/android13-mediaprovider-projectid.patch
             artifacts/ANDROID13-MEDIAPROVIDER-README.md
