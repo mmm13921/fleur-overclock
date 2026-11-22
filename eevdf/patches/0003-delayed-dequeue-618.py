@@ -620,7 +620,11 @@ old = (
     "\t\t\t}\n"
 )
 new = (
-    "\t\t\tif (dequeue_task(rq, prev, DEQUEUE_SLEEP | DEQUEUE_NOCLOCK)) {\n"
+    "\t\t\tint dequeue_flags = DEQUEUE_SLEEP | DEQUEUE_NOCLOCK;\n"
+    "\t\t\tif ((prev_state & (__TASK_STOPPED | __TASK_TRACED | TASK_PARKED | TASK_DEAD)) ||\n"
+    "\t\t\t    (prev->flags & PF_FROZEN))\n"
+    "\t\t\t\tdequeue_flags |= DEQUEUE_SPECIAL;\n"
+    "\t\t\tif (dequeue_task(rq, prev, dequeue_flags)) {\n"
     "\t\t\t\tif (task_contributes_to_load(prev))\n"
     "\t\t\t\t\trq->nr_uninterruptible++;\n"
     "\t\t\t\tprev->on_rq = 0;\n\n"
