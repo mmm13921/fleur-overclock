@@ -42,14 +42,13 @@ if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
   KERNEL_LOCALVERSION="-Meys-V1-EEVDF"
 fi
 git -C "$SRC_DIR" diff HEAD --check
-git -C "$SRC_DIR" diff HEAD --check
-"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$KERNEL_LOCALVERSION"
+export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
 export SUBARCH=arm64
 export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-Meys}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
-"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "-Meys"
+"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$KERNEL_LOCALVERSION"
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
@@ -64,29 +63,29 @@ make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" CC=clang LD=ld.lld LLVM=1 LLVM_IAS=
 IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
 if [[ ! -s "$IMAGE" ]]; then
   echo "Expected output missing or empty: $IMAGE" >&2
-git -C "$SRC_DIR" diff HEAD --binary > "$SOURCE_PATCH"
+  find "$OUT_DIR/arch/arm64/boot" -maxdepth 2 -type f -printf '%p\n' || true
   exit 1
 fi
 cp "$IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
 cp "$OUT_DIR/.config" "$ARTIFACT_DIR/kernel.config"
 cp "$OUT_DIR/hyperos-filesystem-audit.txt" "$ARTIFACT_DIR/hyperos-filesystem-audit.txt"
-git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/hmp-storage-projectid-source.patch"
+git -C "$SRC_DIR" diff HEAD --binary > "$SOURCE_PATCH"
 SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 CLANG_VERSION="$(clang --version | head -n 1)"
 {
   echo "source_url=$SOURCE_URL"
-  echo "kernel_version=4.19.325${KERNEL_LOCALVERSION}"
+  echo "source_ref=$SOURCE_REF"
   echo "source_commit=$SOURCE_COMMIT"
   echo "device_config=fleur_defconfig"
+  echo "arch=arm64"
+  echo "build_profile=$BUILD_PROFILE"
+  echo "kernel_version=4.19.325${KERNEL_LOCALVERSION}"
+  echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
+  echo "scheduler_mode_default=0"
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     echo "scheduler=Linux 6.18 EEVDF backport layer 1; DELAY_DEQUEUE and DELAY_ZERO pending"
     echo "modem_validation=static DPMAIF/ECCCI audit only; no root-cause fix claimed"
   fi
-  echo "arch=arm64"
-  echo "build_profile=$BUILD_PROFILE"
-  echo "kernel_version=4.19.325-Meys"
-  echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
-  echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
   echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
@@ -95,7 +94,12 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "compiler=$CLANG_VERSION"
   echo "kernel_image=Image.gz-dtb"
   echo "flashable_zip=AnyKernel3"
+  echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo
   HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
+    HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt")
+  fi
+  sha256sum "${HASH_INPUTS[@]}"
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
