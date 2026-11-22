@@ -1,5 +1,5 @@
-name: Meys Build 30 EEVDF 6.18 layer 1
-run-name: Meys Build 30 EEVDF layer 1 (${{ github.event_name }})
+name: Meys Build 30 EEVDF 6.18 layer 1 + modem HIF audit
+run-name: Meys Build 30 EEVDF layer 1 + modem HIF audit (${{ github.event_name }})
 on:
   push:
     branches: [meys-vx-v17-build30-eevdf618-modemaudit]
@@ -14,7 +14,7 @@ permissions:
   contents: read
 concurrency:
   group: meys-build30-eevdf-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-24.04
