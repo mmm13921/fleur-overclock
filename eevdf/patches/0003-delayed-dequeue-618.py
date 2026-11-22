@@ -622,14 +622,78 @@ if throttle_call in fair:
 
 # Delayed tasks are not migratable through normal load balancing. Forced
 # migration/affinity paths are audited separately in the next integration layer.
+# Keep queued and runnable task counts separate in bandwidth throttling and
+# load-balance decisions. Delayed tasks remain queued but are not runnable.
+replace_once(
+    "kernel/sched/fair.c",
+    "long task_delta, dequeue = 1;",
+    "long task_delta, runnable_delta, dequeue = 1;",
+    "throttle runnable delta declaration",
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "task_delta = cfs_rq->h_nr_running;",
+    "task_delta = cfs_rq->h_nr_running;\n\trunnable_delta = cfs_rq->h_nr_runnable;",
+    "throttle runnable delta snapshot",
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "qcfs_rq->h_nr_running -= task_delta;",
+    "qcfs_rq->h_nr_running -= task_delta;\n\t\tqcfs_rq->h_nr_runnable -= runnable_delta;",
+    "throttle runnable delta removal",
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "long task_delta;\n\n\tse = cfs_rq->tg->se[cpu_of(rq)];",
+    "long task_delta, runnable_delta;\n\n\tse = cfs_rq->tg->se[cpu_of(rq)];",
+    "unthrottle runnable delta declaration",
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "task_delta = cfs_rq->h_nr_running;\n\tfor_each_sched_entity(se) {",
+    "task_delta = cfs_rq->h_nr_running;\n\trunnable_delta = cfs_rq->h_nr_runnable;\n\tfor_each_sched_entity(se) {",
+    "unthrottle runnable delta snapshot",
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "cfs_rq->h_nr_running += task_delta;",
+    "cfs_rq->h_nr_running += task_delta;\n\t\tcfs_rq->h_nr_runnable += runnable_delta;",
+    "unthrottle runnable delta restore",
+)
+for old, new, label in (
+    ("READ_ONCE(rq->cfs.h_nr_running)", "READ_ONCE(rq->cfs.h_nr_runnable)", "average load per runnable task"),
+    ("sgs->sum_nr_running += rq->cfs.h_nr_running;", "sgs->sum_nr_running += rq->cfs.h_nr_runnable;", "load balance runnable task count"),
+    ("env->src_rq->cfs.h_nr_running == 1", "env->src_rq->cfs.h_nr_runnable == 1", "single runnable task capacity check"),
+    ("rq->cfs.h_nr_running >= 1", "rq->cfs.h_nr_runnable >= 1", "nohz runnable task check"),
+):
+    replace_once("kernel/sched/fair.c", old, new, label)
+
+# A delayed entity cannot be left behind when a policy/class transition removes
+# it from fair scheduling. Force its delayed dequeue before queued-state tests.
+core = read("kernel/sched/core.c")
+anchor = "\tqueued = task_on_rq_queued(p);\n\trunning = task_current(rq, p);"
+if anchor not in core:
+    raise SystemExit("sched_setscheduler queued-state anchor missing")
+replace_once(
+    "kernel/sched/core.c",
+    anchor,
+    "\tif (p->se.sched_delayed &&\n"
+    "\t    (policy != p->policy ||\n"
+    "\t     (pi && rt_prio(new_effective_prio) != rt_prio(p->prio))))\n"
+    "\t\tdequeue_task(rq, p, DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK);\n\n"
+    + anchor,
+    "delayed entity scheduler class transition cleanup",
+)
+
 fair = read("kernel/sched/fair.c")
-marker = "static int can_migrate_task(struct task_struct *p, struct lb_env *env)"
-if marker in fair:
-    start = fair.index(marker)
-    brace = fair.index("{", start)
-    insert = "\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\t\treturn 0;\n"
-    fair = fair[:brace + 1] + insert + fair[brace + 1:]
-    write("kernel/sched/fair.c", fair)
+marker = "int can_migrate_task(struct task_struct *p, struct lb_env *env)"
+if marker not in fair:
+    raise SystemExit("can_migrate_task insertion anchor missing")
+start = fair.index(marker)
+brace = fair.index("{", start)
+insert = "\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\t\treturn 0;\n"
+fair = fair[:brace + 1] + insert + fair[brace + 1:]
+write("kernel/sched/fair.c", fair)
 
 # Exit cleanup prevents a delayed entity from surviving task teardown.
 fair = read("kernel/sched/fair.c")
