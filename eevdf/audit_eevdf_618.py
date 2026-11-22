@@ -36,13 +36,36 @@ checks = [
     ("later.delay_dequeue", "SCHED_FEAT(DELAY_DEQUEUE" in src["features"] and "DELAY_DEQUEUE" in src["fair"]),
     ("later.delay_zero", "SCHED_FEAT(DELAY_ZERO" in src["features"] and "DELAY_ZERO" in src["fair"]),
     ("later.custom_slice_runtime", "custom_slice" in src["entity"] and "custom_slice" in src["fair"] and "if (attr->sched_runtime)" in src["core"] and "attr->sched_runtime != p->se.slice" in src["core"] and "kattr.sched_runtime = p->se.slice" in src["core"]),
+    ("layer3.delayed_state_field", "sched_delayed" in src["entity"]),
+    ("layer3.hierarchical_runnable_counter", "h_nr_runnable" in src["sched_class"]),
+    ("layer3.delayed_dequeue_entity", "static bool\ndequeue_entity(" in src["fair"] and "set_delayed(se);" in src["fair"]),
+    ("layer3.hierarchical_dequeue", "static int dequeue_entities(" in src["fair"] and "h_nr_runnable -= h_nr_runnable" in src["fair"]),
+    ("layer3.delayed_wakeup", "ENQUEUE_NOCLOCK | ENQUEUE_DELAYED" in src["core"] and "requeue_delayed_entity(se);" in src["fair"]),
+    ("layer3.delayed_pick_cleanup", "dequeue_entities(rq_of(cfs_rq), se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
+    ("layer3.deferred_block_accounting", "if (dequeue_task(rq, prev" in src["core"] and "void __block_task(" in src["core"]),
+    ("layer3.delay_zero_requeue", "static void requeue_delayed_entity(" in src["fair"] and "se->vlag = 0;" in src["fair"]),
+    ("layer3.pelt_excludes_delayed", "if (se->sched_delayed)" in src["sched_class"] and "return 0;" in src["sched_class"]),
+    ("layer3.group_runnable_weight", "return cfs_rq->h_nr_runnable;" in src["fair"]),
+    ("layer3.cfs_throttle_accounting", "DEQUEUE_THROTTLE" in src["fair"] and "runnable_delta = cfs_rq->h_nr_runnable;" in src["fair"]),
+    ("layer3.fork_state_init", "p->se.sched_delayed" in src["core"] and "p->se.custom_slice" in src["core"]),
+    ("layer3.scheduler_class_change_cleanup", "DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK" in src["core"]),
+    ("layer3.cgroup_teardown_cleanup", "void unregister_fair_sched_group" in src["fair"] and "dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
+    ("layer3.task_exit_cleanup", "static void task_dead_fair" in src["fair"] and "dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
+    ("layer3.migration_guard", "p->se.sched_delayed && env->migration_type != migrate_load" in src["fair"]),
+    ("layer3.migration_preserves_delayed_state", "if (task_new && se->sched_delayed)" in src["fair"] and "if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))" in src["fair"]),
+    ("layer3.load_balance_uses_runnable", "READ_ONCE(rq->cfs.h_nr_runnable)" in src["fair"] and "sgs->sum_nr_running += rq->cfs.h_nr_runnable;" in src["fair"]),
 ]
 for name,ok in checks:
     print(("PASS" if ok else "MISSING")+"="+name)
 layer1=all(ok for n,ok in checks if n.startswith("base.") or n.startswith("layer1."))
 layer2=all(ok for n,ok in checks if n.startswith("layer2."))
-full=all(ok for n,ok in checks if n.startswith("later."))
+layer3=all(ok for n,ok in checks if n.startswith("layer3."))
+later=all(ok for n,ok in checks if n.startswith("later."))
+full=layer1 and layer2 and layer3 and later
 print("eevdf_layer1="+("PASS" if layer1 else "INCOMPLETE"))
 print("eevdf_dequeue_bool="+("PASS" if layer2 else "INCOMPLETE"))
-print("eevdf_6_18_full="+("PASS" if layer1 and layer2 and full else "INCOMPLETE"))
-print("result="+("PASS" if layer1 and layer2 else "INCOMPLETE"))
+print("eevdf_delayed_dequeue="+("PASS" if layer3 else "INCOMPLETE"))
+print("eevdf_6_18_full="+("PASS" if full else "INCOMPLETE"))
+print("build_status=NOT_RUN")
+print("device_boot_status=NOT_TESTED")
+print("result="+("PASS" if full else "INCOMPLETE"))
