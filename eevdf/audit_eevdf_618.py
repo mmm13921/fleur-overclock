@@ -58,6 +58,7 @@ checks = [
     ("layer3.pelt_excludes_delayed", "if (se->sched_delayed)" in src["sched_class"] and "return 0;" in src["sched_class"]),
     ("layer3.group_runnable_weight", "return cfs_rq->h_nr_runnable;" in src["fair"]),
     ("layer3.cfs_throttle_accounting", "DEQUEUE_THROTTLE" in src["fair"] and "runnable_delta = cfs_rq->h_nr_runnable;" in src["fair"]),
+    ("layer3.cfs_throttle_group_weight", "qcfs_rq->h_nr_runnable -= runnable_delta;\\n\\t\\tse_update_runnable(se);\\n\\t\\tupdate_cfs_group(se);" in src["fair"] and "cfs_rq->h_nr_runnable += runnable_delta;\\n\\t\\tse_update_runnable(se);\\n\\t\\tupdate_cfs_group(se);" in src["fair"]),
     ("layer3.delayed_runnable_throttle_boundary", src["fair"].count("if (!entity_is_task(se) && cfs_rq_throttled(se->my_q))") == 2),
     ("layer3.fork_state_init", "p->se.sched_delayed\t\t= 0;" in src["core"] and "p->se.rel_deadline\t\t= 0;" in src["core"] and "p->se.custom_slice\t\t= 0;" in src["core"] and "p->se.slice\t\t\t= sysctl_sched_base_slice;" in src["core"]),
     ("layer3.scheduler_class_change_cleanup", "DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK" in src["core"]),
