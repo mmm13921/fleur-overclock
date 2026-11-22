@@ -43,7 +43,7 @@ checks = [
     ("layer3.hierarchical_runnable_counter", "h_nr_runnable" in src["sched_class"]),
     ("layer3.delayed_dequeue_entity", "static bool\ndequeue_entity(" in src["fair"] and "set_delayed(se);" in src["fair"]),
     ("layer3.dequeue_refreshes_group_runnable_weight", re.search(r"static bool\s+dequeue_entity\([^)]*\)\s*\{(?:(?!\n\}).)*?se_update_runnable\(se\);(?:(?!\n\}).)*?update_cfs_group\(se\);", src["fair"], re.S) is not None),
-    ("layer3.hierarchical_dequeue", "static int dequeue_entities(" in src["fair"] and "h_nr_runnable -= h_nr_runnable" in src["fair"] and "inc_nr_heavy_running(3, p, -1, false);" in src["fair"]),
+    ("layer3.hierarchical_dequeue", "static int dequeue_entities(" in src["fair"] and "h_nr_runnable -= h_nr_runnable" in src["fair"] and "inc_nr_heavy_running(3, p, -1, false);" in src["fair"] and "hrtick_update(rq);\n\t\t/* Must be last:" in src["fair"]),
     ("layer3.delayed_wakeup", "requeue_delayed_entity(se);" in src["fair"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" in src["core"]),
     ("layer3.local_workqueue_delayed_wakeup", "else if (p->se.sched_delayed)" in src["core"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);" in src["core"]),
     ("layer3.uclamp_delayed_accounting", "if (!p->se.sched_delayed || (flags & ENQUEUE_DELAYED))" in src["core"] and "if (!p->se.sched_delayed)\n\t\tuclamp_rq_dec(rq, p);" in src["core"]),
