@@ -2,7 +2,7 @@ name: Meys Build 30 EEVDF 6.18 layer 1 + modem PM guard
 run-name: Meys Build 30 patched EEVDF build (${{ github.event_name }})
 on:
   push:
-    branches: [meys-vx-v17-build30-eevdf618-modemaudit]
+    branches: [meys-build30-modem-eevdf-no-filesystem]
     paths:
       - '.github/workflows/build-v17-build30-eevdf.yml'
       - 'scripts/build_kernel.sh'
