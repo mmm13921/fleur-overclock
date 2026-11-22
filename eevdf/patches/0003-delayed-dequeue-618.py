@@ -343,7 +343,8 @@ static bool dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	bool task_sleep = flags & DEQUEUE_SLEEP;
 	int ret;
 
-	schedtune_dequeue_task(p, cpu_of(rq));
+	if (!se->sched_delayed)
+		schedtune_dequeue_task(p, cpu_of(rq));
 
 	if (!se->sched_delayed)
 		util_est_dequeue(&rq->cfs, p, task_sleep);
@@ -467,7 +468,8 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))
 		util_est_enqueue(&rq->cfs, p);
-	schedtune_enqueue_task(p, cpu_of(rq));
+	if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))
+		schedtune_enqueue_task(p, cpu_of(rq));
 
 	if (flags & ENQUEUE_DELAYED) {
 		requeue_delayed_entity(se);
