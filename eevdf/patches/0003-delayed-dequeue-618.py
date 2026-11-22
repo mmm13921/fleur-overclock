@@ -667,6 +667,18 @@ replace_once(
     "workqueue notification only after final block",
 )
 
+# wait_task_inactive() must force-finalize a delayed entity or it can keep
+# observing the task as queued and spin until the timeout.
+replace_once(
+    "kernel/sched/core.c",
+    "\t\trq = task_rq_lock(p, &rf);\n\t\ttrace_sched_wait_task(p);",
+    "\t\trq = task_rq_lock(p, &rf);\n"
+    "\t\tif (p->se.sched_delayed)\n"
+    "\t\t\tdequeue_task(rq, p, DEQUEUE_SLEEP | DEQUEUE_DELAYED);\n"
+    "\t\ttrace_sched_wait_task(p);",
+    "wait_task_inactive delayed entity cleanup",
+)
+
 # A wakeup of a delayed entity must reinsert it using DELAY_ZERO semantics.
 core = read("kernel/sched/core.c")
 old = "\t\tupdate_rq_clock(rq);\n\t\tttwu_do_wakeup(rq, p, wake_flags, &rf);"
