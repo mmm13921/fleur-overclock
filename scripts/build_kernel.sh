@@ -1,4 +1,5 @@
 set -Eeuo pipefail
+BUILD_BASELINE="${BUILD_BASELINE:-Build30}"
 SOURCE_REF="${1:-v11}"
 BUILD_PROFILE="${2:-hmp-storage-projectid}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
@@ -7,8 +8,12 @@ SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
 OUT_DIR="${OUT_DIR:-$WORKSPACE/out}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$WORKSPACE/artifacts}"
 TOOLCHAIN_DIR="${TOOLCHAIN_DIR:-}"
+if [[ "$BUILD_BASELINE" != "Build30" ]]; then
+  echo "This build pipeline is locked to the Build 30 patch baseline." >&2
+  exit 2
+fi
 if [[ "$SOURCE_REF" != "v11" ]]; then
-  echo "This Meys build is pinned to upstream V11; refusing source ref: $SOURCE_REF" >&2
+  echo "Build 30 baseline is pinned to Fleux upstream V11; refusing source ref: $SOURCE_REF" >&2
   exit 2
 fi
 if [[ "$BUILD_PROFILE" != "hmp-storage-projectid" && "$BUILD_PROFILE" != "meys-v1-eevdf" ]]; then
@@ -24,16 +29,17 @@ if [[ -e "$SRC_DIR" || -e "$OUT_DIR" ]]; then
   exit 2
 fi
 mkdir -p "$(dirname "$SRC_DIR")" "$ARTIFACT_DIR"
+python3 -m compileall -q "$WORKSPACE/scripts" "$WORKSPACE/eevdf" "$WORKSPACE/research/android13-mediaprovider"
 git clone --depth=1 --branch "$SOURCE_REF" "$SOURCE_URL" "$SRC_DIR"
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
 python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
 SOURCE_PATCH="$ARTIFACT_DIR/hmp-storage-projectid-source.patch"
 KERNEL_LOCALVERSION="-Meys"
 if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
-  python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSPACE/eevdf/audit_eevdf_618.py" "$WORKSPACE/scripts/audit_modem_stack.py"
   python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
   python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
   grep -q '^eevdf_layer1=PASS$' "$ARTIFACT_DIR/eevdf-audit.txt"
@@ -63,7 +69,7 @@ make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" CC=clang LD=ld.lld LLVM=1 LLVM_IAS=
 IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
 if [[ ! -s "$IMAGE" ]]; then
   echo "Expected output missing or empty: $IMAGE" >&2
-  find "$OUT_DIR/arch/arm64/boot" -maxdepth 2 -type f -printf '%p\n' || true
+  find "$OUT_DIR/arch/arm64/boot" -maxdepth 2 -type f -printf '%p\\n' || true
   exit 1
 fi
 cp "$IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
@@ -73,6 +79,8 @@ git -C "$SRC_DIR" diff HEAD --binary > "$SOURCE_PATCH"
 SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 CLANG_VERSION="$(clang --version | head -n 1)"
 {
+  echo "build_baseline=$BUILD_BASELINE"
+  echo "build30_patch_stack=filesystem;f2fs-projectid;hmp-eas-hybrid;dpmaif-pm-guard;eevdf-layer1"
   echo "source_url=$SOURCE_URL"
   echo "source_ref=$SOURCE_REF"
   echo "source_commit=$SOURCE_COMMIT"
@@ -84,7 +92,8 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_mode_default=0"
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     echo "scheduler=Linux 6.18 EEVDF backport layer 1; DELAY_DEQUEUE and DELAY_ZERO pending"
-    echo "modem_validation=static DPMAIF/ECCCI audit only; no root-cause fix claimed"
+    echo "modem_patch=DPMAIF syscore PM state guard applied; full 4.14 modem-stack transplant not implemented"
+    echo "modem_validation=static DPMAIF/ECCCI audit only; device radio validation required"
   fi
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
@@ -96,7 +105,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
+  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt")
   fi
