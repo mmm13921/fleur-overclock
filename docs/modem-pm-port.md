@@ -1,39 +1,32 @@
-# MT6781 modem PM port status
+# MT6781 modem PM audit and targeted fix
 
-## Reference and target
+## Immutable baseline
 
-- 4.14 reference: Xiaomi fleur-s-oss, Linux 4.14.186.
-- 4.19 compatibility reference: Xiaomi sea-t-oss, Linux 4.19.191.
 - Target: Fleux V11, Linux 4.19.325, MT6781.
-- Immutable target source baseline: `e2d900276a445fc9e31592c80df89a6f5e24175d`.
+- Target commit: `e2d900276a445fc9e31592c80df89a6f5e24175d`.
+- 4.14 reference: Xiaomi `fleur-s-oss`, Linux 4.14.186.
+- 4.19 compatibility reference: Xiaomi `sea-t-oss`, Linux 4.19.191.
+- The target ECCCI Makefile selects the shared `mt6785` platform implementation for MT6781.
 
-## PM architecture
+## Actual target PM ownership
 
-The 4.14 reference restores modem interfaces through the modem syscore hook: it checks the MD FSM state, optionally restores CLDMA, and dispatches `ccci_hif_resume()` to the active DPMAIF HIF callback.
+The target has two registered syscore owners:
 
-The 4.19 target is not wired the same way. It has a DPMAIF-owned `syscore_ops` route, while the CCCI platform device also exposes `suspend_noirq/resume_noirq` wrappers that call DPMAIF's noirq helpers. The old generic CCCI HIF suspend/resume dispatcher is intentionally inactive in this target.
+1. `ccci_modem_sysops` calls `ccci_modem_plt_suspend/resume`. In the selected MT6785 platform file these hooks only log modem state; they do not restore DPMAIF/HIF.
+2. `dpmaif_sysops` calls `dpmaif_syssuspend/sysresume`. This is the active DPMAIF suspend/resume and descriptor/interrupt restore path.
 
-## Defect corrected in this build
+The generic `ccci_hif_suspend/resume` dispatchers are empty, and the DPMAIF HIF-ops suspend/resume callbacks are commented out. The registered CCCI device `suspend_noirq/resume_noirq` callbacks are weak compatibility stubs returning success; the selected MT6785 platform does not route them to DPMAIF. DPMAIF also defines noirq helpers, but those helpers are not the active MT6781 restore route.
 
-The previous Build 30 patch copied the 4.14 MD-state guard into `dpmaif_sysresume()`, but it did not guard the separate `dpmaif_resume_noirq()` entry point. The latter could still invoke the native DPMAIF restore sequence when the modem FSM was `GATED`, `WAITING_TO_STOP`, or `INVALID`.
+## Targeted correction
 
-The updated patch introduces one shared `dpmaif_md_state_allows_resume()` helper and uses it from both resume entry points:
+The active DPMAIF syscore resume previously relied only on `dpmaif_state` (PWRON/EXCEPTION). It did not check the CCCI modem FSM state before restoring TX queues and DL/UL interrupt state.
 
-- DPMAIF syscore resume.
-- CCCI platform-device noirq resume.
+The updated patch adds `dpmaif_md_state_allows_resume()` and applies it to the registered `dpmaif_sysresume()` path. It skips restoration when the modem FSM reports `GATED`, `WAITING_TO_STOP`, or `INVALID`. A null-controller guard is also applied to the paired syscore suspend hook.
 
-The noirq callback also clears `suspend_flag` when the FSM guard rejects restoration, so its suspend/resume state does not remain stuck.
-
-## What is intentionally retained
-
-- The target's native 4.19 DPMAIF syscore and noirq architecture.
-- The native DPMAIF TX-buffer release, DL interrupt-mask restore, UL interrupt initialization, and TX-queue hardware initialization sequence.
-- The intentionally inactive legacy CCCI HIF callback route.
-
-Do not activate the 4.14 HIF callback route on top of the 4.19 DPMAIF-owned routes. That would introduce a second PM owner and can duplicate queue/buffer restoration.
+The native 4.19 DPMAIF restore sequence is preserved: TX buffer release, DL interrupt-mask restore, UL interrupt initialization, and TX queue hardware initialization. The patch does not activate the legacy CCCI HIF callbacks or modify the unregistered noirq helper path.
 
 ## Validation boundary
 
-CI verifies that both PM resume entry points are registered, both use the same MD-state guard, and the native DPMAIF restoration operations remain present. A successful compile and static audit do not prove modem firmware compatibility, SIM registration, mobile-data throughput, VoLTE, IMS, or physical suspend/resume behavior.
+CI audits the exact Build 30 target wiring and the source-level resume sequence. It does not validate modem firmware, SIM registration, mobile data, IMS/VoLTE, radio stability, or physical suspend/resume. Those require a device test and modem/CCCI logs.
 
-This is a targeted PM-path correction, not a complete 4.14 ECCCI/DPMAIF tree transplant. The radio issue is only partially narrowed until device-side modem/CCCI logs and a radio test are available.
+This is a targeted power-management correction, not a full 4.14 ECCCI/DPMAIF source transplant. The underlying radio fault remains partially narrowed until device-side evidence is available.
