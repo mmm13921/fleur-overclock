@@ -5,6 +5,7 @@ on:
     branches:
       - meys-build38-boot-patches
     paths:
+      - '.github/workflows/build-build38-boot-patches.yml'
       - '.github/workflows/build-v11-hmp-projectid.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_modem_pm_compat.py'
