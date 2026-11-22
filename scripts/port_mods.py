@@ -413,7 +413,11 @@ def sched_bounds(k,log,u32=False):
     for name in (b'sched_min_granularity_ns',b'sched_latency_ns',b'sched_wakeup_granularity_ns'):
         so=k.find(name+b'\0')
         if so<0:
-            log.append('sched %s not found'%name.decode());continue
+            if name==b'sched_min_granularity_ns':
+                log.append('sched %s not found (required EEVDF request-slice tunable)'%name.decode())
+            else:
+                log.append('sched %s absent: legacy CFS tunable removed from this EEVDF source; not applicable'%name.decode())
+            continue
         va=BASE+so;cands=list(byadd.get(va,[]));i=0
         while True:
             i=k.find(struct.pack('<Q',va),i)
