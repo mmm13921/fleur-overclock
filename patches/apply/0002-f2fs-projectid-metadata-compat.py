@@ -83,8 +83,8 @@ new = """static int f2fs_ioc_setproject(struct file *filp, __u32 projid)
 	/*
 	 * PRJQUOTA and EXTRA_ATTR are on-disk format features. Never modify
 	 * superblock feature bits at mount time. For legacy userdata without
-	 * EXTRA_ATTR, accept vold's tagging request as a compatibility no-op:
-	 * quota isolation is unavailable, but app-directory setup must not fail.
+	 * EXTRA_ATTR, reject the request. Reporting success without storing the
+	 * project ID would silently break Android app-data isolation.
 	 */
 	if (!f2fs_has_extra_attr(inode))
 		return -EOPNOTSUPP;
@@ -163,10 +163,10 @@ report.write_text("\n".join((
     "result=PASS",
     "target=F2FS Android FS_IOC_FSSETXATTR project-id compatibility",
     "normal_project_quota_path=unchanged when on-disk PRJQUOTA is enabled",
-    "compatibility_path=store inode project ID when EXTRA_ATTR exists; return success without persistence when legacy EXTRA_ATTR is absent and PRJQUOTA is disabled",
+    "compatibility_path=store inode project ID when EXTRA_ATTR exists even if PRJQUOTA is disabled",
     "project_inheritance=children inherit project ID when parent PROJINHERIT is set and EXTRA_ATTR exists",
-    "legacy_unsupported_metadata_behavior=FSSETXATTR succeeds as a no-op if EXTRA_ATTR is absent or i_projid does not fit; project ID is not persisted",
-    "metadata_persistence_requirement=on-disk EXTRA_ATTR and sufficient per-inode extra size; otherwise safe no-op when PRJQUOTA is disabled",
+    "legacy_unsupported_metadata_behavior=FSSETXATTR returns EOPNOTSUPP if EXTRA_ATTR is absent and EOVERFLOW if i_projid does not fit",
+    "metadata_persistence_requirement=on-disk EXTRA_ATTR and sufficient per-inode extra size; never silently drops the ID",
     "quota_enforcement=requires on-disk PRJQUOTA; compatibility path persists IDs but does not claim quota enforcement",
     "data_safety=no superblock feature bits modified; no data partition reformat or mount-option mutation",
 )) + "\n")
