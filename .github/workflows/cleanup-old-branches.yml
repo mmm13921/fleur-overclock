@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
       delete_failed_runs:
-        description: "Delete failed, timed-out, or action-required workflow runs"
+        description: "Delete failed, timed-out, cancelled, or action-required workflow runs"
         required: true
         type: boolean
         default: false
@@ -82,7 +82,7 @@ jobs:
               [[ -z "$run_id" ]] && continue
               [[ "$run_id" == "$CURRENT_RUN_ID" ]] && continue
               remove=false
-              if [[ "$DELETE_FAILED_RUNS" == "true" ]] && [[ "$conclusion" == "failure" || "$conclusion" == "timed_out" || "$conclusion" == "action_required" ]]; then
+              if [[ "$DELETE_FAILED_RUNS" == "true" ]] && [[ "$conclusion" == "failure" || "$conclusion" == "timed_out" || "$conclusion" == "cancelled" || "$conclusion" == "action_required" ]]; then
                 remove=true
               fi
               if [[ "$DELETE_UNSTARTED_RUNS" == "true" ]] && [[ "$run_status" == "queued" || "$run_status" == "requested" || "$run_status" == "waiting" || "$run_status" == "pending" ]]; then
