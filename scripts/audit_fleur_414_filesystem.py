@@ -13,7 +13,7 @@ SUBSYSTEMS = {
     "fuse": ("fs/fuse",),
     "sdcardfs": ("fs/sdcardfs",),
     "ext4": ("fs/ext4",),
-    "fscrypt": ("fs/crypto", "fs/crypto"),
+    "fscrypt": ("fs/crypto",),
     "vfs": (
         "fs/namespace.c",
         "fs/super.c",
@@ -34,7 +34,7 @@ def run_git(src, args, check=True):
     )
     if check and result.returncode:
         raise SystemExit(
-            "git " + " ".join(args) + " failed:\\n" +
+            "git " + " ".join(args) + " failed:\n" +
             result.stdout.decode(errors="replace") +
             result.stderr.decode(errors="replace")
         )
@@ -46,7 +46,7 @@ def require(condition, message):
 
 def kernel_version(makefile):
     match = re.search(
-        r"(?m)^VERSION\\s*=\\s*(\\d+)\\s*\\nPATCHLEVEL\\s*=\\s*(\\d+)\\s*\\nSUBLEVEL\\s*=\\s*(\\d+)",
+        r"(?m)^VERSION\s*=\s*(\d+)\s*\nPATCHLEVEL\s*=\s*(\d+)\s*\nSUBLEVEL\s*=\s*(\d+)",
         makefile,
     )
     require(match is not None, "could not parse kernel Makefile version")
@@ -138,8 +138,8 @@ def main():
     ))
 
     report.parent.mkdir(parents=True, exist_ok=True)
-    report.write_text("\\n".join(lines) + "\\n")
-    print("\\n".join(lines))
+    report.write_text("\n".join(lines) + "\n")
+    print("\n".join(lines))
     print("FLEUR 4.14.186 FILESYSTEM SOURCE AUDIT PASSED")
 
 if __name__ == "__main__":
