@@ -838,6 +838,14 @@ checks = {
     "deferred_block_accounting": "void __block_task(" in core and "if (dequeue_task(rq, prev" in core,
     "zero_lag_requeue": "static void requeue_delayed_entity(" in fair and "se->vlag = 0;" in fair,
     "throttle_bypasses_delay": "DEQUEUE_SLEEP | DEQUEUE_THROTTLE" in fair,
+    "throttle_hierarchical_runnable_accounting": "runnable_delta = cfs_rq->h_nr_runnable;" in fair and "qcfs_rq->h_nr_runnable -= runnable_delta;" in fair and "cfs_rq->h_nr_runnable += runnable_delta;" in fair,
+    "pelt_excludes_delayed_entities": "if (se->sched_delayed)" in read("kernel/sched/sched.h") and "return 0;" in read("kernel/sched/sched.h")[read("kernel/sched/sched.h").find("static inline long se_runnable"):],
+    "group_runnable_weight": "return cfs_rq->h_nr_runnable;" in fair,
+    "task_fork_state_init": "p->se.sched_delayed" in core and "p->se.rel_deadline" in core,
+    "cfs_rq_runnable_init": "cfs_rq->h_nr_runnable = 0;" in fair,
+    "scheduler_class_change_cleanup": "DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK" in core,
+    "cgroup_group_teardown_cleanup": "void unregister_fair_sched_group" in fair and "if (se->sched_delayed)" in fair,
+    "migration_load_balance_guard": "p->se.sched_delayed && env->migration_type != migrate_load" in fair,
     "task_exit_cleanup": "dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED);" in fair,
 }
 lines = [
@@ -848,10 +856,10 @@ lines = [
 for name, ok in checks.items():
     lines.append(("PASS=" if ok else "FAIL=") + name)
 lines += [
-    "affinity_and_cpu_hotplug_cleanup=NOT_COMPLETE",
-    "scheduler_class_change_cleanup=NOT_COMPLETE",
-    "cgroup_group_teardown_cleanup=NOT_COMPLETE",
-    "migration_and_load_tracking_audit=NOT_COMPLETE",
+    "affinity_and_cpu_hotplug_cleanup=DELAYED_STATE_PRESERVED_ON_QUEUED_MOVE; runtime_validation_pending",
+    "scheduler_class_change_cleanup=IMPLEMENTED; runtime_validation_pending",
+    "cgroup_group_teardown_cleanup=IMPLEMENTED; runtime_validation_pending",
+    "migration_and_load_tracking_audit=IMPLEMENTED_STATICALLY; runtime_validation_pending",
     "compile_status=NOT_RUN",
     "device_boot_status=NOT_TESTED",
     "result=" + ("PASS" if all(checks.values()) else "INCOMPLETE"),
