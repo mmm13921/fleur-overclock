@@ -73,3 +73,35 @@ Commit: `323710e7b4f1a71103f0e9136d9f5ba7f6c6cc0f`
 - نبود regression در delayed dequeue، migration، cgroup، PELT/PSI و accounting.
 - موفقیت کامپایل و ساخت AnyKernel برای commit `ddbd0f93...` تا زمان بررسی نتیجهٔ CI.
 - بوت و پایداری روی Redmi Note 11S؛ نیازمند تست واقعی دستگاه است.
+
+
+## آخرین شکست و اصلاح guard — 2026-11-23
+
+### Runهای commit `ddbd0f93...`
+
+- Build run **45074713510**: FAILED در مرحلهٔ `Apply EEVDF layers`؛ کامپایل/AnyKernel اصلاً شروع نشد.
+  https://github.com/mmm13921/fleur-overclock/actions/runs/45074713510
+- Audit run **45074713511**: FAILED؛ تنها check مردود `migration_load_balance_guard` بود.
+  https://github.com/mmm13921/fleur-overclock/actions/runs/45074713511
+
+### Root cause قطعی
+
+در `eevdf/patches/0003-delayed-dequeue-618.py`، patcher هنوز guard قدیمی را در `fair.c` درج می‌کرد:
+
+`if (p->se.sched_delayed && env->migration_type != migrate_load) return 0;`
+
+اما Fleux V11 / Linux 4.19.325 در `struct lb_env` عضو `migration_type` ندارد و نماد `migrate_load` نیز در این API در دسترس نیست. این با نسخهٔ جدیدتر scheduler اشتباه گرفته شده بود. علاوه بر خطر compile error، audit نیز انتظار guard سازگار را داشت.
+
+### اصلاح ثبت‌شده
+
+- Commit: `1efa8cfb9987168ba2a6326da84b3001f9a28841`
+- فایل: `eevdf/patches/0003-delayed-dequeue-618.py`
+- تغییر: حذف ارجاع به `env->migration_type` و `migrate_load`؛ patcher اکنون guard سادهٔ `if (p->se.sched_delayed) return 0;` را تولید می‌کند.
+- هدف: delayed entity از مسیر عادی load-balance عبور نکند و کد با API مقصد 4.19 سازگار بماند.
+- **محدودیت معنایی:** این guard به‌تنهایی صحت forced migration، affinity changes، CPU hotplug یا انتقال taskهای delayed را ثابت نمی‌کند. این مسیرها باید جداگانه بررسی شوند؛ صرف پاس شدن audit/compile کافی نیست.
+
+### CI rerun برای commit اصلاحی
+
+- Build run **45075293759**: https://github.com/mmm13921/fleur-overclock/actions/runs/45075293759
+- Audit run **45075293762**: https://github.com/mmm13921/fleur-overclock/actions/runs/45075293762
+- هنگام ثبت این یادداشت هر دو run در حال اجرا بودند؛ نتیجهٔ نهایی باید پس از تکمیل به همین گزارش اضافه شود.
