@@ -66,9 +66,13 @@ for token in (
 ):
     if token not in f2fs_h:
         raise SystemExit("Android storage audit: missing F2FS feature handler: " + token)
-for token in ("case F2FS_IOC_FSSETXATTR:", "f2fs_ioc_setproject", "f2fs_transfer_project_quota"):
+for token in ("case F2FS_IOC_FSSETXATTR:", "f2fs_ioc_setproject", "f2fs_transfer_project_quota", "bool quota_enabled = f2fs_sb_has_project_quota(sbi);", "F2FS_I(inode)->i_projid = kprojid;"):
     if token not in f2fs_file:
-        raise SystemExit("Android storage audit: missing F2FS project-id ioctl path: " + token)
+        raise SystemExit("Android storage audit: missing F2FS project-id compatibility path: " + token)
+if "if (!f2fs_has_extra_attr(inode))\\n\\t\\treturn -EOPNOTSUPP;" not in f2fs_file:
+    raise SystemExit("Android storage audit: Project ID must not silently succeed without persistent EXTRA_ATTR metadata")
+if "f2fs_sb_has_extra_attr(sbi)" not in (src / "fs/f2fs/namei.c").read_text():
+    raise SystemExit("Android storage audit: Project ID inheritance without PRJQUOTA is missing")
 
 # Official Fleur 4.14 contains fs/sdcardfs, but the supplied live mount table
 # shows /storage/emulated on FUSE and Android/data + Android/obb on F2FS.
@@ -91,8 +95,10 @@ lines = [
     "F2FS_PRJQUOTA_handler=present",
     "F2FS_EXTRA_ATTR_handler=present",
     "FS_IOC_FSSETXATTR=present",
-    "runtime_limit=existing /data F2FS superblock must already contain PRJQUOTA and EXTRA_ATTR feature bits",
-    "runtime_limit_detail=kernel build cannot safely add on-disk F2FS feature bits; do not reformat /data as a troubleshooting step",
+    "project_id_persistence=requires on-disk EXTRA_ATTR and sufficient inode extra size",
+    "project_quota_enforcement=requires on-disk PRJQUOTA and mount quota activation; not required merely to persist fsx_projid",
+    "runtime_limit=kernel cannot safely add missing on-disk EXTRA_ATTR; without it FSSETXATTR correctly returns EOPNOTSUPP",
+    "runtime_limit_detail=do not report false success or silently discard Project IDs; do not reformat /data as a troubleshooting step",
     "mount_scope=/storage/emulated uses FUSE; Android/data and Android/obb are direct F2FS mounts in the supplied /proc/mounts",
     "mime_handler_note=application/octet-stream is resolved by Android apps/intent filters, not by a kernel filesystem driver",
 ]
