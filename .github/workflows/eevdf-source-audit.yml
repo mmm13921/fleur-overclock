@@ -1,0 +1,76 @@
+name: EEVDF 6.18 Source Audit (No Kernel Build)
+run-name: EEVDF source audit (\${{ github.event_name }})
+
+on:
+  push:
+    branches:
+      - meys-eevdf-618-porting
+    paths:
+      - '.github/workflows/eevdf-source-audit.yml'
+      - 'eevdf/**'
+      - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/apply_f2fs_projectid_compat.py'
+      - 'scripts/apply_official_419191_fs_mount.py'
+      - 'scripts/apply_modem_pm_compat.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    name: Apply patch layers and audit (no compile)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out porting branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch pinned Fleux V11 source
+        run: |
+          git clone --depth=1 --branch v11 https://gitlab.com/daliboss/fleux.git "$RUNNER_TEMP/kernel-src"
+
+      - name: Apply the same pre-scheduler compatibility patches
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply_official_419191_fs_mount.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/official-fs-audit.txt"
+          python3 scripts/apply_f2fs_projectid_compat.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/storage-audit.txt"
+          python3 scripts/apply_scheduler_modes.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/scheduler-modes-audit.txt"
+          python3 scripts/apply_modem_pm_compat.py "$RUNNER_TEMP/kernel-src" > "$RUNNER_TEMP/modem-pm-audit.txt"
+
+      - name: Check patcher syntax
+        run: |
+          python3 -m py_compile \
+            eevdf/patches/0001-eevdf-core-618.py \
+            eevdf/patches/0002-dequeue-bool.py \
+            eevdf/patches/0003-delayed-dequeue-618.py \
+            eevdf/audit_eevdf_618.py
+
+      - name: Apply EEVDF layers
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$RUNNER_TEMP/eevdf-audit"
+          python3 eevdf/patches/0001-eevdf-core-618.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/eevdf-audit/layer1.txt"
+          python3 eevdf/patches/0002-dequeue-bool.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/eevdf-audit/dequeue-bool.txt"
+          python3 eevdf/patches/0003-delayed-dequeue-618.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/eevdf-audit/delayed-dequeue.txt"
+          python3 eevdf/audit_eevdf_618.py "$RUNNER_TEMP/kernel-src" | tee "$RUNNER_TEMP/eevdf-audit/full-audit.txt"
+          git -C "$RUNNER_TEMP/kernel-src" diff HEAD --check
+
+      - name: Publish source audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eevdf-source-audit
+          path: |
+            \${{ runner.temp }}/eevdf-audit/
+            \${{ runner.temp }}/official-fs-audit.txt
+            \${{ runner.temp }}/storage-audit.txt
+            \${{ runner.temp }}/scheduler-modes-audit.txt
+            \${{ runner.temp }}/modem-pm-audit.txt
+          if-no-files-found: warn
+          retention-days: 14
