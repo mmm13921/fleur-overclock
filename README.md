@@ -11,3 +11,7 @@ Target: Redmi Note 11S 4G / POCO M4 Pro 4G (`fleur`) — MediaTek MT6781.
 Big cluster CPU6/CPU7 top OPP: 2.2 GHz. Runtime thermal throttling, PMIC limits, SSPM/PPM policy and watchdog protections remain enabled.
 
 [OC2 release](https://github.com/mmm13921/fleur-overclock/releases/tag/oc2) · [View all releases](https://github.com/mmm13921/fleur-overclock/releases)
+
+## Credits
+
+Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https://github.com/daliboss).
