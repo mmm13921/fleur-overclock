@@ -548,7 +548,7 @@ replace_once(
 replace_once(
     "kernel/sysctl.c",
     "static struct ctl_table kern_table[] = {",
-    "static int meys_min_sched_base_slice_ns = 0;\n"
+    "static int meys_min_sched_base_slice_ns = 100000;\n"
     "static int meys_max_sched_base_slice_ns = 100000000;\n\n"
     "static struct ctl_table kern_table[] = {",
     "EEVDF base slice sysctl bounds",
