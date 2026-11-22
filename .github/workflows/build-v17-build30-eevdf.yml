@@ -12,6 +12,7 @@ on:
       - 'scripts/apply_*.py'
       - 'scripts/configure_*.sh'
       - 'scripts/audit_android_storage.py'
+      - 'patches/apply/0002-f2fs-projectid-metadata-compat.py'
       - 'eevdf/**'
       - 'research/android13-mediaprovider/**'
       - 'docs/modem-pm-port.md'
