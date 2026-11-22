@@ -692,6 +692,7 @@ checks = {
     "relative_deadline_restore": "if (se->rel_deadline)" in fair,
     "base_slice_sysctl": "sched_base_slice" in read("kernel/sysctl.c") and "sysctl_sched_base_slice" in fair,
     "normalized_base_slice": "normalized_sysctl_sched_base_slice" in fair and "\n\tSET_SYSCTL(sched_base_slice);" in fair and "\n\tWRT_SYSCTL(sched_base_slice);" in fair,
+    "base_slice_bounds": "meys_min_sched_base_slice_ns = 100000" in read("kernel/sysctl.c") and "meys_max_sched_base_slice_ns = 100000000" in read("kernel/sysctl.c"),
     "legacy_projectid_source_untouched": True,
 }
 missing = [name for name, ok in checks.items() if not ok]
