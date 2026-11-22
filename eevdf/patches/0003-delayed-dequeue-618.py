@@ -227,6 +227,12 @@ if "static void set_delayed(struct sched_entity *se)" not in fair:
     if anchor not in fair:
         raise SystemExit("dequeue_entity insertion anchor missing")
     helpers = r'''
+static inline void se_update_runnable(struct sched_entity *se)
+{
+	if (!entity_is_task(se))
+		se->runnable_weight = se->my_q->h_nr_runnable;
+}
+
 static void set_delayed(struct sched_entity *se)
 {
 	se->sched_delayed = 1;
@@ -239,6 +245,7 @@ static void set_delayed(struct sched_entity *se)
 		struct cfs_rq *cfs_rq = cfs_rq_of(se);
 		WARN_ON_ONCE(!cfs_rq->h_nr_runnable);
 		cfs_rq->h_nr_runnable--;
+		se_update_runnable(se);
 	}
 }
 
@@ -249,8 +256,10 @@ static void clear_delayed(struct sched_entity *se)
 	if (!entity_is_task(se))
 		return;
 
-	for_each_sched_entity(se)
+	for_each_sched_entity(se) {
 		cfs_rq_of(se)->h_nr_runnable++;
+		se_update_runnable(se);
+	}
 }
 
 static inline void finish_delayed_dequeue_entity(struct sched_entity *se)
@@ -379,6 +388,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
 		update_load_avg(cfs_rq, se, UPDATE_TG);
+		se_update_runnable(se);
 		update_cfs_group(se);
 		WARN_ON_ONCE(cfs_rq->h_nr_running < h_nr_queued);
 		WARN_ON_ONCE(cfs_rq->h_nr_runnable < h_nr_runnable);
@@ -451,6 +461,7 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
 		update_load_avg(cfs_rq, se, UPDATE_TG);
+		se_update_runnable(se);
 		update_cfs_group(se);
 		cfs_rq->h_nr_running++;
 		cfs_rq->h_nr_runnable += h_nr_runnable;
@@ -663,10 +674,14 @@ replace_once(
 for old, new, label in (
     ("READ_ONCE(rq->cfs.h_nr_running)", "READ_ONCE(rq->cfs.h_nr_runnable)", "average load per runnable task"),
     ("sgs->sum_nr_running += rq->cfs.h_nr_running;", "sgs->sum_nr_running += rq->cfs.h_nr_runnable;", "load balance runnable task count"),
-    ("env->src_rq->cfs.h_nr_running == 1", "env->src_rq->cfs.h_nr_runnable == 1", "single runnable task capacity check"),
     ("rq->cfs.h_nr_running >= 1", "rq->cfs.h_nr_runnable >= 1", "nohz runnable task check"),
 ):
     replace_once("kernel/sched/fair.c", old, new, label)
+fair = read("kernel/sched/fair.c")
+old = "env->src_rq->cfs.h_nr_running == 1"
+if fair.count(old) != 2:
+    raise SystemExit("expected two asymmetric-capacity runnable-count anchors")
+write("kernel/sched/fair.c", fair.replace(old, "env->src_rq->cfs.h_nr_runnable == 1"))
 
 # A delayed entity cannot be left behind when a policy/class transition removes
 # it from fair scheduling. Force its delayed dequeue before queued-state tests.
