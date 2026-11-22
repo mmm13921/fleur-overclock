@@ -660,12 +660,8 @@ new = (
 if old not in read("kernel/sched/core.c"):
     raise SystemExit("__schedule sleep/deactivate anchor missing")
 replace_once("kernel/sched/core.c", old, new, "deferred block accounting")
-replace_once(
-    "kernel/sched/core.c",
-    "if (prev->flags & PF_WQ_WORKER) {",
-    "if (!prev->on_rq && (prev->flags & PF_WQ_WORKER)) {",
-    "workqueue notification only after final block",
-)
+# Keep the V11 workqueue sleeping notification unconditional: a task delayed
+# on the fair runqueue is still sleeping and must release worker concurrency.
 
 # wait_task_inactive() must force-finalize a delayed entity or it can keep
 # observing the task as queued and spin until the timeout.
