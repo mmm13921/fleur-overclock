@@ -1,5 +1,5 @@
 name: Fleur patched baseline kernel build
-run-name: Fleur baseline with mods_all.py (push)
+run-name: Fleur baseline - requested changes only
 
 on:
   push:
