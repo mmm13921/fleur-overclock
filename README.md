@@ -45,3 +45,8 @@ Independent project; not affiliated with Xiaomi or POCO.
 ## Credits
 
 Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https://github.com/daliboss).
+
+
+## Project Knowledge Base
+
+The project-wide history, modem/DPMAIF work, app-data and filesystem issues, HMP/EAS, EEVDF backport status, build failures, and mandatory pre-build checklist are maintained in [`knowledge/`](knowledge/README.md). Read [`knowledge/preflight.md`](knowledge/preflight.md) before starting a new build.
