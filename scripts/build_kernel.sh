@@ -85,6 +85,30 @@ if [[ ! -s "$IMAGE" ]]; then
 fi
 
 cp "$IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
+PATCHED_IMAGE="$ARTIFACT_DIR/Image.gz-dtb.patched"
+python3 "$WORKSPACE/patches/mods_all.py" \
+  "$ARTIFACT_DIR/Image.gz-dtb" "$PATCHED_IMAGE" \
+  --sched-u32 --od-rate0 --cap-percpu --cap-max --sysctl-all --ged-all \
+  2>&1 | tee "$ARTIFACT_DIR/mods-all-patch.log"
+if [[ ! -s "$PATCHED_IMAGE" ]]; then
+  echo "mods_all.py did not produce a patched kernel image" >&2
+  exit 1
+fi
+python3 - "$PATCHED_IMAGE" <<'PY'
+from pathlib import Path
+import sys
+import zlib
+p = Path(sys.argv[1])
+raw = p.read_bytes()
+if raw[:2] != b"\\x1f\\x8b":
+    raise SystemExit("Patched image is not gzip-compressed")
+d = zlib.decompressobj(31)
+kernel = d.decompress(raw)
+if not kernel or not d.unused_data.startswith(b"\\xd0\\x0d\\xfe\\xed"):
+    raise SystemExit("Patched image failed gzip/DTB structural validation")
+print(f"Patched image validated: kernel={len(kernel)} bytes, appended_dtb={len(d.unused_data)} bytes")
+PY
+mv "$PATCHED_IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
 cp "$OUT_DIR/.config" "$ARTIFACT_DIR/kernel.config"
 cp "$OUT_DIR/hyperos-filesystem-audit.txt" "$ARTIFACT_DIR/hyperos-filesystem-audit.txt"
 if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
