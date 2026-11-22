@@ -52,7 +52,7 @@ lines = [
     "Fleur MT6781 modem stack static audit",
     "target_kernel=Fleux V11 / Linux 4.19.325",
     "reference=official Xiaomi fleur-s-oss / Linux 4.14.186
-reference_dpmaif_file_sha256=Git blob 5295e09a5712d0852c789044076f74209eab9ef4",
+reference_dpmaif_git_blob=5295e09a5712d0852c789044076f74209eab9ef4",
     "reference_dpmaif_model=dpmaif_resume/dpmaif_suspend registered as HIF .resume/.suspend callbacks
 reference_syscore_model=dpmaif_sysresume/dpmaif_syssuspend absent from official 4.14 DPMAIF file",
     "reference_syscore_callbacks=dpmaif_sysresume/dpmaif_syssuspend not present in inspected 4.14.186 reference",
