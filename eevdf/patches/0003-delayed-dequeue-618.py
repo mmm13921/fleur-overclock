@@ -673,6 +673,17 @@ replace_once("kernel/sched/core.c", old, new, "deferred block accounting")
 # Keep the V11 workqueue sleeping notification unconditional: a task delayed
 # on the fair runqueue is still sleeping and must release worker concurrency.
 
+# Workqueue's local wake path must requeue a delayed worker before marking it runnable.
+replace_once(
+    "kernel/sched/core.c",
+    "\t\t\tttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);\n\t}\n\n\tttwu_do_wakeup(rq, p, 0, rf);",
+    "\t\t\tttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);\n"
+    "\t} else if (p->se.sched_delayed) {\n"
+    "\t\tenqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);\n"
+    "\t}\n\n\tttwu_do_wakeup(rq, p, 0, rf);",
+    "delayed workqueue local wakeup requeue",
+)
+
 # wait_task_inactive() must force-finalize a delayed entity or it can keep
 # observing the task as queued and spin until the timeout.
 replace_once(
