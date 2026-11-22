@@ -1,0 +1,67 @@
+name: Keep successful workflow runs only
+run-name: Keep successful Actions history
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_delete:
+        description: "Delete every run that did not finish with success"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: actions-history-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Delete every non-successful workflow run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          CONFIRM_DELETE: ${{ inputs.confirm_delete }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRM_DELETE" != "true" ]]; then
+            echo "Deletion not confirmed; no runs were changed."
+            exit 0
+          fi
+
+          RUNS_FILE="$RUNNER_TEMP/non-successful-runs.tsv"
+          gh api --paginate "repos/$REPOSITORY/actions/runs?per_page=100" \
+            --jq '.workflow_runs[] | select(.conclusion != "success") | [.id, .name, .status, (.conclusion // "none")] | @tsv' \
+            > "$RUNS_FILE"
+
+          mapfile -t RUNS < "$RUNS_FILE"
+          echo "Non-successful runs found: ${#RUNS[@]}"
+          deleted=0
+          skipped=0
+
+          for entry in "${RUNS[@]}"; do
+            IFS=$'\t' read -r run_id run_name run_status run_conclusion <<< "$entry"
+            [[ -z "$run_id" ]] && continue
+            if [[ "$run_id" == "$CURRENT_RUN_ID" ]]; then
+              echo "KEEP current cleanup run: $run_id"
+              ((skipped+=1))
+              continue
+            fi
+            if gh api --silent --method DELETE "repos/$REPOSITORY/actions/runs/$run_id"; then
+              echo "DELETED: id=$run_id name=$run_name status=$run_status conclusion=$run_conclusion"
+              ((deleted+=1))
+            else
+              echo "::warning::Could not delete run $run_id ($run_name)"
+            fi
+          done
+
+          echo "Deletion complete. Deleted=$deleted Skipped=$skipped"
+          echo "Successful workflow runs were not modified."
