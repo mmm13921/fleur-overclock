@@ -50,7 +50,7 @@ old = """static int f2fs_ioc_setproject(struct file *filp, __u32 projid)
 								i_projid)) {
 		f2fs_put_page(ipage, 1);
 		/* Legacy images may have EXTRA_ATTR but no room for i_projid. */
-		return quota_enabled ? -EOVERFLOW : 0;
+		return -EOVERFLOW;
 	}
 	f2fs_put_page(ipage, 1);
 
