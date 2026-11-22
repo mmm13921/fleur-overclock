@@ -430,10 +430,12 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		cfs_rq->h_nr_runnable -= h_nr_runnable;
 		se_update_runnable(se);
 		update_cfs_group(se);
-		se->slice = slice;
-		se->custom_slice = 1;
-		if (se != cfs_rq->curr)
-			min_vruntime_propagate(&se->run_node, NULL);
+		if (!entity_is_task(se)) {
+			se->slice = slice;
+			se->custom_slice = 1;
+			if (se != cfs_rq->curr)
+				min_vruntime_propagate(&se->run_node, NULL);
+		}
 		slice = cfs_rq_min_slice(cfs_rq);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
@@ -512,10 +514,12 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cfs_rq->h_nr_runnable += h_nr_runnable;
 		se_update_runnable(se);
 		update_cfs_group(se);
-		se->slice = slice;
-		se->custom_slice = 1;
-		if (se != cfs_rq->curr)
-			min_vruntime_propagate(&se->run_node, NULL);
+		if (!entity_is_task(se)) {
+			se->slice = slice;
+			se->custom_slice = 1;
+			if (se != cfs_rq->curr)
+				min_vruntime_propagate(&se->run_node, NULL);
+		}
 		slice = cfs_rq_min_slice(cfs_rq);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
