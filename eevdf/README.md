@@ -10,6 +10,9 @@
 - `sched_attr.sched_runtime` برای custom slice وظیفه‌های fair؛ مقدار صفر یعنی استفاده از base slice.
 - `series`: ترتیب اعمال پچ‌ها پس از آماده‌شدن اولین پچ.
 
+## سازگاری wakeup در لایه DELAY_DEQUEUE
+در مسیر local wakeup برای taskهایی که قبلاً delayed dequeue شده‌اند، باید از `ttwu_activate()` استفاده شود، نه `enqueue_task()` مستقیم. `ttwu_activate()` علاوه بر enqueue، مقدار `p->on_rq` را به حالت queued برمی‌گرداند و hook بیدارشدن worker را اجرا می‌کند. این سازگاری در لایه 3 و audit اجباری شده است.
+
 ## وضعیت فعلی
 لایه اول شامل min_vruntime/min_slice tree، protected slice، PREEMPT_SHORT، PLACE_REL_DEADLINE و sched_base_slice است. رابط custom_slice نیز از طریق sched_attr.sched_runtime پیاده‌سازی شده است: تغییر slice در همان policy تشخیص داده می‌شود و sched_getattr مقدار مؤثر را گزارش می‌کند. پیش‌نیاز API برای بازگشت bool از sched_class::dequeue_task اضافه شده؛ فعلاً همه‌ی کلاس‌ها true برمی‌گردانند. DELAY_DEQUEUE/DELAY_ZERO هنوز پیاده‌سازی نشده‌اند. build و بوت دستگاه باید جداگانه تأیید شوند.
 

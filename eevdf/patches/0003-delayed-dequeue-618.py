@@ -835,7 +835,7 @@ replace_once(
     "\t\tttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);\n\t}\n\n\tttwu_do_wakeup(rq, p, 0, rf);",
     "\t\tttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);\n"
     "\t} else if (p->se.sched_delayed) {\n"
-    "\t\tenqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);\n"
+    "\t\tttwu_activate(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);\n"
     "\t}\n\n\tttwu_do_wakeup(rq, p, 0, rf);",
     "delayed workqueue local wakeup requeue",
 )
