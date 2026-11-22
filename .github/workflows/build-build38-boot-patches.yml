@@ -119,6 +119,7 @@ jobs:
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
           cp artifacts/modem-pm-audit.txt "$AK_DIR/modem-pm-audit.txt"
           cp artifacts/eevdf-layer1-audit.txt "$AK_DIR/eevdf-layer1-audit.txt"
+          cp artifacts/eevdf-dequeue-bool-audit.txt "$AK_DIR/eevdf-dequeue-bool-audit.txt"
           cp artifacts/eevdf-audit.txt "$AK_DIR/eevdf-audit.txt"
           cp artifacts/boot-patches-audit.txt "$AK_DIR/boot-patches-audit.txt"
           cp patches/boot_patches.md "$AK_DIR/boot_patches.md"
