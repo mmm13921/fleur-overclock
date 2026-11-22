@@ -379,7 +379,6 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 {
 	bool task_sleep = flags & DEQUEUE_SLEEP;
 	bool task_delayed = flags & DEQUEUE_DELAYED;
-	bool root_dequeued;
 	struct task_struct *p = NULL;
 	int h_nr_queued = 0;
 	int h_nr_runnable = 0;
@@ -421,7 +420,6 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		flags |= DEQUEUE_SLEEP;
 		flags &= ~(DEQUEUE_DELAYED | DEQUEUE_SPECIAL);
 	}
-	root_dequeued = !se;
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
@@ -443,7 +441,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 			break;
 	}
 
-	if (root_dequeued)
+	if (!se)
 		sub_nr_running(rq, 1);
 
 	if (p && task_delayed) {
