@@ -824,7 +824,6 @@ void unregister_fair_sched_group(struct task_group *tg)
 					update_rq_clock(rq);
 					dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED);
 				}
-				list_del_leaf_cfs_rq(cfs_rq);
 				raw_spin_unlock_irqrestore(&rq->lock, flags);
 			}
 			remove_entity_load_avg(se);
