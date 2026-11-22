@@ -30,6 +30,7 @@ git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
 python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
   python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSPACE/eevdf/audit_eevdf_618.py"
   python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
@@ -100,6 +101,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
   HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt")
+  [[ ! -f "$ARTIFACT_DIR/modem-pm-audit.txt" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/modem-pm-audit.txt")
   [[ ! -f "$ARTIFACT_DIR/eevdf-layer1-audit.txt" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt")
   [[ ! -f "$ARTIFACT_DIR/eevdf-audit.txt" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-audit.txt")
   [[ ! -f "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
