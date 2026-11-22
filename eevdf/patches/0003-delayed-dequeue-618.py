@@ -681,6 +681,24 @@ replace_once("kernel/sched/core.c", old, new, "deferred block accounting")
 # Keep the V11 workqueue sleeping notification unconditional: a task delayed
 # on the fair runqueue is still sleeping and must release worker concurrency.
 
+# Delayed entities already left the uclamp buckets on the first sleep dequeue.
+replace_once(
+    "kernel/sched/core.c",
+    "\tuclamp_rq_inc(rq, p);\n\tp->sched_class->enqueue_task(rq, p, flags);",
+    "\tif (!p->se.sched_delayed || (flags & ENQUEUE_DELAYED))\n"
+    "\t\tuclamp_rq_inc(rq, p);\n"
+    "\tp->sched_class->enqueue_task(rq, p, flags);",
+    "avoid duplicate uclamp enqueue for delayed migration",
+)
+replace_once(
+    "kernel/sched/core.c",
+    "\tuclamp_rq_dec(rq, p);\n\treturn p->sched_class->dequeue_task(rq, p, flags);",
+    "\tif (!p->se.sched_delayed)\n"
+    "\t\tuclamp_rq_dec(rq, p);\n"
+    "\treturn p->sched_class->dequeue_task(rq, p, flags);",
+    "avoid duplicate uclamp dequeue for delayed migration",
+)
+
 # Workqueue's local wake path must requeue a delayed worker before marking it runnable.
 replace_once(
     "kernel/sched/core.c",
