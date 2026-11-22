@@ -12,9 +12,7 @@ on:
       - 'scripts/apply_*.py'
       - 'scripts/configure_*.sh'
       - 'scripts/audit_android_storage.py'
-      - 'patches/apply/0002-f2fs-projectid-metadata-compat.py'
       - 'eevdf/**'
-      - 'research/android13-mediaprovider/**'
       - 'docs/modem-pm-port.md'
   workflow_dispatch:
 permissions:
@@ -33,16 +31,6 @@ jobs:
     steps:
       - name: Check out Build 30 based builder
         uses: actions/checkout@v4
-      - name: Prepare separate Android 13 MediaProvider bridge patch
-        run: |
-          set -euo pipefail
-          python3 -m py_compile research/android13-mediaprovider/apply_projectid_ioctl_bridge.py
-          mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          git clone --depth=1 --branch android13-security-release https://android.googlesource.com/platform/packages/providers/MediaProvider "$RUNNER_TEMP/MediaProvider"
-          python3 research/android13-mediaprovider/apply_projectid_ioctl_bridge.py "$RUNNER_TEMP/MediaProvider"
-          git -C "$RUNNER_TEMP/MediaProvider" diff --check
-          git -C "$RUNNER_TEMP/MediaProvider" diff -- jni/FuseDaemon.cpp > artifacts/android13-mediaprovider-projectid.patch
-          test -s artifacts/android13-mediaprovider-projectid.patch
       - name: Install build and packaging dependencies
         run: |
           sudo apt-get update
@@ -78,15 +66,15 @@ jobs:
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
           cp scripts/anykernel_build30_eevdf.sh "$AK_DIR/anykernel.sh"
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
-          cp artifacts/meys-v1-eevdf-source.patch artifacts/storage-projectid-audit.txt "$AK_DIR/"
-          cp artifacts/scheduler-modes-audit.txt artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/"
+          cp artifacts/meys-v1-eevdf-source.patch "$AK_DIR/"
+          cp artifacts/scheduler-modes-audit.txt "$AK_DIR/"
           cp artifacts/android-storage-audit.txt artifacts/eevdf-layer1-audit.txt "$AK_DIR/"
           cp artifacts/eevdf-audit.txt artifacts/modem-pm-audit.txt artifacts/modem-stack-audit.txt "$AK_DIR/"
           cp docs/scheduler-modes-port.md "$AK_DIR/SCHEDULER-MODES.txt"
           cp docs/modem-pm-port.md "$AK_DIR/MODEM-PM-PORT.txt"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config build-manifest.txt meys-v1-eevdf-source.patch storage-projectid-audit.txt scheduler-modes-audit.txt official-4.19.191-fs-mount-audit.txt android-storage-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt modem-pm-audit.txt modem-stack-audit.txt SCHEDULER-MODES.txt MODEM-PM-PORT.txt
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config build-manifest.txt meys-v1-eevdf-source.patch scheduler-modes-audit.txt android-storage-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt modem-pm-audit.txt modem-stack-audit.txt SCHEDULER-MODES.txt MODEM-PM-PORT.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip"
           sha256sum artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip | tee artifacts/EEVDF-SHA256.txt
