@@ -1,7 +1,7 @@
 set -Eeuo pipefail
 BUILD_BASELINE="${BUILD_BASELINE:-Build30}"
 SOURCE_REF="${1:-v11}"
-BUILD_PROFILE="${2:-hmp-storage-projectid}"
+BUILD_PROFILE="${2:-hmp-native-fs}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
 SOURCE_COMMIT_LOCK="e2d900276a445fc9e31592c80df89a6f5e24175d"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
@@ -17,7 +17,7 @@ if [[ "$SOURCE_REF" != "v11" ]]; then
   echo "Build 30 baseline is pinned to Fleux upstream V11; refusing source ref: $SOURCE_REF" >&2
   exit 2
 fi
-if [[ "$BUILD_PROFILE" != "hmp-storage-projectid" && "$BUILD_PROFILE" != "meys-v1-eevdf" ]]; then
+if [[ "$BUILD_PROFILE" != "hmp-native-fs" && "$BUILD_PROFILE" != "meys-v1-eevdf" ]]; then
   echo "Unsupported build profile: $BUILD_PROFILE" >&2
   exit 2
 fi
@@ -45,7 +45,7 @@ git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
-SOURCE_PATCH="$ARTIFACT_DIR/hmp-storage-projectid-source.patch"
+SOURCE_PATCH="$ARTIFACT_DIR/hmp-native-fs-source.patch"
 KERNEL_LOCALVERSION="-Meys"
 if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
   python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
