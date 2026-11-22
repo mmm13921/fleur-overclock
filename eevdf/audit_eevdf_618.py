@@ -26,6 +26,7 @@ checks = [
     ("base.entity_eligible", "entity_eligible(" in src["fair"]),
     ("base.virtual_deadline", "se->deadline" in src["fair"]),
     ("layer1.min_vruntime_min_slice_augmentation", "min_vruntime_propagate" in src["fair"] and "min_slice" in src["entity"]),
+    ("layer1.min_vruntime_augmentation_order", "vruntime_gt(min_vruntime, se, left)" in src["fair"] and "vruntime_gt(min_vruntime, se, right)" in src["fair"]),
     ("layer1.protected_virtual_deadline", "vprot" in src["entity"] and "protect_slice(" in src["fair"]),
     ("layer1.preempt_short", "SCHED_FEAT(PREEMPT_SHORT, true)" in src["features"] and "__pick_eevdf(cfs_rq, !do_preempt_short)" in src["fair"]),
     ("layer1.relative_deadline", "SCHED_FEAT(PLACE_REL_DEADLINE, true)" in src["features"] and "se->rel_deadline = 1" in src["fair"]),

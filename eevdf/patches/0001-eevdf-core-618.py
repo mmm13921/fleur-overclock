@@ -84,26 +84,25 @@ new_tree = r'''/*
  */
 static inline void min_vruntime_compute(struct sched_entity *se)
 {
-	u64 min_vruntime = se->vruntime;
-	u64 min_slice = se->slice;
 	struct rb_node *node;
+
+	se->min_vruntime = se->vruntime;
+	se->min_slice = se->slice;
 
 	node = se->run_node.rb_left;
 	if (node) {
 		struct sched_entity *left = __node_2_se(node);
-		if (vruntime_gt(min_vruntime, left, se))
-			min_vruntime = left->min_vruntime;
-		min_slice = min(min_slice, left->min_slice);
+		if (vruntime_gt(min_vruntime, se, left))
+			se->min_vruntime = left->min_vruntime;
+		se->min_slice = min(se->min_slice, left->min_slice);
 	}
 	node = se->run_node.rb_right;
 	if (node) {
 		struct sched_entity *right = __node_2_se(node);
-		if (vruntime_gt(min_vruntime, right, se))
-			min_vruntime = right->min_vruntime;
-		min_slice = min(min_slice, right->min_slice);
+		if (vruntime_gt(min_vruntime, se, right))
+			se->min_vruntime = right->min_vruntime;
+		se->min_slice = min(se->min_slice, right->min_slice);
 	}
-	se->min_vruntime = min_vruntime;
-	se->min_slice = min_slice;
 }
 
 static void min_vruntime_propagate(struct rb_node *rb, struct rb_node *stop)
