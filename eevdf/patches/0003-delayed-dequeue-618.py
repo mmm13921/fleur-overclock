@@ -462,6 +462,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	if (p && task_delayed) {
 		WARN_ON_ONCE(!task_sleep);
 		WARN_ON_ONCE(!p->on_rq);
+		hrtick_update(rq);
 		/* Must be last: __block_task releases p->on_rq to concurrent wakeup. */
 		__block_task(rq, p);
 	}
