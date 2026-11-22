@@ -1,4 +1,4 @@
-name: Clean failed and unstarted workflow runs
+name: Clean old workflow runs
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/cleanup-old-workflow-runs.yml
   workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
 
 permissions:
   actions: write
@@ -20,35 +22,46 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete every non-successful or unstarted run
+      - name: Delete workflow runs older than one day and failed or unstarted runs
         uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const currentRunId = context.runId;
+            const cutoff = Date.now() - 24 * 60 * 60 * 1000;
             const keep = [];
             const remove = [];
+            const active = [];
             const runs = await github.paginate(
               github.rest.actions.listWorkflowRunsForRepo,
               { owner, repo, per_page: 100 }
             );
             for (const run of runs) {
               if (run.id === currentRunId) continue;
-              if (run.conclusion === 'success') {
-                keep.push(run.id);
+              if (run.status === 'in_progress') {
+                active.push(run.id);
                 continue;
               }
-              if (
+              const olderThanOneDay = new Date(run.created_at).getTime() < cutoff;
+              const unsuccessfulOrUnstarted =
                 run.status === 'completed' ||
-                ['queued', 'requested', 'waiting', 'pending'].includes(run.status)
+                ['queued', 'requested', 'waiting', 'pending'].includes(run.status);
+              if (olderThanOneDay && unsuccessfulOrUnstarted) {
+                remove.push({ run, reason: 'older than 24 hours' });
+              } else if (
+                run.conclusion !== 'success' &&
+                unsuccessfulOrUnstarted
               ) {
-                remove.push(run);
+                remove.push({ run, reason: 'unsuccessful or unstarted' });
+              } else {
+                keep.push(run.id);
               }
             }
-            core.info(`Found ${runs.length} runs; keeping ${keep.length} successful runs; deleting ${remove.length} unsuccessful/unstarted runs.`);
+            core.info(`Found ${runs.length} runs; keeping ${keep.length}; active runs preserved ${active.length}; deleting ${remove.length}.`);
             let deleted = 0;
-            for (const run of remove) {
+            for (const item of remove) {
+              const run = item.run;
               try {
                 await github.rest.actions.deleteWorkflowRun({
                   owner,
@@ -56,9 +69,9 @@ jobs:
                   run_id: run.id
                 });
                 deleted++;
-                core.info(`Deleted run ${run.id}: ${run.name} (#${run.run_number}), status=${run.status}, conclusion=${run.conclusion}`);
+                core.info(`Deleted run ${run.id}: ${run.name} (#${run.run_number}), created=${run.created_at}, reason=${item.reason}, conclusion=${run.conclusion}`);
               } catch (error) {
                 core.warning(`Could not delete run ${run.id}: ${error.message}`);
               }
             }
-            core.info(`Deletion completed: ${deleted}/${remove.length}; successful runs retained: ${keep.length}.`);
+            core.info(`Deletion completed: ${deleted}/${remove.length}; recent successful runs retained: ${keep.length}; active runs preserved: ${active.length}.`);
