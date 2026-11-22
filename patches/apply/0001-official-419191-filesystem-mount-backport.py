@@ -6,11 +6,6 @@ import sys
 OFFICIAL_REPO = "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git"
 OFFICIAL_REF = "refs/heads/sea-t-oss"
 EXPECTED_KERNEL = "4.19.191"
-EXTRA_FILES = (
-    "include/linux/f2fs_fs.h",
-    "include/trace/events/f2fs.h",
-)
-
 def run_git(src, args, *, check=True):
     result = subprocess.run(
         ["git", "-C", str(src), *args],
@@ -190,34 +185,6 @@ def main():
             "official sea-t-oss branch is " + official_version + ", expected " + EXPECTED_KERNEL)
     official_sha = run_git(src, ["rev-parse", "FETCH_HEAD"]).stdout.decode().strip()
 
-    # Restore the complete F2FS implementation from the official MT6781 4.19.191
-    # source. This includes the original Android F2FS mount-option parser,
-    # checkpoint_merge/gc_merge semantics, checkpoint worker, recovery path,
-    # compression support and the matching F2FS on-disk/UAPI definitions.
-    tree = run_git(src, ["ls-tree", "-r", "--name-only", "FETCH_HEAD", "fs/f2fs"])
-    official_files = [line for line in tree.stdout.decode().splitlines() if line]
-    require(official_files, "official fs/f2fs source tree is empty")
-    official_set = set(official_files)
-
-    local = run_git(src, ["ls-files", "fs/f2fs"]).stdout.decode().splitlines()
-    for rel in local:
-        if rel not in official_set:
-            (src / rel).unlink(missing_ok=True)
-
-    for rel in official_files:
-        blob = run_git(src, ["show", "FETCH_HEAD:" + rel]).stdout
-        dest = src / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(blob)
-
-    for rel in EXTRA_FILES:
-        blob = run_git(src, ["show", "FETCH_HEAD:" + rel], check=False)
-        require(blob.returncode == 0 and blob.stdout,
-                "official reference file is missing: " + rel)
-        dest = src / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(blob.stdout)
-
     # Retain Fleux's surrounding VFS/KSU code, but route legacy Android remount
     # operations through the 4.19.191 do_remount() implementation.
     namespace_path = src / "fs/namespace.c"
@@ -265,30 +232,9 @@ def main():
         internal_path.write_text(internal)
 
     # Structural checks before compilation.
-    f2fs_super = (src / "fs/f2fs/super.c").read_text()
-    f2fs_header = (src / "fs/f2fs/f2fs.h").read_text()
-    checkpoint = (src / "fs/f2fs/checkpoint.c").read_text()
     f2fs_namespace = (src / "fs/namespace.c").read_text()
     super_c = (src / "fs/super.c").read_text()
 
-    for option in (
-        '"checkpoint_merge"',
-        '"nocheckpoint_merge"',
-        '"gc_merge"',
-        '"nogc_merge"',
-    ):
-        require(option in f2fs_super,
-                "official F2FS mount option is missing: " + option)
-    require("F2FS_MOUNT_MERGE_CHECKPOINT" in f2fs_header and
-            "F2FS_MOUNT_GC_MERGE" in f2fs_header,
-            "official F2FS merge option flags are missing")
-    require("f2fs_init_ckpt_req_control" in f2fs_header and
-            "f2fs_start_ckpt_thread" in checkpoint and
-            "f2fs_stop_ckpt_thread" in checkpoint,
-            "official F2FS checkpoint merge worker is incomplete")
-    require("f2fs_start_ckpt_thread" in f2fs_super and
-            "f2fs_stop_ckpt_thread" in f2fs_super,
-            "F2FS mount/remount lifecycle is not wired to checkpoint worker")
     remount_start, remount_end = extract_function(f2fs_namespace, "static int do_remount(")
     remount = f2fs_namespace[remount_start:remount_end]
     require("do_remount_sb2(path->mnt, sb, sb_flags, data, 0)" in remount,
@@ -307,20 +253,16 @@ def main():
 
     report.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        "filesystem_mount_reference=MiCode/Xiaomi_Kernel_OpenSource",
-        "filesystem_mount_reference_ref=sea-t-oss",
-        "filesystem_mount_reference_kernel=Linux " + EXPECTED_KERNEL,
+        "vfs_mount_reference=MiCode/Xiaomi_Kernel_OpenSource",
+        "vfs_mount_reference_ref=sea-t-oss",
+        "vfs_mount_reference_kernel=Linux " + EXPECTED_KERNEL,
         "filesystem_mount_reference_commit=" + official_sha,
         "fleux_base_kernel=Linux 4.19.325",
-        "f2fs_tree=official 4.19.191 fs/f2fs copied as a matched source set",
-        "f2fs_mount_compat=checkpoint_merge,nocheckpoint_merge,gc_merge,nogc_merge",
-        "f2fs_checkpoint=official 4.19.191 merged checkpoint worker restored",
-        "f2fs_encryption=official 4.19.191 fscrypt/F2FS integration retained",
         "vfs_mount=legacy 4.19.191 do_remount path restored for Android mount(2)",
+        "f2fs_source=handled separately by the pinned official Fleur 4.14.186 F2FS transplant",
         "vfs_remount=legacy do_remount_sb2 + filesystem remount_fs callback",
         "fs_context=kept for new mount API callers; not used by legacy remount path",
         "hardware_validation=not performed by CI",
-        "official_f2fs_file_count=" + str(len(official_files)),
     ]
     report.write_text("\n".join(lines) + "\n")
     print("OFFICIAL 4.19.191 FILESYSTEM/MOUNT BACKPORT PASSED")
