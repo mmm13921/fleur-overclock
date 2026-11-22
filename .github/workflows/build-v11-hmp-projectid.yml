@@ -98,14 +98,14 @@ jobs:
           cp research/android13-mediaprovider/README.md artifacts/ANDROID13-MEDIAPROVIDER-README.md
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-HMP-ProjectID-AnyKernel3.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
               official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
               modem-pm-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-HMP-ProjectID-AnyKernel3.zip"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/MEYS-PROJECTID-SHA256.txt
       - name: Upload Meys kernel, AnyKernel ZIP, and source audits
         uses: actions/upload-artifact@v4
