@@ -247,6 +247,9 @@ if "static void set_delayed(struct sched_entity *se)" not in fair:
     if anchor not in fair:
         raise SystemExit("dequeue_entity insertion anchor missing")
     helpers = r'''
+/* The delayed-dequeue helpers precede the bandwidth helper definition. */
+static inline int cfs_rq_throttled(struct cfs_rq *cfs_rq);
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 static inline void se_update_runnable(struct sched_entity *se)
 {
