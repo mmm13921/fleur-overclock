@@ -939,7 +939,7 @@ replace_once(
 replace_once(
     "kernel/sched/fair.c",
     "qcfs_rq->h_nr_running -= task_delta;",
-    "qcfs_rq->h_nr_running -= task_delta;\n\t\tqcfs_rq->h_nr_runnable -= runnable_delta;",
+    "qcfs_rq->h_nr_running -= task_delta;\n\t\tqcfs_rq->h_nr_runnable -= runnable_delta;\n\t\tse_update_runnable(se);\n\t\tupdate_cfs_group(se);",
     "throttle runnable delta removal",
 )
 replace_once(
@@ -957,7 +957,7 @@ replace_once(
 replace_once(
     "kernel/sched/fair.c",
     "cfs_rq->h_nr_running += task_delta;",
-    "cfs_rq->h_nr_running += task_delta;\n\t\tcfs_rq->h_nr_runnable += runnable_delta;",
+    "cfs_rq->h_nr_running += task_delta;\n\t\tcfs_rq->h_nr_runnable += runnable_delta;\n\t\tse_update_runnable(se);\n\t\tupdate_cfs_group(se);",
     "unthrottle runnable delta restore",
 )
 for old, new, label in (
