@@ -86,6 +86,23 @@ def replace_function(path, name, replacement):
     end = body_end(src, brace)
     write(path, src[:start] + replacement.strip("\n") + src[end + 1:])
 
+# Initialize newly introduced delayed state and hierarchical counters explicitly.
+replace_once(
+    "kernel/sched/fair.c",
+    "cfs_rq->avg_load = 0;",
+    "cfs_rq->avg_load = 0;\n\tcfs_rq->h_nr_runnable = 0;",
+    "initialize hierarchical runnable count",
+)
+replace_once(
+    "kernel/sched/core.c",
+    "p->se.vlag\t\t\t= 0;",
+    "p->se.vlag\t\t\t= 0;\n"
+    "\tp->se.sched_delayed\t\t= 0;\n"
+    "\tp->se.rel_deadline\t\t= 0;\n"
+    "\tp->se.custom_slice\t\t= 0;",
+    "initialize per-task EEVDF state on fork",
+)
+
 # The existing layer-2 patcher changes every sched_class dequeue callback to bool.
 # Delayed dequeue is only valid for the fair class and only for DEQUEUE_SLEEP.
 sched_h = read("kernel/sched/sched.h")
