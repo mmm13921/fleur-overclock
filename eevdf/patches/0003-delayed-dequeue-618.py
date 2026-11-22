@@ -913,7 +913,7 @@ checks = {
     "hierarchical_runnable_counter": "h_nr_runnable" in read("kernel/sched/sched.h"),
     "dequeue_entity_can_defer": "static bool\ndequeue_entity(" in fair and "set_delayed(se);" in fair,
     "delayed_hierarchy_accounting": "static int dequeue_entities(" in fair and "h_nr_runnable -= h_nr_runnable" in fair,
-    "delayed_wakeup_requeue": "requeue_delayed_entity(se);" in fair and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" not in core,
+    "delayed_wakeup_requeue": "requeue_delayed_entity(se);" in fair and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" in core,
     "delayed_pick_cleanup": "DEQUEUE_SLEEP | DEQUEUE_DELAYED" in fair,
     "delayed_next_buddy_guard": "!cfs_rq->next->sched_delayed" in fair and "!pse->sched_delayed" in fair and "if (se->sched_delayed)" in fair,
     "deferred_block_accounting": "void __block_task(" in core and "if (dequeue_task(rq, prev" in core,
