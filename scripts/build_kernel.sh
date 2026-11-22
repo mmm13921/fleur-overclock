@@ -17,7 +17,7 @@ if [[ "$SOURCE_REF" != "v11" ]]; then
   echo "Build 30 baseline is pinned to Fleux upstream V11; refusing source ref: $SOURCE_REF" >&2
   exit 2
 fi
-if [[ "$BUILD_PROFILE" != "hmp-storage-projectid" && "$BUILD_PROFILE" != "meys-v1-eevdf" && "$BUILD_PROFILE" != "data-storage-only" ]]; then
+if [[ "$BUILD_PROFILE" != "hmp-storage-projectid" && "$BUILD_PROFILE" != "meys-v1-eevdf" ]]; then
   echo "Unsupported build profile: $BUILD_PROFILE" >&2
   exit 2
 fi
@@ -45,16 +45,10 @@ git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
 python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
-if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
-  python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
-  python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
-fi
+python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
 SOURCE_PATCH="$ARTIFACT_DIR/hmp-storage-projectid-source.patch"
 KERNEL_LOCALVERSION="-Meys"
-if [[ "$BUILD_PROFILE" == "data-storage-only" ]]; then
-  SOURCE_PATCH="$ARTIFACT_DIR/data-storage-only-source.patch"
-  KERNEL_LOCALVERSION="-Meys-DataFix"
-fi
 if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
   python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
   python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
@@ -72,9 +66,7 @@ export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$KERNEL_LOCALVERSION"
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
-if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
-  bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
-fi
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 python3 "$WORKSPACE/scripts/audit_android_storage.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
 grep -qx "CONFIG_QUOTA=y" "$OUT_DIR/.config"
@@ -82,9 +74,7 @@ grep -qx "CONFIG_F2FS_FS=y" "$OUT_DIR/.config"
 grep -qx "CONFIG_F2FS_FS_XATTR=y" "$OUT_DIR/.config"
 grep -qx "CONFIG_F2FS_FS_ENCRYPTION=y" "$OUT_DIR/.config"
 grep -q "^result=PASS$" "$ARTIFACT_DIR/storage-projectid-audit.txt"
-if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
-  grep -q "^result=PASS$" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
-fi
+grep -q "^result=PASS$" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
 if [[ ! -s "$IMAGE" ]]; then
@@ -100,11 +90,7 @@ SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 CLANG_VERSION="$(clang --version | head -n 1)"
 {
   echo "build_baseline=$BUILD_BASELINE"
-  if [[ "$BUILD_PROFILE" == "data-storage-only" ]]; then
-    echo "build30_patch_stack=official-4.19.191-filesystem-mount;f2fs-projectid-persistence-compat"
-  else
-    echo "build30_patch_stack=filesystem;f2fs-projectid;hmp-eas-hybrid;dpmaif-pm-guard;eevdf-layer1"
-  fi
+  echo "build30_patch_stack=official-4.19.191-filesystem-mount;f2fs-projectid-persistence-compat;hmp-eas-hybrid;dpmaif-pm-guard;eevdf-layer1"
   echo "source_url=$SOURCE_URL"
   echo "source_ref=$SOURCE_REF"
   echo "source_commit_lock=$SOURCE_COMMIT_LOCK"
@@ -113,15 +99,8 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
   echo "kernel_version=4.19.325${KERNEL_LOCALVERSION}"
-  if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
-    echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
-    echo "scheduler_mode_default=0"
-  else
-    echo "scheduler_changes=none"
-    echo "modem_changes=none"
-    echo "cpu_gpu_oc_changes=none"
-    echo "eevdf_changes=none"
-  fi
+  echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
+  echo "scheduler_mode_default=0"
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     echo "scheduler=Linux 6.18 EEVDF backport layer 1; DELAY_DEQUEUE and DELAY_ZERO pending"
     echo "modem_patch=CCCI MD-state guard applied to active native 4.19 DPMAIF syscore resume path"
@@ -129,26 +108,19 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "modem_validation=static audit of active MT6781 DPMAIF syscore route; radio root cause partially narrowed; device radio validation required"
     echo "modem_full_4_14_stack_transplant=not implemented; native 4.19 ECCCI/DPMAIF retained"
   fi
-  if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
-    echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
-  fi
+  echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
   echo "f2fs_projectid=Build30 compatibility patch applied to Xiaomi sea-t-oss 4.19.191 F2FS"
   echo "f2fs_projectid_persistence=stores and inherits inode i_projid with EXTRA_ATTR even when PRJQUOTA is not enabled"
   echo "f2fs_project_quota=quota transfer/enforcement remains conditional on on-disk PRJQUOTA"
   echo "f2fs_legacy_userdata=no silent success when EXTRA_ATTR is absent; FSSETXATTR returns EOPNOTSUPP"
-  if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
-    echo "android13_mediaprovider_bridge=separate source patch generated from pinned AOSP Android 13; not included in kernel image"
-  fi
+  echo "android13_mediaprovider_bridge=separate source patch generated from pinned AOSP Android 13; not included in kernel image"
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
   echo "kernel_image=Image.gz-dtb"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt")
-  if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
-    HASH_INPUTS+=("$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
-  fi
+  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt")
   fi
