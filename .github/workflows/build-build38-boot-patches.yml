@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - meys-build38-boot-patches
+      - meys-eevdf-618-full
     paths:
       - '.github/workflows/build-build38-boot-patches.yml'
       - '.github/workflows/build-v11-hmp-projectid.yml'
@@ -131,7 +132,7 @@ jobs:
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
               official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
-              modem-pm-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt \
+              modem-pm-audit.txt eevdf-layer1-audit.txt eevdf-dequeue-bool-audit.txt eevdf-audit.txt \
               boot-patches-audit.txt boot_patches.md
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/meys-patched.zip"
@@ -157,7 +158,7 @@ jobs:
             Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https://github.com/daliboss).
 
             Build 38 base with guarded CPU/GPU/DTB, EEVDF scheduler, VM, ondemand and cpu_capacity patches.
-            Legacy CFS latency/wakeup tunables are absent from this EEVDF source.
+            EEVDF includes the dequeue bool API prerequisite; delayed dequeue and DELAY_ZERO remain pending. Legacy CFS latency/wakeup tunables are absent from this EEVDF source.
           files: |
             artifacts/README.md
             artifacts/meys-patched.zip
@@ -174,4 +175,5 @@ jobs:
             artifacts/MEYS-PROJECTID-SHA256.txt
             artifacts/modem-pm-audit.txt
             artifacts/eevdf-layer1-audit.txt
+            artifacts/eevdf-dequeue-bool-audit.txt
             artifacts/eevdf-audit.txt
