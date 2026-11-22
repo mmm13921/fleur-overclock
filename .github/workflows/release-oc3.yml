@@ -2,15 +2,6 @@ name: Fleux OC3 2.2GHz (AnyKernel3)
 run-name: Fleux OC3 2.2GHz (${{ github.event_name }})
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/release-oc3.yml
-      - scripts/build_kernel.sh
-      - scripts/apply_oc3_2200.sh
-      - scripts/audit_oc3_image.py
-      - scripts/anykernel_oc3.sh
-      - docs/oc3-changelog.md
   workflow_dispatch:
     inputs:
       source_ref:
