@@ -1128,7 +1128,7 @@ checks = {
     "iowait_delayed_accounting": core.count("if (p->in_iowait && !p->se.sched_delayed)") == 2 and "delayacct_blkio_start();" in core,
     "group_slice_propagation": "min_vruntime_propagate(&se->run_node, NULL)" in fair and "se->custom_slice = 1;" in fair,
     "cgroup_group_teardown_cleanup": "void unregister_fair_sched_group" in fair and "if (se->sched_delayed)" in fair,
-    "migration_load_balance_guard": "p->se.sched_delayed && env->migration_type != migrate_load" in fair,
+    "migration_load_balance_guard": "if (p->se.sched_delayed)\n\t\treturn 0;" in fair,
     "schedtune_delayed_accounting": "if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))" in fair and "if (!se->sched_delayed)\n\t\tschedtune_dequeue_task" in fair,
     "task_exit_cleanup": "dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED);" in fair,
 }
