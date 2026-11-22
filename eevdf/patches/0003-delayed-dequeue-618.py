@@ -764,9 +764,7 @@ replace_once(
 # Workqueue's local wake path must requeue a delayed worker before marking it runnable.
 replace_once(
     "kernel/sched/core.c",
-    "\t\tttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);\n\t} else if (p->se.sched_delayed) {\n"
-    "\t\tenqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);\n"
-    "\t}\n\n\tttwu_do_wakeup(rq, p, 0, rf);",
+    "\t\tttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);\n\t}\n\n\tttwu_do_wakeup(rq, p, 0, rf);",
     "\t\tttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);\n"
     "\t} else if (p->se.sched_delayed) {\n"
     "\t\tenqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);\n"
