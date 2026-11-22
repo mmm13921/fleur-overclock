@@ -664,6 +664,23 @@ if throttle_call in fair:
         "CFS bandwidth forced dequeue",
     )
 
+replace_once(
+    "kernel/sched/fair.c",
+    "if (dequeue)\n\t\t\tdequeue_entity(qcfs_rq, se, DEQUEUE_SLEEP | DEQUEUE_THROTTLE);\n\t\tqcfs_rq->h_nr_running -= task_delta;",
+    "if (dequeue)\n\t\t\tdequeue_entity(qcfs_rq, se, DEQUEUE_SLEEP | DEQUEUE_THROTTLE);\n"
+    "\t\tif (se->sched_delayed)\n\t\t\trunnable_delta = 0;\n"
+    "\t\tqcfs_rq->h_nr_running -= task_delta;",
+    "preserve delayed group count while throttling",
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "cfs_rq = cfs_rq_of(se);\n\t\tif (enqueue)\n\t\t\tenqueue_entity(cfs_rq, se, ENQUEUE_WAKEUP);\n\t\tcfs_rq->h_nr_running += task_delta;",
+    "cfs_rq = cfs_rq_of(se);\n\t\tif (enqueue)\n\t\t\tenqueue_entity(cfs_rq, se, ENQUEUE_WAKEUP);\n"
+    "\t\tif (se->sched_delayed)\n\t\t\trunnable_delta = 0;\n"
+    "\t\tcfs_rq->h_nr_running += task_delta;",
+    "preserve delayed group count while unthrottling",
+)
+
 # Delayed tasks are not migratable through normal load balancing. Forced
 # migration/affinity paths are audited separately in the next integration layer.
 # Keep queued and runnable task counts separate in bandwidth throttling and
