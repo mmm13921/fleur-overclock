@@ -64,7 +64,7 @@ def body_end(src, opening):
         i += 1
     raise SystemExit("unbalanced C function body")
 
-def replace_function(path, name, replacement):
+def replace_function(path, name, replacement, allow_multiple=False):
     src = read(path)
     # V11 has both one-line and split-line return-type/function-name layouts.
     pat = re.compile(
@@ -80,7 +80,7 @@ def replace_function(path, name, replacement):
         semi = src.find(";", close_paren)
         if brace >= 0 and (semi < 0 or brace < semi):
             candidates.append((m.start(), brace))
-    if len(candidates) != 1:
+    if not candidates or (len(candidates) != 1 and not allow_multiple):
         raise SystemExit(f"{path}:{name}: expected one definition, found {len(candidates)}")
     start, brace = candidates[0]
     end = body_end(src, brace)
@@ -839,7 +839,7 @@ void unregister_fair_sched_group(struct task_group *tg)
 }
 
 '''
-)
+, allow_multiple=True)
 
 # Exit cleanup prevents a delayed entity from surviving task teardown.
 fair = read("kernel/sched/fair.c")
