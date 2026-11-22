@@ -12,14 +12,14 @@ on:
       - 'scripts/apply_f2fs_projectid_compat.py'
       - 'scripts/apply_scheduler_modes.py'
       - 'scripts/apply_official_419191_fs_mount.py'
-      - 'scripts/anykernel_scheduler_modes.sh'
+      - 'scripts/anykernel_meys_v1_eevdf.sh'
       - 'research/android13-mediaprovider/**'
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
   group: meys-projectid-30-eevdf-modem-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build-and-package:
     name: Build Meys ProjectID 30 + EEVDF + Modem PM
