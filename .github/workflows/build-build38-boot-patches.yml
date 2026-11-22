@@ -1,5 +1,5 @@
-name: Meys Build 38 baseline + Boot Patch Set
-run-name: Meys Build 38 + Boot Patches (${{ github.event_name }})
+name: Meys Build 38 + EEVDF Backport
+run-name: Meys EEVDF 6.18 Backport (${{ github.event_name }})
 on:
   push:
     branches:
