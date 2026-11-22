@@ -475,19 +475,9 @@ def string_bases(k,rel,name):
 
 
 def vm_bounds(k,log):
-    BASE=0xffffff8008080000;rel=kernel_rela(k)
-    def ptr(v):
-        if v in rel:
-            return rel[v]
-        o=v-BASE
-        return struct.unpack_from('<Q',k,o)[0] if 0<=o<len(k)-8 else 0
-    for base in string_bases(k,rel,b'extfrag_threshold'):
-        e2=ptr(base+56)
-        o2=e2-BASE
-        if e2 and 0<o2<len(k)-4 and struct.unpack_from('<i',k,o2)[0] in (1000,0x7fffffff):
-            old=struct.unpack_from('<i',k,o2)[0];struct.pack_into('<i',k,o2,0x7fffffff)
-            log.append('vm   extfrag_threshold max @0x%x %d -> %d (min is bss 0)'%(o2,old,0x7fffffff));return
-    log.append('vm   extfrag_threshold SKIP not matched')
+    # Preserve extfrag_threshold's kernel-defined range; broadening it to INT_MAX
+    # can admit values outside the documented 0..1000 domain.
+    log.append('vm   extfrag_threshold bounds preserved (no unsafe max widening)')
 
 
 def od_rate0(k,w,log):
@@ -732,26 +722,44 @@ def sysctl_all(k,log):
         o=va-B;return k[o:k.index(b'\0',o)].decode('latin1')
     tab=None
     vm_bounds(k,log)
-    for base in m.string_bases(k,rel,b'extfrag_threshold'):
-        if ptr(base+32)-B==0x192400 or True:
-            e=ptr(base+56)
-            if e and 0<e-B<len(k):tab=base
+    for candidate in m.string_bases(k,rel,b'extfrag_threshold'):
+        handler=ptr(candidate+32);minimum=ptr(candidate+48);maximum=ptr(candidate+56)
+        handler_ok=B<=handler<B+len(k)
+        min_ok=(B<=minimum<B+len(k)) or (B+len(k)<minimum<=B+len(k)+0x2000000)
+        max_ok=(B<=maximum<B+len(k)) or (B+len(k)<maximum<=B+len(k)+0x2000000)
+        if handler_ok and min_ok and max_ok:
+            tab=candidate
+            break
     if tab is None:
-        log.append('sysctl SKIP vm table not found');return
+        log.append('sysctl SKIP vm table candidate failed pointer validation');return
     first=tab
-    while ptr(first-64) and 0<ptr(first-64)-B<len(k) and cs(ptr(first-64)).replace('_','').replace('-','').isalnum():first-=64
-    INTMAX=ptr(tab+56)
-    if struct.unpack_from('<i',k,INTMAX-B)[0]!=0x7fffffff:
-        log.append('sysctl SKIP intmax var not found');return
+    for _ in range(128):
+        previous=ptr(first-64)
+        if not previous or not ((B<=previous<B+len(k)) or (B+len(k)<previous<=B+len(k)+0x2000000)):
+            break
+        try:
+            pname=cs(previous)
+        except (ValueError,IndexError):
+            break
+        if not pname or not pname.replace('_','').replace('-','').isalnum():
+            break
+        first-=64
     ZERO=ptr(tab+48)
-    if ZERO-B<len(k):
-        log.append('sysctl SKIP zero var not in bss');return
+    if not (B+len(k)<ZERO<=B+len(k)+0x2000000):
+        log.append('sysctl SKIP zero pointer is not in expected BSS range');return
     base=first;ent={}
-    while ptr(base):
-        ent[cs(ptr(base))]=base;base+=64
-    def ms(n,e1,e2,w=4):
-        return n
-    for n,fld,to in (('swappiness',56,INTMAX),('watermark_scale_factor',56,INTMAX),('watermark_scale_factor',48,ZERO),('dirty_background_ratio',56,INTMAX),('dirty_ratio',56,INTMAX),('overcommit_memory',56,INTMAX),('panic_on_oom',56,INTMAX),('compact_unevictable_allowed',56,INTMAX),('drop_caches',48,ZERO),('drop_caches',56,INTMAX)):
+    for _ in range(128):
+        nameptr=ptr(base)
+        if not nameptr:
+            break
+        try:
+            name=cs(nameptr)
+        except (ValueError,IndexError):
+            break
+        if not name or not name.replace('_','').replace('-','').isalnum():
+            break
+        ent[name]=base;base+=64
+    for n,fld,to in (('watermark_scale_factor',48,ZERO),('drop_caches',48,ZERO)):
         b=ent.get(n)
         if b is None:
             log.append('sysctl %s SKIP not in table'%n);continue
@@ -779,7 +787,7 @@ def sysctl_all(k,log):
             log.append('sysctl %s SKIP'%n);continue
         cur=ptr(b+48);o=cur-B
         if not 0<o<len(k)-8:
-            log.append('sysctl %s min already 0');continue
+            log.append('sysctl %s min already 0'%n);continue
         ov=struct.unpack_from('<Q',k,o)[0];struct.pack_into('<Q',k,o,0)
         log.append('sysctl %s min @0x%x %d -> 0'%(n,o,ov))
 
