@@ -668,6 +668,25 @@ replace_once(
     "wait_task_inactive delayed entity cleanup",
 )
 
+# A task that wakes before delayed dequeue finalization never entered nr_iowait
+# and never started blkio delay accounting; do not subtract either counter.
+core = read("kernel/sched/core.c")
+old_iowait = (
+    "if (p->in_iowait) {\n"
+    "\t\tdelayacct_blkio_end(p);\n"
+    "\t\tatomic_dec(&task_rq(p)->nr_iowait);\n"
+    "\t}"
+)
+new_iowait = (
+    "if (p->in_iowait && !p->se.sched_delayed) {\n"
+    "\t\tdelayacct_blkio_end(p);\n"
+    "\t\tatomic_dec(&task_rq(p)->nr_iowait);\n"
+    "\t}"
+)
+if core.count(old_iowait) != 2:
+    raise SystemExit("expected both SMP and UP try_to_wake_up iowait paths")
+write("kernel/sched/core.c", core.replace(old_iowait, new_iowait))
+
 # A wakeup of a delayed entity must reinsert it using DELAY_ZERO semantics.
 core = read("kernel/sched/core.c")
 old = "\t\tupdate_rq_clock(rq);\n\t\tttwu_do_wakeup(rq, p, wake_flags, &rf);"
