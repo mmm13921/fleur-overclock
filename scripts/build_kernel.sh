@@ -110,14 +110,13 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "filesystem_patch=none; no wholesale 4.19.191 F2FS/VFS replacement"
   echo "f2fs_projectid_patch=not applied; native Fleux FS_IOC_FSSETXATTR implementation retained"
   echo "fuse=Fleux FUSE implementation retained unchanged"
-  echo "android13_mediaprovider_bridge=separate source patch generated from pinned AOSP Android 13; not included in kernel image"
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
   echo "kernel_image=Image.gz-dtb"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt"  )
+  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt")
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt")
   fi
