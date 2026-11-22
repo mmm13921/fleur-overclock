@@ -84,6 +84,8 @@ jobs:
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
           cp scripts/anykernel_meys_v1_eevdf.sh "$AK_DIR/anykernel.sh"
+          cp README.md "$AK_DIR/README.md"
+          cp README.md artifacts/README.md
           cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
           cp artifacts/kernel.config "$AK_DIR/kernel.config"
           cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
@@ -99,7 +101,7 @@ jobs:
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip" \
-              META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
+              META-INF tools LICENSE README.md anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
               official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
@@ -125,6 +127,8 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
+            Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https://github.com/daliboss).
+
             Meys experimental MT6781 kernel based on the meys-projectid-30 release baseline. Filesystem, F2FS and Project ID source patch set are preserved unchanged. The upstream V11 source repository is retained only as the technical source base.
 
             Includes the HMP/EAS/Hybrid CPU mode selector (HMP default) and
@@ -142,6 +146,7 @@ jobs:
             Android 13 MediaProvider build and validation against Xiaomi's ROM.
             Kernel ZIP remains a kernel-side test. Preserve a known-good boot image.
           files: |
+            artifacts/README.md
             artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip
             artifacts/hmp-storage-projectid-source.patch
             artifacts/storage-projectid-audit.txt
