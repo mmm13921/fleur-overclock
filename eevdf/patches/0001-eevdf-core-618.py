@@ -494,56 +494,7 @@ preempt:
 fair = fair[:start] + new_wakeup + fair[end:]
 write("kernel/sched/fair.c", fair)
 
-# 11. Implement the Linux 6.18 custom fair-slice interface using the existing
-# sched_attr.sched_runtime field for SCHED_NORMAL/BATCH/IDLE (DL keeps its meaning).
-replace_once(
-    "kernel/sched/core.c",
-    "\t\tif (fair_policy(policy) && attr->sched_nice != task_nice(p))\n",
-    "\t\tif (fair_policy(policy) &&\n"
-    "\t\t    (attr->sched_nice != task_nice(p) ||\n"
-    "\t\t     attr->sched_runtime != p->se.slice))\n",
-    "custom fair slice no-op detection",
-)
-replace_once(
-    "kernel/sched/core.c",
-    "\telse if (fair_policy(policy))\n"
-    "\t\tp->static_prio = NICE_TO_PRIO(attr->sched_nice);",
-    "\telse if (fair_policy(policy)) {\n"
-    "\t\tp->static_prio = NICE_TO_PRIO(attr->sched_nice);\n"
-    "\t\tif (attr->sched_runtime) {\n"
-    "\t\t\tp->se.custom_slice = 1;\n"
-    "\t\t\tp->se.slice = clamp_t(u64, attr->sched_runtime,\n"
-    "\t\t\t\t\t      NSEC_PER_MSEC / 10,\n"
-    "\t\t\t\t\t      NSEC_PER_MSEC * 100);\n"
-    "\t\t} else {\n"
-    "\t\t\tp->se.custom_slice = 0;\n"
-    "\t\t\tp->se.slice = sysctl_sched_base_slice;\n"
-    "\t\t}\n"
-    "\t}",
-    "custom fair slice sched_setattr handling",
-)
-replace_once(
-    "kernel/sched/core.c",
-    "\telse\n"
-    "\t\tkattr.sched_nice = task_nice(p);",
-    "\telse {\n"
-    "\t\tkattr.sched_nice = task_nice(p);\n"
-    "\t\tkattr.sched_runtime = p->se.slice;\n"
-    "\t}",
-    "custom fair slice sched_getattr handling",
-)
-replace_once(
-    "kernel/sched/core.c",
-    "\t\t.sched_nice\t= PRIO_TO_NICE(p->static_prio),\n"
-    "\t};\n\n"
-    "\t/* Fixup the legacy SCHED_RESET_ON_FORK hack. */",
-    "\t\t.sched_nice\t= PRIO_TO_NICE(p->static_prio),\n"
-    "\t};\n\n"
-    "\tif (p->se.custom_slice)\n"
-    "\t\tattr.sched_runtime = p->se.slice;\n\n"
-    "\t/* Fixup the legacy SCHED_RESET_ON_FORK hack. */",
-    "preserve custom slice in legacy scheduler changes",
-)
+# Keep sched_attr.sched_runtime reserved for SCHED_DEADLINE; custom_slice remains internal for group entities.
 
 replace_once(
     "kernel/sysctl.c",
