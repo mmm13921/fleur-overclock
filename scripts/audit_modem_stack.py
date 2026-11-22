@@ -45,6 +45,11 @@ checks = {
     "dpmaif_syssuspend_calls_suspend": "dpmaif_suspend(" in suspend,
     "dpmaif_hif_resume_impl_present": bool(resume_hif),
     "dpmaif_hif_suspend_impl_present": bool(suspend_hif),
+    "dpmaif_resume_restores_dl": "drv_dpmaif_dl_restore" in resume_hif,
+    "dpmaif_resume_reinitializes_ul_irq": "drv_dpmaif_init_ul_intr" in resume_hif,
+    "dpmaif_resume_reinitializes_txq": "dpmaif_tx_hw_init" in resume_hif,
+    "dpmaif_resume_releases_tx_buffers": "dpmaif_relase_tx_buffer" in resume_hif,
+    "dpmaif_suspend_backs_up_dl_mask": "drv_dpmaif_get_dl_interrupt_mask" in suspend_hif and "reg_int_mask_bak" in suspend_hif,
     "dpmaif_hif_ops_resume_callback": ".resume = &dpmaif_resume" in src,
     "dpmaif_hif_ops_suspend_callback": ".suspend = &dpmaif_suspend" in src,
 }
@@ -53,7 +58,8 @@ lines = [
     "target_kernel=Fleux V11 / Linux 4.19.325",
     "reference=official Xiaomi fleur-s-oss / Linux 4.14.186
 reference_dpmaif_git_blob=5295e09a5712d0852c789044076f74209eab9ef4",
-    "reference_dpmaif_model=dpmaif_resume/dpmaif_suspend registered as HIF .resume/.suspend callbacks
+    "reference_dpmaif_model=dpmaif_resume/dpmaif_suspend HIF callbacks
+reference_resume_operations=release TX buffers; restore DL; reinit UL IRQs; reinit TX queues
 reference_syscore_model=dpmaif_sysresume/dpmaif_syssuspend absent from official 4.14 DPMAIF file",
     "reference_syscore_callbacks=dpmaif_sysresume/dpmaif_syssuspend not present in inspected 4.14.186 reference",
     "scope=static source inspection only; no full ECCCI/CCCI stack transplant",
