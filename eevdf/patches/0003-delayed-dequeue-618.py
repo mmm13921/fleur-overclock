@@ -562,10 +562,9 @@ pick_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 	struct sched_entity *se;
 
 	if (sched_feat(NEXT_BUDDY) &&
-	    cfs_rq->next && entity_eligible(cfs_rq, cfs_rq->next)) {
-		WARN_ON_ONCE(cfs_rq->next->sched_delayed);
+	    cfs_rq->next && !cfs_rq->next->sched_delayed &&
+	    entity_eligible(cfs_rq, cfs_rq->next))
 		return cfs_rq->next;
-	}
 
 	se = pick_eevdf(cfs_rq);
 	if (se && se->sched_delayed) {
