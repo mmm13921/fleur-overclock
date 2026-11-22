@@ -61,7 +61,7 @@ checks = [
     ("layer3.delayed_runnable_throttle_boundary", src["fair"].count("if (!entity_is_task(se) && cfs_rq_throttled(se->my_q))") == 2),
     ("layer3.fork_state_init", "p->se.sched_delayed\t\t= 0;" in src["core"] and "p->se.rel_deadline\t\t= 0;" in src["core"] and "p->se.custom_slice\t\t= 0;" in src["core"] and "p->se.slice\t\t\t= sysctl_sched_base_slice;" in src["core"]),
     ("layer3.scheduler_class_change_cleanup", "DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK" in src["core"]),
-    ("layer3.special_task_state_bypass", "dequeue_flags |= DEQUEUE_SPECIAL" in src["core"]),
+    ("layer3.special_task_state_bypass", "dequeue_flags |= DEQUEUE_SPECIAL" in src["core"] and "((flags & DEQUEUE_SPECIAL) && se->sched_delayed)" in src["fair"]),
     ("layer3.wait_task_inactive_cleanup", "dequeue_task(rq, p, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["core"]),
     ("layer3.group_slice_propagation", "min_vruntime_propagate(&se->run_node, NULL)" in src["fair"] and "se->custom_slice = 1;" in src["fair"]),
     ("layer3.cgroup_teardown_cleanup", "void unregister_fair_sched_group" in src["fair"] and "dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
