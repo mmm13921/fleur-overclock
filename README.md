@@ -41,3 +41,7 @@ Independent project; not affiliated with Xiaomi or POCO.
 - CI build and packaging checks passed. Device boot, radio stability, thermal behavior, and runtime performance have not been confirmed.
 
 [View all releases](https://github.com/mmm13921/fleur-overclock/releases)
+
+## Credits
+
+Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https://github.com/daliboss).
