@@ -248,11 +248,15 @@ if "static void set_delayed(struct sched_entity *se)" not in fair:
     if anchor not in fair:
         raise SystemExit("dequeue_entity insertion anchor missing")
     helpers = r'''
+#ifdef CONFIG_FAIR_GROUP_SCHED
 static inline void se_update_runnable(struct sched_entity *se)
 {
 	if (!entity_is_task(se))
 		se->runnable_weight = se->my_q->h_nr_runnable;
 }
+#else
+static inline void se_update_runnable(struct sched_entity *se) { }
+#endif
 
 static void set_delayed(struct sched_entity *se)
 {
