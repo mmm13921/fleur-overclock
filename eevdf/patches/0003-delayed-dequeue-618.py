@@ -397,12 +397,15 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		if (!dequeue_entity(cfs_rq, se, flags)) {
 			if (p && &p->se == se)
 				return -1;
-			slice = cfs_rq_min_slice(cfs_rq);
+			slice = se->slice;
 			break;
 		}
 
-		if (cfs_rq_throttled(cfs_rq))
+		if (cfs_rq_throttled(cfs_rq)) {
+			if (!entity_is_task(se))
+				slice = se->slice;
 			break;
+		}
 
 		WARN_ON_ONCE(cfs_rq->h_nr_running < h_nr_queued);
 		WARN_ON_ONCE(cfs_rq->h_nr_runnable < h_nr_runnable);
