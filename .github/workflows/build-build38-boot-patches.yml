@@ -180,3 +180,4 @@ jobs:
             artifacts/eevdf-layer1-audit.txt
             artifacts/eevdf-dequeue-bool-audit.txt
             artifacts/eevdf-audit.txt
+# boot-safe diagnostic branch: retain full EEVDF and validate local delayed wakeup activation
