@@ -129,12 +129,16 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "modem_validation=static audit of active MT6781 DPMAIF syscore route; radio root cause partially narrowed; device radio validation required"
     echo "modem_full_4_14_stack_transplant=not implemented; native 4.19 ECCCI/DPMAIF retained"
   fi
-  echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
+  if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
+    echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
+  fi
   echo "f2fs_projectid=Build30 compatibility patch applied to Xiaomi sea-t-oss 4.19.191 F2FS"
   echo "f2fs_projectid_persistence=stores and inherits inode i_projid with EXTRA_ATTR even when PRJQUOTA is not enabled"
   echo "f2fs_project_quota=quota transfer/enforcement remains conditional on on-disk PRJQUOTA"
   echo "f2fs_legacy_userdata=no silent success when EXTRA_ATTR is absent; FSSETXATTR returns EOPNOTSUPP"
-  echo "android13_mediaprovider_bridge=separate source patch generated from pinned AOSP Android 13; not included in kernel image"
+  if [[ "$BUILD_PROFILE" != "data-storage-only" ]]; then
+    echo "android13_mediaprovider_bridge=separate source patch generated from pinned AOSP Android 13; not included in kernel image"
+  fi
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
   echo "kernel_image=Image.gz-dtb"
