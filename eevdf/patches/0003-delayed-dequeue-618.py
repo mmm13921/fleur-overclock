@@ -716,6 +716,15 @@ insert = "\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\
 fair = fair[:brace + 1] + insert + fair[brace + 1:]
 write("kernel/sched/fair.c", fair)
 
+# The group unregister path appears before the fair dequeue helper definition.
+replace_once(
+    "kernel/sched/fair.c",
+    "void unregister_fair_sched_group(struct task_group *tg)",
+    "static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags);\n\n"
+    "void unregister_fair_sched_group(struct task_group *tg)",
+    "early delayed-dequeue prototype for group teardown",
+)
+
 # Group teardown must drain a delayed group entity before freeing its cfs_rq.
 replace_function(
     "kernel/sched/fair.c",
