@@ -25,6 +25,9 @@ if [[ -e "$SRC_DIR" || -e "$OUT_DIR" ]]; then
 fi
 mkdir -p "$(dirname "$SRC_DIR")" "$ARTIFACT_DIR"
 git clone --depth=1 --branch "$SOURCE_REF" "$SOURCE_URL" "$SRC_DIR"
+python3 -m py_compile "$WORKSPACE/scripts/audit_fleur_414_filesystem.py"
+python3 "$WORKSPACE/scripts/audit_fleur_414_filesystem.py" "$SRC_DIR" "$ARTIFACT_DIR/fleur-4.14.186-filesystem-reference-audit.txt"
+grep -qx "result=PASS" <(head -n 1 "$ARTIFACT_DIR/fleur-4.14.186-filesystem-reference-audit.txt")
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
@@ -93,6 +96,6 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-dequeue-bool-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt"
+  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/fleur-4.14.186-filesystem-reference-audit.txt" "$ARTIFACT_DIR/hmp-storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-dequeue-bool-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt"
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
