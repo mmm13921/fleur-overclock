@@ -445,7 +445,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	}
 
 	if (!se)
-		sub_nr_running(rq, 1);
+		sub_nr_running(rq, h_nr_queued);
 
 	if (p && task_delayed) {
 		WARN_ON_ONCE(!task_sleep);
