@@ -29,6 +29,18 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const currentRunId = context.runId;
+            const targetRunId = 45005279877;
+            try {
+              const target = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: targetRunId });
+              if (['queued', 'in_progress'].includes(target.data.status)) {
+                await github.rest.actions.cancelWorkflowRun({ owner, repo, run_id: targetRunId });
+                core.info(`Cancellation requested for unwanted OC3 run ${targetRunId}.`);
+              } else {
+                core.info(`OC3 run ${targetRunId} is already ${target.data.status}.`);
+              }
+            } catch (error) {
+              core.warning(`Could not cancel OC3 run ${targetRunId}: ${error.message}`);
+            }
             const cutoff = Date.now() - 24 * 60 * 60 * 1000;
             const keep = [];
             const remove = [];
