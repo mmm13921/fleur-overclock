@@ -914,6 +914,7 @@ checks = {
     "scheduler_class_change_cleanup": "DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK" in core,
     "special_task_state_bypass": "dequeue_flags |= DEQUEUE_SPECIAL" in core,
     "wait_task_inactive_cleanup": "dequeue_task(rq, p, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in core,
+    "iowait_delayed_accounting": core.count("if (p->in_iowait && !p->se.sched_delayed)") == 2 and "delayacct_blkio_start();" in core,
     "group_slice_propagation": "min_vruntime_propagate(&se->run_node, NULL)" in fair and "se->custom_slice = 1;" in fair,
     "cgroup_group_teardown_cleanup": "void unregister_fair_sched_group" in fair and "if (se->sched_delayed)" in fair,
     "migration_load_balance_guard": "p->se.sched_delayed && env->migration_type != migrate_load" in fair,
