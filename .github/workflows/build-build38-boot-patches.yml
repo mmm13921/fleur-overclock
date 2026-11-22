@@ -108,6 +108,8 @@ jobs:
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
           cp scripts/anykernel_meys_v1_eevdf.sh "$AK_DIR/anykernel.sh"
+          cp README.md "$AK_DIR/README.md"
+          cp README.md artifacts/README.md
           cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
           cp artifacts/kernel.config "$AK_DIR/kernel.config"
           cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
@@ -125,7 +127,7 @@ jobs:
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/meys-patched.zip" \
-              META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
+              META-INF tools LICENSE README.md anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
               official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
@@ -152,9 +154,12 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
+            Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https://github.com/daliboss).
+
             Build 38 base with guarded CPU/GPU/DTB, EEVDF scheduler, VM, ondemand and cpu_capacity patches.
             Legacy CFS latency/wakeup tunables are absent from this EEVDF source.
           files: |
+            artifacts/README.md
             artifacts/meys-patched.zip
             artifacts/boot-patches-audit.txt
             artifacts/boot-patches-sha256.txt
