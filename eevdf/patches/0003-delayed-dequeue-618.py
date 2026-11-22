@@ -232,7 +232,8 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	if ((flags & (DEQUEUE_SAVE | DEQUEUE_MOVE)) != DEQUEUE_SAVE)
 		update_min_vruntime(cfs_rq);
 
-	if (flags & DEQUEUE_DELAYED)
+	if ((flags & DEQUEUE_DELAYED) ||
+	    ((flags & DEQUEUE_SPECIAL) && se->sched_delayed))
 		finish_delayed_dequeue_entity(se);
 
 	return true;
