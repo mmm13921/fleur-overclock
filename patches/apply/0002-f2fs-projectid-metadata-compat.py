@@ -48,9 +48,9 @@ old = """static int f2fs_ioc_setproject(struct file *filp, __u32 projid)
 
 	if (!F2FS_FITS_IN_INODE(F2FS_INODE(ipage), fi->i_extra_isize,
 								i_projid)) {
+		err = -EOVERFLOW;
 		f2fs_put_page(ipage, 1);
-		/* Legacy images may have EXTRA_ATTR but no room for i_projid. */
-		return -EOVERFLOW;
+		return err;
 	}
 	f2fs_put_page(ipage, 1);
 
