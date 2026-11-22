@@ -48,7 +48,7 @@ checks = [
     ("layer3.delayed_wakeup", "requeue_delayed_entity(se);" in src["fair"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" in src["core"]),
     ("layer3.local_workqueue_delayed_wakeup", "else if (p->se.sched_delayed)" in src["core"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);" in src["core"]),
     ("layer3.uclamp_delayed_accounting", "if (!p->se.sched_delayed || (flags & ENQUEUE_DELAYED))" in src["core"] and "if (!p->se.sched_delayed)\n\t\tuclamp_rq_dec(rq, p);" in src["core"]),
-    ("layer3.psi_delayed_accounting", "if (p->se.sched_delayed)" in src["stats"] and "set |= TSK_IOWAIT;" in src["stats"] and "psi_enqueue(p, flags & (ENQUEUE_WAKEUP | ENQUEUE_DELAYED));" in src["core"]),
+    ("layer3.psi_delayed_accounting", "if (p->se.sched_delayed)" in src["stats"] and "psi_task_change(p, p->psi_flags, 0);" in src["stats"] and "set |= TSK_IOWAIT;" in src["stats"] and "psi_enqueue(p, flags & (ENQUEUE_WAKEUP | ENQUEUE_DELAYED));" in src["core"]),
     ("layer3.psi_cgroup_migration_state", "task_flags = task->psi_flags;" in src["psi"] and "if (task_on_rq_queued(task))" not in src["psi"]),
     ("layer3.delayed_pick_cleanup", "dequeue_entities(rq_of(cfs_rq), se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
     ("layer3.delayed_next_buddy_guard", "!cfs_rq->next->sched_delayed" in src["fair"] and "!pse->sched_delayed" in src["fair"] and "if (se->sched_delayed)" in src["fair"]),
