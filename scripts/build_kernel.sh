@@ -3,6 +3,7 @@ BUILD_BASELINE="${BUILD_BASELINE:-Build30}"
 SOURCE_REF="${1:-v11}"
 BUILD_PROFILE="${2:-hmp-storage-projectid}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
+SOURCE_COMMIT_LOCK="e2d900276a445fc9e31592c80df89a6f5e24175d"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
 SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
 OUT_DIR="${OUT_DIR:-$WORKSPACE/out}"
@@ -30,7 +31,16 @@ if [[ -e "$SRC_DIR" || -e "$OUT_DIR" ]]; then
 fi
 mkdir -p "$(dirname "$SRC_DIR")" "$ARTIFACT_DIR"
 python3 -m compileall -q "$WORKSPACE/scripts" "$WORKSPACE/eevdf" "$WORKSPACE/research/android13-mediaprovider"
-git clone --depth=1 --branch "$SOURCE_REF" "$SOURCE_URL" "$SRC_DIR"
+git init "$SRC_DIR"
+git -C "$SRC_DIR" remote add origin "$SOURCE_URL"
+git -C "$SRC_DIR" fetch --depth=1 origin "$SOURCE_COMMIT_LOCK"
+git -C "$SRC_DIR" checkout --detach FETCH_HEAD
+ACTUAL_SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
+if [[ "$ACTUAL_SOURCE_COMMIT" != "$SOURCE_COMMIT_LOCK" ]]; then
+  echo "Fetched source does not match the immutable Build 30 baseline." >&2
+  echo "expected=$SOURCE_COMMIT_LOCK actual=$ACTUAL_SOURCE_COMMIT" >&2
+  exit 2
+fi
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
@@ -83,6 +93,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "build30_patch_stack=filesystem;f2fs-projectid;hmp-eas-hybrid;dpmaif-pm-guard;eevdf-layer1"
   echo "source_url=$SOURCE_URL"
   echo "source_ref=$SOURCE_REF"
+  echo "source_commit_lock=$SOURCE_COMMIT_LOCK"
   echo "source_commit=$SOURCE_COMMIT"
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
