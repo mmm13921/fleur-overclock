@@ -89,6 +89,12 @@ def replace_function(path, name, replacement, allow_multiple=False):
 # Initialize newly introduced delayed state and hierarchical counters explicitly.
 replace_once(
     "kernel/sched/core.c",
+    "\tp->se.slice\t\t\t= sysctl_sched_min_granularity;\n",
+    "\tp->se.slice\t\t\t= sysctl_sched_base_slice;\n",
+    "initialize fork slice from EEVDF base slice",
+)
+replace_once(
+    "kernel/sched/core.c",
     "\tp->se.vlag\t\t\t= 0;\n",
     "\tp->se.vlag\t\t\t= 0;\n"
     "\tp->se.sched_delayed\t\t= 0;\n"
