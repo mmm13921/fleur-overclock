@@ -129,6 +129,37 @@ for feature in ("DELAY_DEQUEUE", "DELAY_ZERO"):
         )
 write("kernel/sched/features.h", features)
 
+# PELT runnable accounting must stop counting delayed entities. Group runnable
+# weight follows the exact hierarchical runnable-task count used by 6.18.
+replace_function(
+    "kernel/sched/sched.h",
+    "se_runnable",
+    r'''
+static inline long se_runnable(struct sched_entity *se)
+{
+	if (se->sched_delayed)
+		return 0;
+	return scale_load_down(se->runnable_weight);
+}
+'''
+)
+replace_function(
+    "kernel/sched/fair.c",
+    "calc_group_runnable",
+    r'''
+static long calc_group_runnable(struct cfs_rq *cfs_rq, long shares)
+{
+	return cfs_rq->h_nr_runnable;
+}
+'''
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "runnable = shares = READ_ONCE(gcfs_rq->tg->shares);",
+    "shares = READ_ONCE(gcfs_rq->tg->shares);\\n\\trunnable = gcfs_rq->h_nr_runnable;",
+    "non-SMP group runnable accounting",
+)
+
 # Helpers preserve the distinction between an entity that is still queued and
 # one that is actually runnable. h_nr_running remains the V11 queued-count ABI.
 replace_function(
