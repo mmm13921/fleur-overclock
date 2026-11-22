@@ -59,7 +59,10 @@ jobs:
           python3 eevdf/patches/0002-dequeue-bool.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/eevdf-audit/dequeue-bool.txt"
           python3 eevdf/patches/0003-delayed-dequeue-618.py "$RUNNER_TEMP/kernel-src" "$RUNNER_TEMP/eevdf-audit/delayed-dequeue.txt"
           python3 eevdf/audit_eevdf_618.py "$RUNNER_TEMP/kernel-src" | tee "$RUNNER_TEMP/eevdf-audit/full-audit.txt"
+          grep -q "^eevdf_6_18_full=PASS$" "$RUNNER_TEMP/eevdf-audit/full-audit.txt"
           git -C "$RUNNER_TEMP/kernel-src" diff HEAD --check
+          git -C "$RUNNER_TEMP/kernel-src" diff HEAD --binary > "$RUNNER_TEMP/eevdf-audit/source.patch"
+          git -C "$RUNNER_TEMP/kernel-src" diff HEAD --stat > "$RUNNER_TEMP/eevdf-audit/source-stat.txt"
 
       - name: Publish source audit report
         if: always()
