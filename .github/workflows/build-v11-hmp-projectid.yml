@@ -106,7 +106,7 @@ jobs:
               modem-pm-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/MEYS-PROJECTID-SHA256.txt
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip" | tee artifacts/MEYS-PROJECTID-SHA256.txt
       - name: Upload Meys kernel, AnyKernel ZIP, and source audits
         uses: actions/upload-artifact@v4
         with:
@@ -133,14 +133,16 @@ jobs:
             transfer and project inheritance. Real project quota still
             requires compatible on-disk EXTRA_ATTR and PRJQUOTA features.
 
-            Includes the first Linux 6.18 EEVDF semantic backport layer and MT6781 DPMAIF syscore PM safety guard. EEVDF DELAY_DEQUEUE/DELAY_ZERO are not included; the modem change is not a full 4.14 modem driver port.\n\n            The Android 13 MediaProvider FUSE ioctl bridge source patch is
+            Includes the first Linux 6.18 EEVDF semantic backport layer and MT6781 DPMAIF syscore PM safety guard. EEVDF DELAY_DEQUEUE/DELAY_ZERO are not included; the modem change is not a full 4.14 modem driver port.
+
+            The Android 13 MediaProvider FUSE ioctl bridge source patch is
             included as a separate release asset and validated for clean
             application to the pinned AOSP Android 13 branch. It is NOT built
             into this kernel ZIP or a flashable APK. It still requires a full
             Android 13 MediaProvider build and validation against Xiaomi's ROM.
             Kernel ZIP remains a kernel-side test. Preserve a known-good boot image.
           files: |
-            artifacts/Meys-HMP-ProjectID-AnyKernel3.zip
+            artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip
             artifacts/hmp-storage-projectid-source.patch
             artifacts/storage-projectid-audit.txt
             artifacts/scheduler-modes-audit.txt
@@ -149,4 +151,7 @@ jobs:
             artifacts/android13-mediaprovider-projectid.patch
             artifacts/ANDROID13-MEDIAPROVIDER-README.md
             artifacts/build-manifest.txt
-            artifacts/MEYS-PROJECTID-SHA256.txt\n            artifacts/modem-pm-audit.txt\n            artifacts/eevdf-layer1-audit.txt\n            artifacts/eevdf-audit.txt
+            artifacts/MEYS-PROJECTID-SHA256.txt
+            artifacts/modem-pm-audit.txt
+            artifacts/eevdf-layer1-audit.txt
+            artifacts/eevdf-audit.txt
