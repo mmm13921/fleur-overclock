@@ -96,6 +96,12 @@ def main():
     # accepts 32-bit struct timespec. Adapt only the three exact call sites.
     header_path = src / "fs/f2fs/f2fs.h"
     f2fs_header = header_path.read_text()
+    if "#include <linux/time64.h>" not in f2fs_header:
+        include_anchor = "#include <linux/types.h>\n"
+        require(include_anchor in f2fs_header,
+                "F2FS header include anchor for time64 compatibility is missing")
+        f2fs_header = f2fs_header.replace(include_anchor,
+                                          include_anchor + "#include <linux/time64.h>\n", 1)
     time_pairs = (
         ("timespec_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)",
          "timespec64_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)"),
@@ -103,6 +109,8 @@ def main():
          "timespec64_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)"),
         ("timespec_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)",
          "timespec64_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)"),
+        ("timespec_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
+         "timespec64_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)"),
     )
     for old_call, new_call in time_pairs:
         require(f2fs_header.count(old_call) == 1,
@@ -162,7 +170,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
-        "api_compat=three timespec_equal calls converted to timespec64_equal for 4.19.325 inode timestamps",
+        "api_compat=four timespec_equal calls converted to timespec64_equal; linux/time64.h included for 4.19.325 inode timestamps",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
