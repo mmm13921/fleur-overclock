@@ -178,6 +178,12 @@ replace_once(
 )
 replace_once(
     "kernel/sched/fair.c",
+    "if (likely(se->load.weight == shares))\n\t\treturn;",
+    "if (likely(se->load.weight == shares && se->runnable_weight == runnable))\n\t\treturn;",
+    "non-SMP group runnable weight refresh",
+)
+replace_once(
+    "kernel/sched/fair.c",
     "struct cfs_rq *gcfs_rq = group_cfs_rq(se);\n\tlong shares, runnable;\n\n\tif (!gcfs_rq)\n\t\treturn;",
     "struct cfs_rq *gcfs_rq = group_cfs_rq(se);\n\tlong shares, runnable;\n\n\tif (!gcfs_rq || !gcfs_rq->load.weight)\n\t\treturn;",
     "preserve group weight while delayed entities drain",
