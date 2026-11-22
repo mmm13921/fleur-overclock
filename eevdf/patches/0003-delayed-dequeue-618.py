@@ -558,7 +558,7 @@ if old in fair:
     replace_once(
         "kernel/sched/fair.c", old,
         "\t\tse = pick_next_entity(cfs_rq, curr);\n"
-        "\t\tif (!se)\n\t\t\tgoto again;\n"
+        "\t\tif (!se) {\n\t\t\tcfs_rq = &rq->cfs;\n\t\t\tgoto again;\n\t\t}\n"
         "\t\tcfs_rq = group_cfs_rq(se);",
         "group pick retry after delayed dequeue",
     )
@@ -567,7 +567,7 @@ if old in read("kernel/sched/fair.c"):
     replace_once(
         "kernel/sched/fair.c", old,
         "\t\tse = pick_next_entity(cfs_rq, NULL);\n"
-        "\t\tif (!se)\n\t\t\tgoto again;\n"
+        "\t\tif (!se) {\n\t\t\tcfs_rq = &rq->cfs;\n\t\t\tgoto again;\n\t\t}\n"
         "\t\tset_next_entity(cfs_rq, se);",
         "simple pick retry after delayed dequeue",
     )
