@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 import sys
 
 if len(sys.argv) != 4:
@@ -70,7 +69,9 @@ for token in (
 for token in ("case F2FS_IOC_FSSETXATTR:", "f2fs_ioc_setproject", "f2fs_transfer_project_quota", "bool quota_enabled = f2fs_sb_has_project_quota(sbi);", "F2FS_I(inode)->i_projid = kprojid;"):
     if token not in f2fs_file:
         raise SystemExit("Android storage audit: missing F2FS project-id compatibility path: " + token)
-if not re.search(r"if\\s*\\(!f2fs_has_extra_attr\\(inode\\)\\)\\s*return\\s+-EOPNOTSUPP;", f2fs_file):
+setproject = f2fs_file.split("static int f2fs_ioc_setproject", 1)[1].split("\n}", 1)[0]
+if "if (!f2fs_has_extra_attr(inode))" not in setproject or "return -EOPNOTSUPP;" not in setproject:
+    raise SystemExit("Android storage audit: Project ID must not silently succeed without persistent EXTRA_ATTR metadata")
     raise SystemExit("Android storage audit: Project ID must not silently succeed without persistent EXTRA_ATTR metadata")
 if "if (quota_enabled)" not in f2fs_file or "F2FS_I(inode)->i_projid = kprojid;" not in f2fs_file:
     raise SystemExit("Android storage audit: inode Project ID persistence is not independent from quota transfer")
