@@ -5,20 +5,30 @@ import sys
 if len(sys.argv) != 2:
     raise SystemExit("Usage: apply_modem_pm_compat.py SOURCE_DIR")
 
-src = Path(sys.argv[1]).resolve()
-dpmaif_path = src / "drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c"
-if not dpmaif_path.is_file():
-    raise SystemExit("Required MT6781 DPMAIF source is missing: " + str(dpmaif_path))
+root = Path(sys.argv[1]).resolve()
+DPMAIF = Path("drivers/misc/mediatek/eccci/hif/ccci_hif_dpmaif.c")
+HIF = Path("drivers/misc/mediatek/eccci/hif/ccci_hif.c")
+MODEM = Path("drivers/misc/mediatek/eccci/modem_sys1.c")
+PLATFORM = Path("drivers/misc/mediatek/eccci/mt6785/md_sys1_platform.c")
+FSM_H = Path("drivers/misc/mediatek/eccci/inc/ccci_fsm.h")
+FSM_C = Path("drivers/misc/mediatek/eccci/fsm/ccci_fsm.c")
+MAKEFILE = Path("drivers/misc/mediatek/eccci/Makefile")
+
+def read(path):
+    file = root / path
+    if not file.is_file():
+        raise SystemExit("Required MT6781 source missing: " + str(path))
+    return file.read_text()
 
 def function_bounds(source, name):
     pattern = re.compile(
-        r"(?m)^[ \t]*(?:static\s+)?(?:void|int|bool)\s+"
+        r"(?m)^[ \t]*(?:static\s+)?(?:void|int|bool)\s+(?:__weak\s+)?"
         + re.escape(name) + r"\s*\([^;]*?\)\s*\{",
         re.S,
     )
     match = pattern.search(source)
     if not match:
-        raise SystemExit("Required C function is missing: " + name)
+        raise SystemExit("Required C function missing: " + name)
     start = match.start()
     brace = match.end() - 1
     depth = 0
@@ -29,11 +39,11 @@ def function_bounds(source, name):
         nxt = source[i + 1] if i + 1 < len(source) else ""
         if state == "code":
             if ch == "/" and nxt == "*":
-                state = "block_comment"
+                state = "block"
                 i += 2
                 continue
             if ch == "/" and nxt == "/":
-                state = "line_comment"
+                state = "line"
                 i += 2
                 continue
             if ch == '"':
@@ -50,12 +60,12 @@ def function_bounds(source, name):
                 depth -= 1
                 if depth == 0:
                     return start, i + 1
-        elif state == "block_comment":
+        elif state == "block":
             if ch == "*" and nxt == "/":
                 state = "code"
                 i += 2
                 continue
-        elif state == "line_comment":
+        elif state == "line":
             if ch == "\n":
                 state = "code"
         elif state in ("string", "char"):
@@ -67,11 +77,75 @@ def function_bounds(source, name):
         i += 1
     raise SystemExit("Unterminated C function: " + name)
 
+def function_body(source, name):
+    start, end = function_bounds(source, name)
+    function = source[start:end]
+    opening = function.find("{")
+    return function[opening + 1:-1].strip()
+
 def replace_function(source, name, replacement):
     start, end = function_bounds(source, name)
     return source[:start] + replacement + source[end:]
 
-dpmaif = dpmaif_path.read_text()
+dpmaif = read(DPMAIF)
+hif = read(HIF)
+modem = read(MODEM)
+platform = read(PLATFORM)
+fsm_h = read(FSM_H)
+fsm_c = read(FSM_C)
+eccci_make = read(MAKEFILE)
+
+# Verify the actual MT6781 build selects the mt6785 shared platform layer.
+if "MTK_PLATFORM := mt6785" not in eccci_make:
+    raise SystemExit("MT6781 target no longer selects the audited mt6785 platform")
+if "enum MD_STATE ccci_fsm_get_md_state(int md_id);" not in fsm_h:
+    raise SystemExit("CCCI FSM state API declaration is missing")
+if "enum MD_STATE ccci_fsm_get_md_state(int md_id)" not in fsm_c:
+    raise SystemExit("CCCI FSM state API implementation is missing")
+if '#include "ccci_fsm.h"' not in dpmaif:
+    raise SystemExit("DPMAIF source does not include the CCCI FSM API")
+
+# In this target, DPMAIF's syscore_ops own the actual DPMAIF restore.
+if "static struct syscore_ops dpmaif_sysops" not in dpmaif:
+    raise SystemExit("DPMAIF syscore ops are missing")
+if ".suspend = dpmaif_syssuspend" not in dpmaif or ".resume = dpmaif_sysresume" not in dpmaif:
+    raise SystemExit("DPMAIF syscore callbacks are not wired")
+if "register_syscore_ops(&dpmaif_sysops)" not in dpmaif:
+    raise SystemExit("DPMAIF syscore ops are not registered")
+
+# The generic CCCI HIF suspend/resume dispatcher is empty in this MT6781 target.
+for name in ("ccci_hif_suspend", "ccci_hif_resume"):
+    if function_body(hif, name):
+        raise SystemExit(name + " is active; review the complete PM owner graph")
+
+# DPMAIF HIF callbacks remain intentionally unconnected; syscore is the owner.
+ops_start = dpmaif.find("static struct ccci_hif_ops ccci_hif_dpmaif_ops")
+if ops_start < 0:
+    raise SystemExit("DPMAIF HIF ops structure missing")
+ops_end = dpmaif.find("};", ops_start)
+ops = dpmaif[ops_start:ops_end + 2]
+ops = re.sub(r"/\*.*?\*/", "", ops, flags=re.S)
+ops = re.sub(r"//[^\n]*", "", ops)
+if ".suspend = &dpmaif_suspend" in ops or ".resume = &dpmaif_resume" in ops:
+    raise SystemExit("DPMAIF HIF suspend/resume callbacks are active alongside syscore")
+
+# MT6781 selects mt6785/md_sys1_platform.c. Its modem syscore hooks only log;
+# the registered device noirq callbacks are the weak no-op compatibility stubs.
+for name in ("ccci_modem_plt_suspend", "ccci_modem_plt_resume"):
+    if name not in platform:
+        raise SystemExit("MT6781 platform hook missing: " + name)
+for name in ("ccci_modem_suspend_noirq", "ccci_modem_resume_noirq"):
+    if not re.search(r"(?m)^int\s+__weak\s+" + name + r"\s*\(", modem):
+        raise SystemExit(name + " is not the expected weak CCCI noirq stub")
+    if "return 0;" not in function_body(modem, name):
+        raise SystemExit(name + " weak compatibility stub changed")
+if ".suspend_noirq = ccci_modem_suspend_noirq" not in modem:
+    raise SystemExit("CCCI noirq suspend hook is not registered")
+if ".resume_noirq = ccci_modem_resume_noirq" not in modem:
+    raise SystemExit("CCCI noirq resume hook is not registered")
+if "dpmaif_resume_noirq" in platform or "dpmaif_suspend_noirq" in platform:
+    raise SystemExit("MT6781 mt6785 platform unexpectedly routes noirq to DPMAIF")
+
 helper = """static bool dpmaif_md_state_allows_resume(void)
 {
 \tenum MD_STATE md_state;
@@ -93,7 +167,7 @@ helper = """static bool dpmaif_md_state_allows_resume(void)
 if "static bool dpmaif_md_state_allows_resume(void)" not in dpmaif:
     anchor = "static void dpmaif_sysresume(void)"
     if dpmaif.count(anchor) != 1:
-        raise SystemExit("Expected exactly one DPMAIF syscore resume insertion point")
+        raise SystemExit("Expected one DPMAIF syscore resume insertion point")
     dpmaif = dpmaif.replace(anchor, helper + "\n\n" + anchor, 1)
 
 resume_impl = """static void dpmaif_sysresume(void)
@@ -116,7 +190,6 @@ resume_impl = """static void dpmaif_sysresume(void)
 
 \tdpmaif_resume(dpmaif_ctrl->hif_id);
 }"""
-
 suspend_impl = """static int dpmaif_syssuspend(void)
 {
 \tif (!dpmaif_ctrl) {
@@ -127,94 +200,25 @@ suspend_impl = """static int dpmaif_syssuspend(void)
 \treturn dpmaif_suspend(dpmaif_ctrl->hif_id);
 }"""
 
-noirq_resume_impl = """int dpmaif_resume_noirq(struct device *dev)
-{
-\tg_resume_cnt++;
-
-\tif ((!dpmaif_ctrl) || (atomic_read(&dpmaif_ctrl->suspend_flag) < 0))
-\t\treturn 0;
-
-\tCCCI_NORMAL_LOG(-1, TAG,
-\t\t"[%s] resume_cnt: %u\\n", __func__, g_resume_cnt);
-
-\tif (!dpmaif_md_state_allows_resume()) {
-\t\t/* Keep the noirq state machine balanced on every exit path. */
-\t\tatomic_set(&dpmaif_ctrl->suspend_flag, 0);
-\t\treturn 0;
-\t}
-
-\tif (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON &&
-\t    dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_EXCEPTION) {
-\t\tCCCI_ERROR_LOG(-1, TAG, "[%s] dpmaif_state: %d\\n",
-\t\t\t__func__, dpmaif_ctrl->dpmaif_state);
-\t} else {
-\t\tdpmaif_resume(dpmaif_ctrl->hif_id);
-\t}
-
-\tatomic_set(&dpmaif_ctrl->suspend_flag, 0);
-\treturn 0;
-}"""
-
 dpmaif = replace_function(dpmaif, "dpmaif_sysresume", resume_impl)
 dpmaif = replace_function(dpmaif, "dpmaif_syssuspend", suspend_impl)
-dpmaif = replace_function(dpmaif, "dpmaif_resume_noirq", noirq_resume_impl)
 
-required = {
-    "DPMAIF syscore ops": "static struct syscore_ops dpmaif_sysops",
-    "DPMAIF syscore suspend callback": ".suspend = dpmaif_syssuspend",
-    "DPMAIF syscore resume callback": ".resume = dpmaif_sysresume",
-    "DPMAIF syscore registration": "register_syscore_ops(&dpmaif_sysops)",
-    "DPMAIF native suspend": "static int dpmaif_suspend(",
-    "DPMAIF native resume": "static int dpmaif_resume(",
-    "DPMAIF noirq suspend callback": "int dpmaif_suspend_noirq(struct device *dev)",
-    "DPMAIF noirq resume callback": "int dpmaif_resume_noirq(struct device *dev)",
-    "CCCI FSM header": '#include "ccci_fsm.h"',
-}
-missing = [label for label, anchor in required.items() if anchor not in dpmaif]
-if missing:
-    raise SystemExit("Target does not match the audited 4.19 DPMAIF PM design; missing: " + ", ".join(missing))
+if "dpmaif_md_state_allows_resume()" not in function_body(dpmaif, "dpmaif_sysresume"):
+    raise SystemExit("DPMAIF active syscore resume does not use the MD-state guard")
+if "if (!dpmaif_ctrl)" not in function_body(dpmaif, "dpmaif_syssuspend"):
+    raise SystemExit("DPMAIF syscore suspend lacks the null-controller guard")
+if "drv_dpmaif_check_power_down()" not in function_body(dpmaif, "dpmaif_resume"):
+    raise SystemExit("Native DPMAIF resume power-down check was altered")
+if "drv_dpmaif_dl_restore" not in function_body(dpmaif, "dpmaif_resume"):
+    raise SystemExit("Native DPMAIF DL restore sequence missing")
+if "drv_dpmaif_init_ul_intr" not in function_body(dpmaif, "dpmaif_resume"):
+    raise SystemExit("Native DPMAIF UL interrupt restore sequence missing")
+if "dpmaif_tx_hw_init" not in function_body(dpmaif, "dpmaif_resume"):
+    raise SystemExit("Native DPMAIF TX queue restore sequence missing")
 
-hif_path = src / "drivers/misc/mediatek/eccci/hif/ccci_hif.c"
-if not hif_path.is_file():
-    raise SystemExit("Required CCCI HIF dispatcher is missing")
-hif = hif_path.read_text()
-
-def function_body(source, name):
-    start, end = function_bounds(source, name)
-    return source[start:end]
-
-for name in ("ccci_hif_suspend", "ccci_hif_resume"):
-    body = function_body(hif, name)
-    if body.strip("{} \t\r\n"):
-        raise SystemExit(name + " is no longer the inactive legacy path; review PM routing before applying")
-
-platform_path = src / "drivers/misc/mediatek/eccci/mt6785/md_sys1_platform.c"
-if not platform_path.is_file():
-    raise SystemExit("Required MT6781 modem platform PM source is missing")
-platform = platform_path.read_text()
-for name, call in (
-    ("ccci_modem_suspend_noirq", "return dpmaif_suspend_noirq(dev);"),
-    ("ccci_modem_resume_noirq", "return dpmaif_resume_noirq(dev);"),
-):
-    body = function_body(platform, name)
-    if call not in body:
-        raise SystemExit(name + " no longer routes to the DPMAIF noirq callback; review before applying")
-
-modem_sys1_path = src / "drivers/misc/mediatek/eccci/modem_sys1.c"
-if not modem_sys1_path.is_file():
-    raise SystemExit("Required CCCI modem PM registration source is missing")
-modem_sys1 = modem_sys1_path.read_text()
-pm_ops_anchor = "static const struct dev_pm_ops ccci_modem_pm_ops"
-if pm_ops_anchor not in modem_sys1:
-    raise SystemExit("CCCI modem dev_pm_ops block is missing; noirq callback wiring cannot be verified")
-if ".suspend_noirq = ccci_modem_suspend_noirq" not in modem_sys1:
-    raise SystemExit("CCCI modem suspend_noirq callback is not registered")
-if ".resume_noirq = ccci_modem_resume_noirq" not in modem_sys1:
-    raise SystemExit("CCCI modem resume_noirq callback is not registered")
-
-dpmaif_path.write_text(dpmaif)
-print("Applied MT6781 DPMAIF MD-state resume guard to BOTH registered resume entry points.")
-print("Verified the syscore route and the CCCI platform-device noirq route are both wired.")
-print("GATED, WAITING_TO_STOP and INVALID modem states now skip DPMAIF restore on both routes.")
-print("The noirq suspend_flag is cleared on the guarded skip path.")
-print("Native 4.19 DPMAIF restore sequence retained; legacy inactive CCCI HIF dispatch remains disabled.")
+(root / DPMAIF).write_text(dpmaif)
+print("MT6781 modem PM source audit PASSED.")
+print("Active DPMAIF syscore resume is guarded by the CCCI modem FSM.")
+print("CCCI HIF suspend/resume dispatch remains empty; DPMAIF HIF PM callbacks remain unbound.")
+print("MT6785 device noirq callbacks are weak stubs; DPMAIF noirq helpers are not wired on this target.")
+print("Native 4.19 DPMAIF restore sequence is retained.")
