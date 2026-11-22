@@ -827,8 +827,8 @@ replace_once(
 
 replace_once(
     "kernel/sched/fair.c",
-    "\tint tsk_cache_hot;",
-    "\tint tsk_cache_hot;\n\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\t\treturn 0;",
+    "\tint tsk_cache_hot;\n\n\tlockdep_assert_held(&env->src_rq->lock);",
+    "\tint tsk_cache_hot;\n\n\tlockdep_assert_held(&env->src_rq->lock);\n\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\t\treturn 0;",
     "delayed entity migration load-balance guard",
 )
 
