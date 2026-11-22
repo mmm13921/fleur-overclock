@@ -69,7 +69,7 @@ checks = [
     ("layer3.group_slice_propagation", "min_vruntime_propagate(&se->run_node, NULL)" in src["fair"] and "se->custom_slice = 1;" in src["fair"]),
     ("layer3.cgroup_teardown_cleanup", "void unregister_fair_sched_group" in src["fair"] and "dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
     ("layer3.task_exit_cleanup", "static void task_dead_fair" in src["fair"] and "dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
-    ("layer3.migration_guard", "p->se.sched_delayed && env->migration_type != migrate_load" in src["fair"]),
+    ("layer3.migration_guard", "if (p->se.sched_delayed)\n\t\treturn 0;" in src["fair"]),
     ("layer3.migration_preserves_delayed_state", "if (task_new && se->sched_delayed)" in src["fair"] and "if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))" in src["fair"]),
     ("layer3.load_balance_uses_runnable", "READ_ONCE(rq->cfs.h_nr_runnable)" in src["fair"] and "sgs->sum_nr_running += rq->cfs.h_nr_runnable;" in src["fair"]),
     ("layer3.schedtune_delayed_accounting", "if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))" in src["fair"] and "if (!se->sched_delayed)\n\t\tschedtune_dequeue_task" in src["fair"]),
