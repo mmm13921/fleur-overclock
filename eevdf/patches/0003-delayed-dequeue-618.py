@@ -263,7 +263,11 @@ static void set_delayed(struct sched_entity *se)
 		return;
 
 	for_each_sched_entity(se) {
-		struct cfs_rq *cfs_rq = cfs_rq_of(se);
+		struct cfs_rq *cfs_rq;
+
+		if (!entity_is_task(se) && cfs_rq_throttled(se->my_q))
+			break;
+		cfs_rq = cfs_rq_of(se);
 		WARN_ON_ONCE(!cfs_rq->h_nr_runnable);
 		cfs_rq->h_nr_runnable--;
 		se_update_runnable(se);
@@ -279,7 +283,12 @@ static void clear_delayed(struct sched_entity *se)
 		return;
 
 	for_each_sched_entity(se) {
-		cfs_rq_of(se)->h_nr_runnable++;
+		struct cfs_rq *cfs_rq;
+
+		if (!entity_is_task(se) && cfs_rq_throttled(se->my_q))
+			break;
+		cfs_rq = cfs_rq_of(se);
+		cfs_rq->h_nr_runnable++;
 		se_update_runnable(se);
 		update_cfs_group(se);
 	}
