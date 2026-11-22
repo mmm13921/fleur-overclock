@@ -83,8 +83,6 @@ jobs:
           grep -q '^gpu  tbl' artifacts/boot-patches-audit.txt
           grep -q '^dtb  change_flag' artifacts/boot-patches-audit.txt
           grep -q '^sched sched_min_granularity_ns bounds' artifacts/boot-patches-audit.txt
-          grep -q '^sched sched_latency_ns bounds' artifacts/boot-patches-audit.txt
-          grep -q '^sched sched_wakeup_granularity_ns bounds' artifacts/boot-patches-audit.txt
           grep -q '^vm   extfrag_threshold max' artifacts/boot-patches-audit.txt
           grep -q '^gov  ondemand sampling_rate' artifacts/boot-patches-audit.txt
           grep -q '^cap  store limit removed' artifacts/boot-patches-audit.txt
@@ -126,7 +124,7 @@ jobs:
           cp research/android13-mediaprovider/README.md artifacts/ANDROID13-MEDIAPROVIDER-README.md
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/meys-patched.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
               storage-projectid-audit.txt scheduler-modes-audit.txt \
@@ -134,12 +132,12 @@ jobs:
               modem-pm-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt \
               boot-patches-audit.txt boot_patches.md
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/meys-patched.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip" | tee artifacts/MEYS-PROJECTID-SHA256.txt
       - name: Upload Meys kernel, AnyKernel ZIP, and source audits
         uses: actions/upload-artifact@v4
         with:
-          name: meys-projectid-30-eevdf-modem-mt6781
+          name: meys-patched
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
@@ -147,10 +145,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: meys-build38-boot-patches-${{ github.run_number }}
-          name: Meys Build 38 + Boot Patch Set — build ${{ github.run_number }}
+          name: meys-patched
           target_commitish: ${{ github.sha }}
-          prerelease: false
-          make_latest: true
+          prerelease: true
+          make_latest: false
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
@@ -169,7 +167,7 @@ jobs:
             application to the pinned AOSP Android 13 branch. It is NOT built
             into this kernel ZIP or a flashable APK. It still requires a full
             Android 13 MediaProvider build and validation against Xiaomi's ROM.
-            Applied guarded binary patch set from patches/boot_patches.md to the built Image.gz-dtb: standard CPU/GPU/DTB tables, scheduler sysctl bounds (u32), vm.extfrag_threshold, ondemand sampling_rate minimum, and per-CPU/unbounded cpu_capacity store. The workflow aborts if required signatures do not match or any guarded patch is skipped.
+            Applied guarded binary patch set from patches/boot_patches.md to the built Image.gz-dtb: standard CPU/GPU/DTB tables, sched_min_granularity_ns bounds (u32); legacy sched_latency_ns and sched_wakeup_granularity_ns are absent from this EEVDF source; vm.extfrag_threshold, ondemand sampling_rate minimum, and per-CPU/unbounded cpu_capacity store. The workflow aborts if required signatures do not match or any guarded patch is skipped.
 
             The reference document describes additional mods_all.py operations (sysctl-all, ged-all, cpuset-empty, swap-max and wm-max), but does not include their implementation source. Those extra binary patches are intentionally not claimed as applied. Minimum CPU frequency overrides are also omitted because the reference records a bootloop for that test.
 
