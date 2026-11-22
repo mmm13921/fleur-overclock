@@ -6,6 +6,7 @@ on:
       - meys-build38-boot-patches
       - meys-eevdf-618-full
       - meys-eevdf-618-porting
+      - meys-eevdf-bootsafe-diag
     paths:
       - '.github/workflows/build-build38-boot-patches.yml'
       - '.github/workflows/build-v11-hmp-projectid.yml'
