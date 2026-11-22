@@ -950,6 +950,23 @@ replace_once(
 )
 replace_once(
     "kernel/sched/fair.c",
+    "\t\tcfs_rq = cfs_rq_of(se);\n\t\tif (enqueue)\n\t\t\tenqueue_entity(cfs_rq, se, ENQUEUE_WAKEUP);",
+    "\t\tcfs_rq = cfs_rq_of(se);\n"
+    "#ifdef CONFIG_FAIR_GROUP_SCHED\n"
+    "\t\tif (!entity_is_task(se)) {\n"
+    "\t\t\tse->slice = cfs_rq_min_slice(se->my_q);\n"
+    "\t\t\tse->custom_slice = 1;\n"
+    "\t\t\tif (se->on_rq && se != cfs_rq->curr)\n"
+    "\t\t\t\tmin_vruntime_propagate(&se->run_node, NULL);\n"
+    "\t\t}\n"
+    "#endif\n"
+    "\t\tif (enqueue)\n"
+    "\t\t\tenqueue_entity(cfs_rq, se, ENQUEUE_WAKEUP);",
+    "refresh group slice when unthrottling",
+)
+
+replace_once(
+    "kernel/sched/fair.c",
     "task_delta = cfs_rq->h_nr_running;\n\tfor_each_sched_entity(se) {",
     "task_delta = cfs_rq->h_nr_running;\n\trunnable_delta = cfs_rq->h_nr_runnable;\n\tfor_each_sched_entity(se) {",
     "unthrottle runnable delta snapshot",
