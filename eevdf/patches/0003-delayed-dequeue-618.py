@@ -372,13 +372,13 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 			break;
 		}
 
+		if (cfs_rq_throttled(cfs_rq))
+			break;
+
 		WARN_ON_ONCE(cfs_rq->h_nr_running < h_nr_queued);
 		WARN_ON_ONCE(cfs_rq->h_nr_runnable < h_nr_runnable);
 		cfs_rq->h_nr_running -= h_nr_queued;
 		cfs_rq->h_nr_runnable -= h_nr_runnable;
-
-		if (cfs_rq_throttled(cfs_rq))
-			break;
 
 		/* Do not dequeue a group entity while its cfs_rq has other tasks. */
 		if (cfs_rq->load.weight) {
