@@ -44,6 +44,7 @@ checks = [
     ("layer3.dequeue_refreshes_group_runnable_weight", re.search(r"static bool\s+dequeue_entity\([^)]*\)\s*\{(?:(?!\n\}).)*?se_update_runnable\(se\);(?:(?!\n\}).)*?update_cfs_group\(se\);", src["fair"], re.S) is not None),
     ("layer3.hierarchical_dequeue", "static int dequeue_entities(" in src["fair"] and "h_nr_runnable -= h_nr_runnable" in src["fair"] and "inc_nr_heavy_running(3, p, -1, false);" in src["fair"]),
     ("layer3.delayed_wakeup", "requeue_delayed_entity(se);" in src["fair"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" in src["core"]),
+    ("layer3.local_workqueue_delayed_wakeup", "else if (p->se.sched_delayed)" in src["core"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);" in src["core"]),
     ("layer3.delayed_pick_cleanup", "dequeue_entities(rq_of(cfs_rq), se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
     ("layer3.delayed_next_buddy_guard", "!cfs_rq->next->sched_delayed" in src["fair"] and "!pse->sched_delayed" in src["fair"] and "if (se->sched_delayed)" in src["fair"]),
     ("layer3.deferred_block_accounting", "if (dequeue_task(rq, prev" in src["core"] and "void __block_task(" in src["core"]),
