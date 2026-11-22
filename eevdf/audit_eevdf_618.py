@@ -35,7 +35,7 @@ checks = [
     ("layer2.dequeue_bool_api", "bool (*dequeue_task)" in src["sched_class"] and "static inline bool dequeue_task(" in src["core"] and all(re.search(r"static bool\s+dequeue_task_" + n + r"\s*\(", src[k]) is not None for k,n in (("fair","fair"),("deadline","dl"),("idle","idle"),("rt","rt"),("stop","stop")))),
     ("later.delay_dequeue", "SCHED_FEAT(DELAY_DEQUEUE" in src["features"] and "DELAY_DEQUEUE" in src["fair"]),
     ("later.delay_zero", "SCHED_FEAT(DELAY_ZERO" in src["features"] and "DELAY_ZERO" in src["fair"]),
-    ("later.custom_slice_runtime", "custom_slice" in src["entity"] and "custom_slice" in src["fair"] and "sched_runtime" in src["core"]),
+    ("later.custom_slice_runtime", "custom_slice" in src["entity"] and "custom_slice" in src["fair"] and "if (attr->sched_runtime)" in src["core"] and "attr->sched_runtime != p->se.slice" in src["core"] and "kattr.sched_runtime = p->se.slice" in src["core"]),
 ]
 for name,ok in checks:
     print(("PASS" if ok else "MISSING")+"="+name)

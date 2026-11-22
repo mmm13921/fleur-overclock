@@ -483,6 +483,14 @@ write("kernel/sched/fair.c", fair)
 # sched_attr.sched_runtime field for SCHED_NORMAL/BATCH/IDLE (DL keeps its meaning).
 replace_once(
     "kernel/sched/core.c",
+    "\t\tif (fair_policy(policy) && attr->sched_nice != task_nice(p))\n",
+    "\t\tif (fair_policy(policy) &&\n"
+    "\t\t    (attr->sched_nice != task_nice(p) ||\n"
+    "\t\t     attr->sched_runtime != p->se.slice))\n",
+    "custom fair slice no-op detection",
+)
+replace_once(
+    "kernel/sched/core.c",
     "\telse if (fair_policy(policy))\n"
     "\t\tp->static_prio = NICE_TO_PRIO(attr->sched_nice);",
     "\telse if (fair_policy(policy)) {\n"
@@ -505,8 +513,7 @@ replace_once(
     "\t\tkattr.sched_nice = task_nice(p);",
     "\telse {\n"
     "\t\tkattr.sched_nice = task_nice(p);\n"
-    "\t\tif (p->se.custom_slice)\n"
-    "\t\t\tkattr.sched_runtime = p->se.slice;\n"
+    "\t\tkattr.sched_runtime = p->se.slice;\n"
     "\t}",
     "custom fair slice sched_getattr handling",
 )

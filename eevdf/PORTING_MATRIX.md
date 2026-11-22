@@ -10,6 +10,7 @@ Stable baseline: `meys-build38-boot-patches` (Build 38 + guarded boot patch set)
 |---|---|---|
 | 1 | EEVDF augmented timeline, protected virtual deadline, PREEMPT_SHORT, relative deadline placement, base-slice sysctl | Implemented in the existing guarded layer-1 patcher; compile/boot still require verification |
 | 2a | `sched_class::dequeue_task()` bool return contract and propagation through the core wrapper | Implemented as a behavior-preserving prerequisite; every existing class returns `true` |
+| 2b | Per-task fair `custom_slice` via `sched_attr.sched_runtime`, no-op detection, legacy preservation, and `sched_getattr` reporting | Implemented in source patcher; ABI/runtime tests pending |
 
 ## Required Linux 6.18 semantics still pending
 
@@ -19,7 +20,11 @@ Stable baseline: `meys-build38-boot-patches` (Build 38 + guarded boot patch set)
 4. Delayed wakeup: requeue a delayed entity without double-counting load, util-est, or hierarchy runnable counts.
 5. `DELAY_ZERO`: clamp positive lag when a delayed entity is finally dequeued or requeued, matching upstream placement rules.
 6. Cleanup paths: migration, throttling, special task states, scheduler-class changes, cgroup movement, and task exit.
-7. `custom_slice`: port the per-task slice interface and its sched_attr ABI semantics separately from the base slice.
+
+
+## Remaining validation
+
+- Exercise `sched_setattr`/`sched_getattr` for custom fair slices, including same-policy updates, zero reset, clamping, and legacy `sched_setscheduler` preservation.
 
 ## Required validation
 
