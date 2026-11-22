@@ -5,6 +5,7 @@ on:
     branches:
       - meys-build38-boot-patches
       - meys-eevdf-618-full
+      - meys-eevdf-618-porting
     paths:
       - '.github/workflows/build-build38-boot-patches.yml'
       - '.github/workflows/build-v11-hmp-projectid.yml'
@@ -158,8 +159,8 @@ jobs:
           body: |
             Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https://github.com/daliboss).
 
-            Build 38 base with guarded CPU/GPU/DTB, EEVDF scheduler, VM, ondemand and cpu_capacity patches.
-            EEVDF includes the dequeue bool API prerequisite; delayed dequeue and DELAY_ZERO remain pending. Legacy CFS latency/wakeup tunables are absent from this EEVDF source.
+            Build 38 baseline with guarded CPU/GPU/DTB, VM, ondemand, cpu_capacity, modem PM and storage compatibility patches.
+            Includes the Linux 6.18 EEVDF backport layers: core eligibility/deadlines, dequeue bool API, delayed dequeue and DELAY_ZERO, with source audit gates. Experimental kernel; CI success does not prove device boot or runtime stability.
           files: |
             artifacts/README.md
             artifacts/meys-patched.zip
