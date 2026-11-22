@@ -681,6 +681,13 @@ replace_once(
     "delayed wakeup requeue",
 )
 
+replace_once(
+    "kernel/sched/fair.c",
+    "static void set_next_buddy(struct sched_entity *se)\n{\n\tif (entity_is_task(se)",
+    "static void set_next_buddy(struct sched_entity *se)\n{\n\tif (se->sched_delayed)\n\t\treturn;\n\tif (entity_is_task(se)",
+    "never nominate a delayed entity as next buddy",
+)
+
 # Bandwidth throttling is a forced dequeue and must bypass DELAY_DEQUEUE.
 fair = read("kernel/sched/fair.c")
 throttle_call = "dequeue_entity(qcfs_rq, se, DEQUEUE_SLEEP);"
