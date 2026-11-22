@@ -1,0 +1,73 @@
+name: Clean up old branches
+on:
+  workflow_dispatch:
+    inputs:
+      execute:
+        description: "Actually delete branches (otherwise dry-run)"
+        required: true
+        type: boolean
+        default: false
+      confirm:
+        description: 'Type DELETE to authorize deletion'
+        required: true
+        type: string
+        default: "REVIEW"
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: branch-cleanup
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Review and optionally delete old branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EXECUTE: ${{ inputs.execute }}
+          CONFIRM: ${{ inputs.confirm }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEEP_BRANCHES=(
+            "main"
+            "meys-vx-v16-modem-sea419191"
+            "meys-vx-v15-modem414-eevdf618"
+            "meys-vx-v14-modem-4.14"
+            "meys-vx-v13-eevdf-6.18-fleux-4.14"
+          )
+          DEFAULT_BRANCH="$(gh api "repos/$REPOSITORY" --jq .default_branch)"
+          echo "Default branch: $DEFAULT_BRANCH"
+          echo "Branches that will be kept:"
+          printf '  - %s\\n' "${KEEP_BRANCHES[@]}"
+          if [[ "$EXECUTE" == "true" && "$CONFIRM" != "DELETE" ]]; then
+            echo "::error::Execution requires confirm=DELETE."
+            exit 1
+          fi
+          if [[ "$EXECUTE" != "true" ]]; then
+            echo "DRY RUN ONLY — no branches will be deleted."
+          fi
+          while IFS= read -r branch; do
+            [[ -z "$branch" ]] && continue
+            keep=false
+            for allowed in "${KEEP_BRANCHES[@]}"; do
+              if [[ "$branch" == "$allowed" ]]; then keep=true; break; fi
+            done
+            if [[ "$branch" == "$DEFAULT_BRANCH" ]]; then keep=true; fi
+            if [[ "$keep" == "true" ]]; then
+              echo "KEEP   $branch"
+              continue
+            fi
+            if [[ "$EXECUTE" != "true" ]]; then
+              echo "WOULD DELETE  $branch"
+              continue
+            fi
+            encoded_branch="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")"
+            if gh api --method DELETE "repos/$REPOSITORY/git/refs/heads/$encoded_branch"; then
+              echo "DELETED  $branch"
+            else
+              echo "::warning::Could not delete $branch (possibly protected or restricted)."
+            fi
+          done < <(gh api --paginate "repos/$REPOSITORY/branches?per_page=100" --jq '.[].name')
