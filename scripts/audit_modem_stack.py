@@ -17,14 +17,13 @@ required = [
 present = {path: (root / path).is_file() for path in required}
 if not dpmaif_path.is_file():
     raise SystemExit("Required MT6781 DPMAIF source is missing")
-
 src = dpmaif_path.read_text(errors="replace")
 
 
 def function_body(name):
     match = re.search(
-        r"(?:static\\s+)?(?:void|int)\\s+" + re.escape(name)
-        + r"\\s*\\([^;]*?\\)\\s*\\{",
+        r"(?:static\s+)?(?:void|int)\s+" + re.escape(name)
+        + r"\s*\([^;]*?\)\s*\{",
         src,
         re.S,
     )
@@ -72,7 +71,6 @@ checks = {
     "dpmaif_hif_ops_resume_callback": ".resume = &dpmaif_resume" in src,
     "dpmaif_hif_ops_suspend_callback": ".suspend = &dpmaif_suspend" in src,
 }
-
 lines = [
     "Fleur MT6781 modem stack static audit",
     "target_kernel=Fleux V11 / Linux 4.19.325",
@@ -99,5 +97,5 @@ lines += [
     ),
 ]
 report.parent.mkdir(parents=True, exist_ok=True)
-report.write_text("\\n".join(lines) + "\\n")
+report.write_text("\n".join(lines) + "\n")
 print(report.read_text(), end="")
