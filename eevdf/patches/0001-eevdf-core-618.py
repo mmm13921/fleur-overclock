@@ -211,7 +211,7 @@ old_picker = fair[a:b]
 new_picker = r'''static inline void set_protect_slice(struct cfs_rq *cfs_rq,
 				     struct sched_entity *se)
 {
-	u64 slice = sysctl_sched_base_slice;
+	u64 slice = normalized_sysctl_sched_base_slice;
 	u64 vprot = se->deadline;
 
 	if (sched_feat(RUN_TO_PARITY))
@@ -314,9 +314,23 @@ replace_once(
     "unsigned int normalized_sysctl_sched_min_granularity\t= 750000ULL;",
     "unsigned int sysctl_sched_min_granularity\t\t= 750000ULL;\n"
     "unsigned int normalized_sysctl_sched_min_granularity\t= 750000ULL;\n"
-    "unsigned int sysctl_sched_base_slice\t\t\t= 700000ULL;",
+    "unsigned int sysctl_sched_base_slice\t\t\t= 700000ULL;\n"
+    "static unsigned int normalized_sysctl_sched_base_slice\t= 700000ULL;",
     "EEVDF base slice tunable",
 )
+replace_once(
+    "kernel/sched/fair.c",
+    "SET_SYSCTL(sched_min_granularity);",
+    "SET_SYSCTL(sched_min_granularity);\\n\\tSET_SYSCTL(sched_base_slice);",
+    "normalize EEVDF base slice with scheduler scaling",
+)
+replace_once(
+    "kernel/sched/fair.c",
+    "WRT_SYSCTL(sched_min_granularity);",
+    "WRT_SYSCTL(sched_min_granularity);\\n\\tWRT_SYSCTL(sched_base_slice);",
+    "update normalized EEVDF base slice on sysctl writes",
+)
+
 replace_once(
     "include/linux/sched/sysctl.h",
     "extern unsigned int sysctl_sched_min_granularity;",
@@ -585,7 +599,7 @@ replace_once(
     "\t\t.data\t\t= &sysctl_sched_base_slice,\n"
     "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
     "\t\t.mode\t\t= 0644,\n"
-    "\t\t.proc_handler\t= proc_dointvec_minmax,\n"
+    "\t\t.proc_handler\t= sched_proc_update_handler,\n"
     "\t\t.extra1\t\t= &meys_min_sched_base_slice_ns,\n"
     "\t\t.extra2\t\t= &meys_max_sched_base_slice_ns,\n"
     "\t},\n"
@@ -677,6 +691,7 @@ checks = {
     "relative_deadline_store": "se->rel_deadline = 1" in fair,
     "relative_deadline_restore": "if (se->rel_deadline)" in fair,
     "base_slice_sysctl": "sched_base_slice" in read("kernel/sysctl.c") and "sysctl_sched_base_slice" in fair,
+    "normalized_base_slice": "normalized_sysctl_sched_base_slice" in fair and "SET_SYSCTL(sched_base_slice)" in fair and "WRT_SYSCTL(sched_base_slice)" in fair,
     "legacy_projectid_source_untouched": True,
 }
 missing = [name for name, ok in checks.items() if not ok]
