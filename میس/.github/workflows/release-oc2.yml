@@ -1,0 +1,131 @@
+name: Fleux OC2 2.2GHz (AnyKernel3)
+run-name: Fleux OC2 2.2GHz (${{ github.event_name }})
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/release-oc2.yml
+      - scripts/build_kernel.sh
+      - scripts/apply_oc2_2200.sh
+      - scripts/audit_oc2_image.py
+      - scripts/anykernel_oc2.sh
+      - docs/oc2-changelog.md
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Fleux source branch or tag
+        required: true
+        default: lineage-24.0
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fleux-kernel-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build and package OC2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: ${{ inputs.source_ref || 'lineage-24.0' }}
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+      - name: Validate source ref
+        shell: bash
+        run: |
+          case "$SOURCE_REF" in
+            ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*)
+              echo "Invalid source ref: $SOURCE_REF" >&2
+              exit 2
+              ;;
+          esac
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Build OC2 — coordinated 2.2GHz OPP
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" oc2
+      - name: Fetch pinned upstream AnyKernel3 framework
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_oc2.sh "$AK_DIR/anykernel.sh"
+          cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
+          cp docs/oc2-changelog.md "$AK_DIR/OC2-CHANGELOG.txt"
+          cp artifacts/kernel.config "$AK_DIR/kernel.config"
+          cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
+          cp artifacts/oc2-source.patch "$AK_DIR/oc2-source.patch"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-OC2-2.2GHz-AnyKernel3.zip" \
+              META-INF tools LICENSE anykernel.sh Image.gz-dtb \
+              OC2-CHANGELOG.txt kernel.config build-manifest.txt oc2-source.patch
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-OC2-2.2GHz-AnyKernel3.zip"
+          unzip -l "$GITHUB_WORKSPACE/artifacts/Fleux-OC2-2.2GHz-AnyKernel3.zip" \
+            | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz-dtb|LICENSE'
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-OC2-2.2GHz-AnyKernel3.zip" \
+            | tee artifacts/OC2-SHA256.txt
+      - name: Upload workflow artifact copy
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleux-oc2-2.2ghz-anykernel3
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASSETS=(
+            "artifacts/Fleux-OC2-2.2GHz-AnyKernel3.zip"
+            "artifacts/Image.gz-dtb"
+            "artifacts/kernel.config"
+            "artifacts/build-manifest.txt"
+            "artifacts/oc2-source.patch"
+            "artifacts/OC2-SHA256.txt"
+          )
+          if gh release view oc2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload oc2 "${ASSETS[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit oc2 --repo "$GITHUB_REPOSITORY" \
+              --title "Fleux OC2 2.2GHz — AnyKernel3" \
+              --notes-file docs/oc2-changelog.md
+          else
+            gh release create oc2 "${ASSETS[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Fleux OC2 2.2GHz — AnyKernel3" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --notes-file docs/oc2-changelog.md
+          fi

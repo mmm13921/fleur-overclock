@@ -1,0 +1,37 @@
+name: Meys V1 EEVDF 6.18 source audit
+on:
+  push:
+    branches:
+      - meys-v1-eevdf
+    paths:
+      - '.github/workflows/meys-v1-eevdf-audit.yml'
+      - 'eevdf/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Meys V1 builder
+        uses: actions/checkout@v4
+      - name: Fetch pinned Fleux V11 kernel source
+        run: git clone --depth=1 --branch v11 https://gitlab.com/daliboss/fleux.git kernel-src
+      - name: Validate and apply EEVDF layer 1
+        run: |
+          set -euo pipefail
+          python3 -m py_compile eevdf/patches/0001-eevdf-core-618.py eevdf/audit_eevdf_618.py
+          python3 eevdf/patches/0001-eevdf-core-618.py kernel-src artifacts-eevdf-layer1-audit.txt
+          git -C kernel-src diff --check
+      - name: Audit EEVDF implementation
+        run: |
+          set -euo pipefail
+          python3 eevdf/audit_eevdf_618.py kernel-src | tee artifacts-eevdf-audit.txt
+          grep -q '^eevdf_layer1=PASS$' artifacts-eevdf-audit.txt
+      - name: Upload EEVDF source audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-v1-eevdf-source-audit
+          path: artifacts-eevdf-*.txt
+          if-no-files-found: error
+          retention-days: 30

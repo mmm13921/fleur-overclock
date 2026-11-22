@@ -1,0 +1,145 @@
+name: Meys HMP + Xiaomi 4.19.191 Project ID
+run-name: Meys HMP native Project ID (${{ github.event_name }})
+on:
+  push:
+    branches:
+      - meys-hmp-projectid-419191
+    paths:
+      - '.github/workflows/build-v11-hmp-projectid.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/apply_f2fs_projectid_compat.py'
+      - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/apply_official_419191_fs_mount.py'
+      - 'scripts/anykernel_scheduler_modes.sh'
+      - 'research/android13-mediaprovider/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: meys-hmp-projectid-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build-and-package:
+    name: Build Meys MT6781 HMP and native Project ID
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: v11
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+      - name: Apply and audit Android 13 MediaProvider FUSE bridge
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/android13-mediaprovider/apply_projectid_ioctl_bridge.py
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          git clone --depth=1 --branch android13-security-release \
+            https://android.googlesource.com/platform/packages/providers/MediaProvider \
+            "$RUNNER_TEMP/MediaProvider"
+          python3 "$GITHUB_WORKSPACE/research/android13-mediaprovider/apply_projectid_ioctl_bridge.py" "$RUNNER_TEMP/MediaProvider"
+          git -C "$RUNNER_TEMP/MediaProvider" diff --check
+          grep -q 'static void pf_projectid_ioctl' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          grep -q '.ioctl = pf_projectid_ioctl' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          grep -q 'FS_IOC_FSGETXATTR' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          grep -q 'FS_IOC_FSSETXATTR' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
+          git -C "$RUNNER_TEMP/MediaProvider" diff -- jni/FuseDaemon.cpp > "$GITHUB_WORKSPACE/artifacts/android13-mediaprovider-projectid.patch"
+          test -s "$GITHUB_WORKSPACE/artifacts/android13-mediaprovider-projectid.patch"
+          echo "Android 13 AOSP source transformation and diff checks passed."
+      - name: Check builder shell syntax
+        run: bash -n scripts/build_kernel.sh
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Build Meys from pinned upstream kernel source
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" hmp-storage-projectid
+      - name: Package AnyKernel3 test ZIP
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_scheduler_modes.sh "$AK_DIR/anykernel.sh"
+          cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
+          cp artifacts/kernel.config "$AK_DIR/kernel.config"
+          cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
+          cp artifacts/hmp-storage-projectid-source.patch "$AK_DIR/hmp-storage-projectid-source.patch"
+          cp artifacts/storage-projectid-audit.txt "$AK_DIR/storage-projectid-audit.txt"
+          cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
+          cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
+          cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
+          cp research/android13-mediaprovider/README.md artifacts/ANDROID13-MEDIAPROVIDER-README.md
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-HMP-ProjectID-AnyKernel3.zip" \
+              META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config \
+              build-manifest.txt hmp-storage-projectid-source.patch \
+              storage-projectid-audit.txt scheduler-modes-audit.txt \
+              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-HMP-ProjectID-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-HMP-ProjectID-AnyKernel3.zip" | tee artifacts/MEYS-PROJECTID-SHA256.txt
+      - name: Upload Meys kernel, AnyKernel ZIP, and source audits
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-hmp-projectid-mt6781
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish Meys experimental prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: meys-projectid-${{ github.run_number }}
+          name: Meys HMP + Project ID — build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: false
+          make_latest: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Meys experimental MT6781 kernel. The upstream V11 source repository is retained only as the technical source base; the kernel and release branding is Meys.
+
+            Includes the HMP/EAS/Hybrid CPU mode selector (HMP default) and
+            the native F2FS Project ID implementation backported from Xiaomi
+            sea-t-oss 4.19.191, including inode project-ID persistence, quota
+            transfer and project inheritance. Real project quota still
+            requires compatible on-disk EXTRA_ATTR and PRJQUOTA features.
+
+            The Android 13 MediaProvider FUSE ioctl bridge source patch is
+            included as a separate release asset and validated for clean
+            application to the pinned AOSP Android 13 branch. It is NOT built
+            into this kernel ZIP or a flashable APK. It still requires a full
+            Android 13 MediaProvider build and validation against Xiaomi's ROM.
+            Kernel ZIP remains a kernel-side test. Preserve a known-good boot image.
+          files: |
+            artifacts/Meys-HMP-ProjectID-AnyKernel3.zip
+            artifacts/hmp-storage-projectid-source.patch
+            artifacts/storage-projectid-audit.txt
+            artifacts/scheduler-modes-audit.txt
+            artifacts/official-4.19.191-fs-mount-audit.txt
+            artifacts/android-storage-audit.txt
+            artifacts/android13-mediaprovider-projectid.patch
+            artifacts/ANDROID13-MEDIAPROVIDER-README.md
+            artifacts/build-manifest.txt
+            artifacts/MEYS-PROJECTID-SHA256.txt

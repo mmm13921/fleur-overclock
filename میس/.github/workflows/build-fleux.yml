@@ -1,0 +1,137 @@
+name: Fleux official Fleur 4.14 CPU modes backport
+run-name: Fleux CPU modes backport (${{ github.event_name }})
+on:
+  push:
+    branches:
+      - scheduler/hmp-eas-hybrid
+      - hmp-v2-telegram-storage-fix
+    paths:
+      - '.github/workflows/build-fleux.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/audit_android_storage.py'
+      - 'scripts/anykernel_scheduler_modes.sh'
+      - 'docs/scheduler-modes-port.md'
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Fleux upstream source branch or tag (lineage-24.0 is the active 4.19 source)
+        required: true
+        default: lineage-24.0
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: fleux-scheduler-modes-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build-and-package:
+    name: Build MT6781 official CPU-mode backport and AnyKernel3 ZIP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: ${{ inputs.source_ref || 'lineage-24.0' }}
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+      - name: Validate source ref
+        shell: bash
+        run: |
+          case "$SOURCE_REF" in
+            ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*)
+              echo "Invalid source ref: $SOURCE_REF" >&2
+              exit 2
+              ;;
+          esac
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Apply and build scheduler mode port
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" scheduler-modes
+      - name: Fetch pinned upstream AnyKernel3 framework
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_scheduler_modes.sh "$AK_DIR/anykernel.sh"
+          cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
+          cp artifacts/kernel.config "$AK_DIR/kernel.config"
+          cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
+          cp artifacts/scheduler-modes-source.patch "$AK_DIR/scheduler-modes-source.patch"
+          cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
+          cp artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/official-4.19.191-fs-mount-audit.txt"
+          cp artifacts/android-storage-audit.txt "$AK_DIR/android-storage-audit.txt"
+          cp docs/scheduler-modes-port.md "$AK_DIR/SCHEDULER-MODES.txt"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
+              META-INF tools LICENSE anykernel.sh Image.gz-dtb \
+              kernel.config build-manifest.txt scheduler-modes-source.patch \
+              scheduler-modes-audit.txt official-4.19.191-fs-mount-audit.txt \
+              android-storage-audit.txt SCHEDULER-MODES.txt
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip"
+          unzip -l "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
+            | grep -E 'META-INF/com/google/android/update-binary|tools/ak3-core.sh|anykernel.sh|Image.gz-dtb|scheduler-modes-audit.txt|LICENSE'
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip" \
+            | tee artifacts/SCHEDULER-MODES-SHA256.txt
+      - name: Upload kernel image, flashable ZIP, and source evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleux-hmp-eas-hybrid-mt6781
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish prerelease with kernel ZIP and scheduler patch
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: scheduler-hmp-eas-hybrid-${{ github.run_number }}
+          name: Fleux HMP / EAS / Hybrid — MT6781 build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Experimental Fleux 4.19.325 scheduler-mode build for Redmi Note 11S 4G / fleur / MT6781.
+
+            Runtime selector: `/proc/sys/kernel/sched_cpu_mode`
+            - `0`: HMP-style PELT/util_est placement (adapted from official Fleur 4.14 mode logic)
+            - `1`: existing Fleux EAS placement
+
+            HMP (`0`) is enabled by default from boot.
+            - `2`: Hybrid (EAS until the root domain is overutilized, then HMP-style placement)
+
+            Filesystem compatibility: restores the official Xiaomi MT6781 4.19.191 F2FS source set and Android legacy mount/remount path, keeps FBE/inline-encryption, FUSE, OverlayFS and quota prerequisites enabled, and includes storage audits. This cannot add missing features to an already formatted /data F2FS superblock.
+
+            Reference: official Xiaomi Fleur fleur-s-oss kernel 4.14.186; target: Fleux lineage-24.0 kernel 4.19.325. This ports should_hmp() mode semantics and first-stage HMP-style placement only. It does not port the full WALT HMP migration engine. CI success does not imply successful device boot, thermal stability, touch latency or gaming performance. Keep a known-good boot image and recovery path.
+          files: |
+            artifacts/Fleux-HMP-EAS-Hybrid-AnyKernel3.zip
+            artifacts/scheduler-modes-source.patch
+            artifacts/scheduler-modes-audit.txt
+            artifacts/official-4.19.191-fs-mount-audit.txt
+            artifacts/android-storage-audit.txt
+            artifacts/build-manifest.txt
+            artifacts/SCHEDULER-MODES-SHA256.txt
