@@ -1,5 +1,5 @@
 name: EEVDF 6.18 Source Audit (No Kernel Build)
-run-name: EEVDF source audit (\${{ github.event_name }})
+run-name: EEVDF source audit (${{ github.event_name }})
 
 on:
   push:
@@ -67,10 +67,10 @@ jobs:
         with:
           name: eevdf-source-audit
           path: |
-            \${{ runner.temp }}/eevdf-audit/
-            \${{ runner.temp }}/official-fs-audit.txt
-            \${{ runner.temp }}/storage-audit.txt
-            \${{ runner.temp }}/scheduler-modes-audit.txt
-            \${{ runner.temp }}/modem-pm-audit.txt
+            ${{ runner.temp }}/eevdf-audit/
+            ${{ runner.temp }}/official-fs-audit.txt
+            ${{ runner.temp }}/storage-audit.txt
+            ${{ runner.temp }}/scheduler-modes-audit.txt
+            ${{ runner.temp }}/modem-pm-audit.txt
           if-no-files-found: warn
           retention-days: 14
