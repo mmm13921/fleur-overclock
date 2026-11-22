@@ -33,6 +33,8 @@ def function_body(name):
 
 resume = function_body("dpmaif_sysresume")
 suspend = function_body("dpmaif_syssuspend")
+resume_hif = function_body("dpmaif_resume")
+suspend_hif = function_body("dpmaif_suspend")
 checks = {
     "dpmaif_sysresume_present": bool(resume),
     "dpmaif_sysresume_reads_md_state": "ccci_fsm_get_md_state" in resume,
@@ -41,12 +43,18 @@ checks = {
     "dpmaif_sysresume_calls_resume": "dpmaif_resume(" in resume,
     "dpmaif_syssuspend_present": bool(suspend),
     "dpmaif_syssuspend_calls_suspend": "dpmaif_suspend(" in suspend,
+    "dpmaif_hif_resume_impl_present": bool(resume_hif),
+    "dpmaif_hif_suspend_impl_present": bool(suspend_hif),
+    "dpmaif_hif_ops_resume_callback": ".resume = &dpmaif_resume" in src,
+    "dpmaif_hif_ops_suspend_callback": ".suspend = &dpmaif_suspend" in src,
 }
 lines = [
     "Fleur MT6781 modem stack static audit",
     "target_kernel=Fleux V11 / Linux 4.19.325",
-    "reference=official Xiaomi fleur-s-oss / Linux 4.14.186",
-    "reference_dpmaif_model=HIF suspend/resume callbacks restore DL state, UL interrupts and TX queues after power loss",
+    "reference=official Xiaomi fleur-s-oss / Linux 4.14.186
+reference_dpmaif_file_sha256=Git blob 5295e09a5712d0852c789044076f74209eab9ef4",
+    "reference_dpmaif_model=dpmaif_resume/dpmaif_suspend registered as HIF .resume/.suspend callbacks
+reference_syscore_model=dpmaif_sysresume/dpmaif_syssuspend absent from official 4.14 DPMAIF file",
     "reference_syscore_callbacks=dpmaif_sysresume/dpmaif_syssuspend not present in inspected 4.14.186 reference",
     "scope=static source inspection only; no full ECCCI/CCCI stack transplant",
 ]
