@@ -889,6 +889,7 @@ checks = {
     "delayed_hierarchy_accounting": "static int dequeue_entities(" in fair and "h_nr_runnable -= h_nr_runnable" in fair,
     "delayed_wakeup_requeue": "ENQUEUE_NOCLOCK | ENQUEUE_DELAYED" in core,
     "delayed_pick_cleanup": "DEQUEUE_SLEEP | DEQUEUE_DELAYED" in fair,
+    "delayed_next_buddy_guard": "!cfs_rq->next->sched_delayed" in fair and "!pse->sched_delayed" in fair,
     "deferred_block_accounting": "void __block_task(" in core and "if (dequeue_task(rq, prev" in core,
     "zero_lag_requeue": "static void requeue_delayed_entity(" in fair and "se->vlag = 0;" in fair,
     "throttle_bypasses_delay": "DEQUEUE_SLEEP | DEQUEUE_THROTTLE" in fair,
