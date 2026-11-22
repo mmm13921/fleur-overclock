@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build-v17-build30-eevdf.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/audit_modem_stack.py'
+      - 'scripts/anykernel_build30_eevdf.sh'
       - 'eevdf/**'
   workflow_dispatch:
 permissions:
@@ -67,7 +68,7 @@ jobs:
           git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
-          cp scripts/anykernel_scheduler_modes.sh "$AK_DIR/anykernel.sh"
+          cp scripts/anykernel_build30_eevdf.sh "$AK_DIR/anykernel.sh"
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
           cp artifacts/meys-v1-eevdf-source.patch artifacts/storage-projectid-audit.txt "$AK_DIR/"
           cp artifacts/scheduler-modes-audit.txt artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/"
