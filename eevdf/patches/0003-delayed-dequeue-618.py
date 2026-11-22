@@ -681,6 +681,67 @@ replace_once("kernel/sched/core.c", old, new, "deferred block accounting")
 # Keep the V11 workqueue sleeping notification unconditional: a task delayed
 # on the fair runqueue is still sleeping and must release worker concurrency.
 
+# PSI must distinguish a delayed queued task from a runnable task on migration.
+replace_once(
+    "kernel/sched/stats.h",
+    "static inline void psi_enqueue(struct task_struct *p, bool wakeup)\n"
+    "{\n"
+    "\tint clear = 0, set = TSK_RUNNING;\n\n"
+    "\tif (static_branch_likely(&psi_disabled))\n"
+    "\t\treturn;\n\n"
+    "\tif (!wakeup || p->sched_psi_wake_requeue) {\n"
+    "\t\tif (p->flags & PF_MEMSTALL)\n"
+    "\t\t\tset |= TSK_MEMSTALL;\n"
+    "\t\tif (p->sched_psi_wake_requeue)\n"
+    "\t\t\tp->sched_psi_wake_requeue = 0;\n"
+    "\t} else {\n"
+    "\t\tif (p->in_iowait)\n"
+    "\t\t\tclear |= TSK_IOWAIT;\n"
+    "\t}\n\n"
+    "\tpsi_task_change(p, clear, set);\n"
+    "}",
+    "static inline void psi_enqueue(struct task_struct *p, bool wakeup)\n"
+    "{\n"
+    "\tint clear = 0, set = 0;\n\n"
+    "\tif (static_branch_likely(&psi_disabled))\n"
+    "\t\treturn;\n\n"
+    "\tif (p->se.sched_delayed) {\n"
+    "\t\tif (p->flags & PF_MEMSTALL)\n"
+    "\t\t\tset |= TSK_MEMSTALL;\n"
+    "\t\tif (p->in_iowait)\n"
+    "\t\t\tset |= TSK_IOWAIT;\n"
+    "\t} else {\n"
+    "\t\tset = TSK_RUNNING;\n"
+    "\t\tif (!wakeup || p->sched_psi_wake_requeue) {\n"
+    "\t\t\tif (p->flags & PF_MEMSTALL)\n"
+    "\t\t\t\tset |= TSK_MEMSTALL;\n"
+    "\t\t\tif (p->sched_psi_wake_requeue)\n"
+    "\t\t\t\tp->sched_psi_wake_requeue = 0;\n"
+    "\t\t} else if (p->in_iowait) {\n"
+    "\t\t\tclear |= TSK_IOWAIT;\n"
+    "\t\t}\n"
+    "\t}\n\n"
+    "\tpsi_task_change(p, clear, set);\n"
+    "}",
+    "preserve PSI sleep state for delayed migration",
+)
+replace_once(
+    "kernel/sched/core.c",
+    "\tif (!(flags & ENQUEUE_RESTORE)) {\n"
+    "\t\tsched_info_queued(rq, p);\n"
+    "\t\tpsi_enqueue(p, flags & ENQUEUE_WAKEUP);\n"
+    "\t}\n\n"
+    "\tuclamp_rq_inc(rq, p);\n"
+    "\tp->sched_class->enqueue_task(rq, p, flags);",
+    "\tif (!(flags & ENQUEUE_RESTORE))\n"
+    "\t\tsched_info_queued(rq, p);\n\n"
+    "\tuclamp_rq_inc(rq, p);\n"
+    "\tp->sched_class->enqueue_task(rq, p, flags);\n"
+    "\tif (!(flags & ENQUEUE_RESTORE))\n"
+    "\t\tpsi_enqueue(p, flags & (ENQUEUE_WAKEUP | ENQUEUE_DELAYED));",
+    "run PSI enqueue after fair delayed state transition",
+)
+
 # Delayed entities already left the uclamp buckets on the first sleep dequeue.
 replace_once(
     "kernel/sched/core.c",
