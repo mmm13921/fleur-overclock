@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/build-v17-build30-eevdf.yml'
       - 'scripts/build_kernel.sh'
-      - 'scripts/audit_modem_stack.py' # static compare against official 4.14 DPMAIF resume/restore path
+      - 'scripts/audit_modem_stack.py' # static compare against official 4.14 DPMAIF resume/restore path; audit v3
       - 'scripts/anykernel_build30_eevdf.sh'
       - 'eevdf/**'
   workflow_dispatch:
