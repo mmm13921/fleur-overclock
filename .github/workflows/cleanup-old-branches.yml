@@ -41,7 +41,7 @@ jobs:
           DEFAULT_BRANCH="$(gh api "repos/$REPOSITORY" --jq .default_branch)"
           echo "Default branch: $DEFAULT_BRANCH"
           echo "Branches that will be kept:"
-          printf '  - %s\\n' "${KEEP_BRANCHES[@]}"
+          printf '  - %s\n' "${KEEP_BRANCHES[@]}"
           if [[ "$EXECUTE" == "true" && "$CONFIRM" != "DELETE" ]]; then
             echo "::error::Execution requires confirm=DELETE."
             exit 1
