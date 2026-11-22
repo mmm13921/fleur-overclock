@@ -212,6 +212,7 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	}
 
 	update_load_avg(cfs_rq, se, UPDATE_TG);
+	se_update_runnable(se);
 	dequeue_runnable_load_avg(cfs_rq, se);
 	update_stats_dequeue(cfs_rq, se, flags);
 	update_entity_lag(cfs_rq, se);
@@ -225,6 +226,7 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 		__dequeue_entity(cfs_rq, se);
 	se->on_rq = 0;
 	account_entity_dequeue(cfs_rq, se);
+	update_cfs_group(se);
 
 	return_cfs_rq_runtime(cfs_rq);
 	if ((flags & (DEQUEUE_SAVE | DEQUEUE_MOVE)) != DEQUEUE_SAVE)
