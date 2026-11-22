@@ -43,8 +43,6 @@ if [[ "$ACTUAL_SOURCE_COMMIT" != "$SOURCE_COMMIT_LOCK" ]]; then
 fi
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
-python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
-python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
 SOURCE_PATCH="$ARTIFACT_DIR/hmp-storage-projectid-source.patch"
@@ -73,7 +71,6 @@ grep -qx "CONFIG_QUOTA=y" "$OUT_DIR/.config"
 grep -qx "CONFIG_F2FS_FS=y" "$OUT_DIR/.config"
 grep -qx "CONFIG_F2FS_FS_XATTR=y" "$OUT_DIR/.config"
 grep -qx "CONFIG_F2FS_FS_ENCRYPTION=y" "$OUT_DIR/.config"
-grep -q "^result=PASS$" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 grep -q "^result=PASS$" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
@@ -90,7 +87,7 @@ SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 CLANG_VERSION="$(clang --version | head -n 1)"
 {
   echo "build_baseline=$BUILD_BASELINE"
-  echo "build30_patch_stack=official-4.19.191-filesystem-mount;f2fs-projectid-persistence-compat;hmp-eas-hybrid;dpmaif-pm-guard;eevdf-layer1"
+  echo "build30_patch_stack=hmp-eas-hybrid;dpmaif-pm-guard;eevdf-layer1"
   echo "source_url=$SOURCE_URL"
   echo "source_ref=$SOURCE_REF"
   echo "source_commit_lock=$SOURCE_COMMIT_LOCK"
@@ -109,10 +106,10 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "modem_full_4_14_stack_transplant=not implemented; native 4.19 ECCCI/DPMAIF retained"
   fi
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
-  echo "f2fs_projectid=Build30 compatibility patch applied to Xiaomi sea-t-oss 4.19.191 F2FS"
-  echo "f2fs_projectid_persistence=stores and inherits inode i_projid with EXTRA_ATTR even when PRJQUOTA is not enabled"
-  echo "f2fs_project_quota=quota transfer/enforcement remains conditional on on-disk PRJQUOTA"
-  echo "f2fs_legacy_userdata=no silent success when EXTRA_ATTR is absent; FSSETXATTR returns EOPNOTSUPP"
+  echo "filesystem_source=native Fleux V11 F2FS and VFS retained unchanged"
+  echo "filesystem_patch=none; no wholesale 4.19.191 F2FS/VFS replacement"
+  echo "f2fs_projectid_patch=not applied; native Fleux FS_IOC_FSSETXATTR implementation retained"
+  echo "fuse=Fleux FUSE implementation retained unchanged"
   echo "android13_mediaprovider_bridge=separate source patch generated from pinned AOSP Android 13; not included in kernel image"
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
@@ -120,7 +117,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
+  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt"  )
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt")
   fi
