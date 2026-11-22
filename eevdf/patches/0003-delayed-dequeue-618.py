@@ -383,6 +383,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	int h_nr_queued = 0;
 	int h_nr_runnable = 0;
 	struct cfs_rq *cfs_rq;
+	u64 slice = 0;
 
 	if (entity_is_task(se)) {
 		p = task_of(se);
@@ -396,6 +397,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		if (!dequeue_entity(cfs_rq, se, flags)) {
 			if (p && &p->se == se)
 				return -1;
+			slice = cfs_rq_min_slice(cfs_rq);
 			break;
 		}
 
@@ -409,6 +411,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 
 		/* Do not dequeue a group entity while its cfs_rq has other tasks. */
 		if (cfs_rq->load.weight) {
+			slice = cfs_rq_min_slice(cfs_rq);
 			se = parent_entity(se);
 			if (task_sleep && se && !throttled_hierarchy(cfs_rq))
 				set_next_buddy(se);
@@ -427,6 +430,11 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		cfs_rq->h_nr_runnable -= h_nr_runnable;
 		se_update_runnable(se);
 		update_cfs_group(se);
+		se->slice = slice;
+		se->custom_slice = 1;
+		if (se != cfs_rq->curr)
+			min_vruntime_propagate(&se->run_node, NULL);
+		slice = cfs_rq_min_slice(cfs_rq);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
 	}
@@ -460,6 +468,7 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	struct sched_entity *se = &p->se;
 	int h_nr_runnable = 1;
 	int task_new = !(flags & ENQUEUE_WAKEUP);
+	u64 slice = 0;
 
 	if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))
 		util_est_enqueue(&rq->cfs, p);
@@ -483,7 +492,12 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 			break;
 		}
 		cfs_rq = cfs_rq_of(se);
+		if (slice) {
+			se->slice = slice;
+			se->custom_slice = 1;
+		}
 		enqueue_entity(cfs_rq, se, flags);
+		slice = cfs_rq_min_slice(cfs_rq);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
 		cfs_rq->h_nr_running++;
@@ -498,6 +512,11 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cfs_rq->h_nr_runnable += h_nr_runnable;
 		se_update_runnable(se);
 		update_cfs_group(se);
+		se->slice = slice;
+		se->custom_slice = 1;
+		if (se != cfs_rq->curr)
+			min_vruntime_propagate(&se->run_node, NULL);
+		slice = cfs_rq_min_slice(cfs_rq);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
 	}
