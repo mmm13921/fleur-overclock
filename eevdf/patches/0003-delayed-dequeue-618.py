@@ -159,6 +159,12 @@ replace_once(
     "shares = READ_ONCE(gcfs_rq->tg->shares);\n\trunnable = gcfs_rq->h_nr_runnable;",
     "non-SMP group runnable accounting",
 )
+replace_once(
+    "kernel/sched/fair.c",
+    "struct cfs_rq *gcfs_rq = group_cfs_rq(se);\n\tlong shares, runnable;\n\n\tif (!gcfs_rq)\n\t\treturn;",
+    "struct cfs_rq *gcfs_rq = group_cfs_rq(se);\n\tlong shares, runnable;\n\n\tif (!gcfs_rq || !gcfs_rq->load.weight)\n\t\treturn;",
+    "preserve group weight while delayed entities drain",
+)
 
 # Helpers preserve the distinction between an entity that is still queued and
 # one that is actually runnable. h_nr_running remains the V11 queued-count ABI.
@@ -709,6 +715,46 @@ brace = fair.index("{", start)
 insert = "\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\t\treturn 0;\n"
 fair = fair[:brace + 1] + insert + fair[brace + 1:]
 write("kernel/sched/fair.c", fair)
+
+# Group teardown must drain a delayed group entity before freeing its cfs_rq.
+replace_function(
+    "kernel/sched/fair.c",
+    "unregister_fair_sched_group",
+    r'''
+void unregister_fair_sched_group(struct task_group *tg)
+{
+	unsigned long flags;
+	struct rq *rq;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct cfs_rq *cfs_rq = tg->cfs_rq[cpu];
+		struct sched_entity *se = tg->se[cpu];
+
+		rq = cpu_rq(cpu);
+		if (se) {
+			if (se->sched_delayed) {
+				raw_spin_lock_irqsave(&rq->lock, flags);
+				if (se->sched_delayed) {
+					update_rq_clock(rq);
+					dequeue_entities(rq, se, DEQUEUE_SLEEP | DEQUEUE_DELAYED);
+				}
+				list_del_leaf_cfs_rq(cfs_rq);
+				raw_spin_unlock_irqrestore(&rq->lock, flags);
+			}
+			remove_entity_load_avg(se);
+		}
+
+		if (cfs_rq->on_list) {
+			raw_spin_lock_irqsave(&rq->lock, flags);
+			list_del_leaf_cfs_rq(cfs_rq);
+			raw_spin_unlock_irqrestore(&rq->lock, flags);
+		}
+	}
+}
+
+'''
+)
 
 # Exit cleanup prevents a delayed entity from surviving task teardown.
 fair = read("kernel/sched/fair.c")
