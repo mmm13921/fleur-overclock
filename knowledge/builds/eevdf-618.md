@@ -105,3 +105,17 @@ Commit: `323710e7b4f1a71103f0e9136d9f5ba7f6c6cc0f`
 - Build run **45075293759**: https://github.com/mmm13921/fleur-overclock/actions/runs/45075293759
 - Audit run **45075293762**: https://github.com/mmm13921/fleur-overclock/actions/runs/45075293762
 - هنگام ثبت این یادداشت هر دو run در حال اجرا بودند؛ نتیجهٔ نهایی باید پس از تکمیل به همین گزارش اضافه شود.
+
+
+### Audit mismatch پس از commit `1efa8cfb...`
+
+- Audit run **45075293762**: FAILED در source audit، نه به‌خاطر خطای C؛ check `layer3.migration_guard` هنوز انتظار رشتهٔ قدیمی `env->migration_type != migrate_load` را داشت.
+  https://github.com/mmm13921/fleur-overclock/actions/runs/45075293762
+- Root cause: patcher برای API واقعی 4.19 به guard جدید تغییر کرده بود، اما ممیزی جامع `eevdf/audit_eevdf_618.py` هنوز assertion نسخهٔ قدیمی را نگه داشته بود. این یک ناسازگاری بین patcher و audit بود.
+- Fix commit: `2192589ed0345eae459402d19e2b7ac7b827f7bc`
+- فایل: `eevdf/audit_eevdf_618.py`
+- اصلاح: assertion اکنون guard تولیدشدهٔ `if (p->se.sched_delayed) return 0;` را بررسی می‌کند.
+- CI rerun:
+  - Build: https://github.com/mmm13921/fleur-overclock/actions/runs/45075426116
+  - Audit: https://github.com/mmm13921/fleur-overclock/actions/runs/45075426097
+  - وضعیت در زمان ثبت: queued؛ نتیجه هنوز نامشخص است.
