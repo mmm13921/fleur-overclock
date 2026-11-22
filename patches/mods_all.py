@@ -767,20 +767,7 @@ def sysctl_all(k,log):
         if cur==to:
             log.append('sysctl %s %s already ok'%(n,'min' if fld==48 else 'max'));continue
         if setp(b+fld,to):log.append('sysctl %s %s %d -> %s'%(n,'min' if fld==48 else 'max',ov,'0' if fld==48 else '2147483647'))
-    kt=None
-    for b0 in m.string_bases(k,rel,b'sched_tunable_scaling'):
-        if ptr(b0+56) and 0<ptr(b0+56)-B<len(k):kt=b0;break
-    UMAX=None
-    for b0 in m.string_bases(k,rel,b'sched_latency_ns'):
-        e=ptr(b0+56)
-        if e and 0<e-B<len(k) and struct.unpack_from('<i',k,e-B)[0]==-1:UMAX=e;break
-    if kt and UMAX and ptr(kt+56)!=UMAX and struct.unpack_from('<i',k,ptr(kt+56)-B)[0]==2:
-        setp(kt+56,UMAX);log.append('sysctl sched_tunable_scaling max 2 -> 4294967295')
-    for nm in (b'perf_cpu_time_max_percent',b'printk_delay'):
-        for b0 in m.string_bases(k,rel,nm):
-            e=ptr(b0+56)
-            if e and 0<e-B<len(k)-4 and e!=INTMAX and struct.unpack_from('<i',k,e-B)[0] in(100,10000):
-                ov=struct.unpack_from('<i',k,e-B)[0];setp(b0+56,INTMAX);log.append('sysctl %s max %d -> 2147483647'%(nm.decode(),ov));break
+    log.append('sysctl upper bounds preserved; only validated zero minima are adjusted')
     for n in ('dirty_background_bytes','dirty_bytes'):
         b=ent.get(n)
         if b is None:
