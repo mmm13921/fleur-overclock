@@ -65,6 +65,7 @@ checks = [
     ("layer3.migration_preserves_delayed_state", "if (task_new && se->sched_delayed)" in src["fair"] and "if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))" in src["fair"]),
     ("layer3.load_balance_uses_runnable", "READ_ONCE(rq->cfs.h_nr_runnable)" in src["fair"] and "sgs->sum_nr_running += rq->cfs.h_nr_runnable;" in src["fair"]),
     ("layer3.schedtune_delayed_accounting", "if (!se->sched_delayed || (flags & ENQUEUE_DELAYED))" in src["fair"] and "if (!se->sched_delayed)\n\t\tschedtune_dequeue_task" in src["fair"]),
+    ("layer3.mtk_heavy_delayed_accounting", "inc_nr_heavy_running(3, task_of(se), -1, false);" in src["fair"] and "inc_nr_heavy_running(2, p, 1, false);" in src["fair"] and "if (!p->se.sched_delayed)" in src["fair"] and "bool was_delayed = se->sched_delayed;" in src["fair"]),
 ]
 for name,ok in checks:
     print(("PASS" if ok else "MISSING")+"="+name)
