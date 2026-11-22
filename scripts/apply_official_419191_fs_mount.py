@@ -259,14 +259,12 @@ def main():
         "filesystem_mount_reference_commit=" + official_sha,
         "fleux_base_kernel=Linux 4.19.325",
         "f2fs_tree=official 4.19.191 fs/f2fs copied as a matched source set",
-        "f2fs_mount_compat=checkpoint_merge,nocheckpoint_merge,gc_merge,nogc_merge",
         "f2fs_checkpoint=official 4.19.191 merged checkpoint worker restored",
         "f2fs_encryption=official 4.19.191 fscrypt/F2FS integration retained",
         "vfs_mount=legacy 4.19.191 do_remount path restored for Android mount(2)",
         "vfs_remount=legacy do_remount_sb2 + filesystem remount_fs callback",
         "fs_context=kept for new mount API callers; not used by legacy remount path",
         "hardware_validation=not performed by CI",
-        "official_f2fs_file_count=" + str(len(official_files)),
     ]
     report.write_text("\n".join(lines) + "\n")
     print("OFFICIAL 4.19.191 FILESYSTEM/MOUNT BACKPORT PASSED")
