@@ -57,12 +57,16 @@ jobs:
           test -s artifacts/mods-all-patch.log
           python3 - <<'PY'
           from pathlib import Path
-          import gzip
+          import zlib
           raw = Path("artifacts/Image.gz-dtb").read_bytes()
-          assert raw[:2] == b"\x1f\x8b", "Image.gz-dtb is not gzip"
-          decoded = gzip.decompress(raw)
-          assert decoded, "decompressed kernel/DTB is empty"
-          print(f"Final image validated: compressed={len(raw)} bytes, decompressed={len(decoded)} bytes")
+          assert raw[:2] == bytes.fromhex("1f8b"), "Image.gz-dtb does not start with a gzip kernel payload"
+          decoder = zlib.decompressobj(31)
+          kernel = decoder.decompress(raw)
+          dtb = decoder.unused_data
+          assert kernel, "decompressed kernel payload is empty"
+          assert dtb.startswith(bytes.fromhex("d00dfeed")), "appended DTB magic is missing"
+          assert len(dtb) >= 40, "appended DTB header is truncated"
+          print(f"Final image validated: gzip_kernel={len(kernel)} bytes, appended_dtb={len(dtb)} bytes")
           PY
           sha256sum artifacts/Image.gz-dtb | tee artifacts/Image.gz-dtb.sha256
       - name: Upload kernel artifacts and patch report
