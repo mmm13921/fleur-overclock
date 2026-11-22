@@ -133,7 +133,7 @@ jobs:
               boot-patches-audit.txt boot_patches.md
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/meys-patched.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip" | tee artifacts/MEYS-PROJECTID-SHA256.txt
+          sha256sum "$GITHUB_WORKSPACE/artifacts/meys-patched.zip" | tee artifacts/MEYS-PROJECTID-SHA256.txt
       - name: Upload Meys kernel, AnyKernel ZIP, and source audits
         uses: actions/upload-artifact@v4
         with:
@@ -144,7 +144,7 @@ jobs:
       - name: Publish Meys experimental prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: meys-build38-boot-patches-${{ github.run_number }}
+          tag_name: meys-patched-${{ github.run_number }}
           name: meys-patched
           target_commitish: ${{ github.sha }}
           prerelease: true
@@ -152,28 +152,10 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
-            Meys MT6781 kernel rebuilt from the exact Build 38 release commit (meys-projectid-30-eevdf-modem-38). Filesystem, F2FS and Project ID source patch set are preserved unchanged. The upstream V11 source repository is retained only as the technical source base.
-
-            Includes the HMP/EAS/Hybrid CPU mode selector (HMP default) and
-            the native F2FS Project ID implementation backported from Xiaomi
-            sea-t-oss 4.19.191, including inode project-ID persistence, quota
-            transfer and project inheritance. Real project quota still
-            requires compatible on-disk EXTRA_ATTR and PRJQUOTA features.
-
-            Includes the first Linux 6.18 EEVDF semantic backport layer and MT6781 DPMAIF syscore PM safety guard. EEVDF DELAY_DEQUEUE/DELAY_ZERO are not included; the modem change is not a full 4.14 modem driver port.
-
-            The Android 13 MediaProvider FUSE ioctl bridge source patch is
-            included as a separate release asset and validated for clean
-            application to the pinned AOSP Android 13 branch. It is NOT built
-            into this kernel ZIP or a flashable APK. It still requires a full
-            Android 13 MediaProvider build and validation against Xiaomi's ROM.
-            Applied guarded binary patch set from patches/boot_patches.md to the built Image.gz-dtb: standard CPU/GPU/DTB tables, sched_min_granularity_ns bounds (u32); legacy sched_latency_ns and sched_wakeup_granularity_ns are absent from this EEVDF source; vm.extfrag_threshold, ondemand sampling_rate minimum, and per-CPU/unbounded cpu_capacity store. The workflow aborts if required signatures do not match or any guarded patch is skipped.
-
-            The reference document describes additional mods_all.py operations (sysctl-all, ged-all, cpuset-empty, swap-max and wm-max), but does not include their implementation source. Those extra binary patches are intentionally not claimed as applied. Minimum CPU frequency overrides are also omitted because the reference records a bootloop for that test.
-
-            Kernel ZIP remains a kernel-side test. Preserve a known-good boot image; no device boot or radio test is implied by CI success.
+            Build 38 base with guarded CPU/GPU/DTB, EEVDF scheduler, VM, ondemand and cpu_capacity patches.
+            Legacy CFS latency/wakeup tunables are absent from this EEVDF source.
           files: |
-            artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip
+            artifacts/meys-patched.zip
             artifacts/boot-patches-audit.txt
             artifacts/boot-patches-sha256.txt
             artifacts/hmp-storage-projectid-source.patch
