@@ -106,7 +106,7 @@ if "DEQUEUE_DELAYED" not in sched_h:
         "#define DEQUEUE_THROTTLE\t0x800\n",
         "delayed dequeue flags",
     )
-if "ENQUEUE_DELAYED" not in read("kernel/sched/sched.h"):
+if not re.search(r"(?m)^#define ENQUEUE_DELAYED\\s+", read("kernel/sched/sched.h")):
     replace_once(
         "kernel/sched/sched.h",
         "#define ENQUEUE_INITIAL\t\t0x80",
@@ -668,7 +668,7 @@ old = (
 )
 new = (
     "\t\t\tint dequeue_flags = DEQUEUE_SLEEP | DEQUEUE_NOCLOCK;\n"
-    "\t\t\tif ((prev_state & (__TASK_STOPPED | __TASK_TRACED | TASK_PARKED | TASK_DEAD)) ||\n"
+    "\t\t\tif ((prev->state & (__TASK_STOPPED | __TASK_TRACED | TASK_PARKED | TASK_DEAD)) ||\n"
     "\t\t\t    (prev->flags & PF_FROZEN))\n"
     "\t\t\t\tdequeue_flags |= DEQUEUE_SPECIAL;\n"
     "\t\t\tif (dequeue_task(rq, prev, dequeue_flags)) {\n"
