@@ -43,6 +43,7 @@ if [[ "$ACTUAL_SOURCE_COMMIT" != "$SOURCE_COMMIT_LOCK" ]]; then
 fi
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
+python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
 SOURCE_PATCH="$ARTIFACT_DIR/hmp-native-fs-source.patch"
@@ -55,8 +56,20 @@ if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
   SOURCE_PATCH="$ARTIFACT_DIR/meys-v1-eevdf-source.patch"
   KERNEL_LOCALVERSION="-Meys-V1-EEVDF"
 fi
-if ! git -C "$SRC_DIR" diff --quiet HEAD -- fs/f2fs fs/namespace.c fs/super.c fs/fuse include/uapi/linux/fuse.h; then
-  echo "Filesystem preservation audit failed: a patch modified native Fleux F2FS, VFS, or FUSE sources." >&2
+CHANGED_F2FS="$(git -C "$SRC_DIR" diff --name-only HEAD -- fs/f2fs)"
+if [[ -z "$CHANGED_F2FS" ]]; then
+  echo "F2FS Project ID patch did not modify the compiled filesystem sources." >&2
+  exit 1
+fi
+while IFS= read -r changed_path; do
+  [[ -z "$changed_path" ]] && continue
+  case "$changed_path" in
+    fs/f2fs/file.c|fs/f2fs/namei.c) ;;
+    *) echo "Unexpected F2FS source modification: $changed_path" >&2; exit 1 ;;
+  esac
+done <<< "$CHANGED_F2FS"
+if ! git -C "$SRC_DIR" diff --quiet HEAD -- fs/namespace.c fs/super.c fs/fuse include/uapi/linux/fuse.h; then
+  echo "Filesystem preservation audit failed: VFS or FUSE sources were modified." >&2
   exit 1
 fi
 git -C "$SRC_DIR" diff HEAD --check
@@ -91,7 +104,7 @@ SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 CLANG_VERSION="$(clang --version | head -n 1)"
 {
   echo "build_baseline=$BUILD_BASELINE"
-  echo "build30_patch_stack=hmp-eas-hybrid;dpmaif-pm-guard;eevdf-layer1"
+  echo "build30_patch_stack=hmp-eas-hybrid;f2fs-projectid-persistence-compat;dpmaif-pm-guard;eevdf-layer1"
   echo "source_url=$SOURCE_URL"
   echo "source_ref=$SOURCE_REF"
   echo "source_commit_lock=$SOURCE_COMMIT_LOCK"
@@ -110,18 +123,20 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "modem_full_4_14_stack_transplant=not implemented; native 4.19 ECCCI/DPMAIF retained"
   fi
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
-  echo "filesystem_source=native Fleux V11 F2FS and VFS retained unchanged"
-  echo "filesystem_patch=none; no wholesale 4.19.191 F2FS/VFS replacement"
-  echo "f2fs_projectid_patch=not applied; native Fleux FS_IOC_FSSETXATTR implementation retained"
+  echo "filesystem_source=native Fleux V11 F2FS; targeted file.c/namei.c Project ID compatibility changes only; VFS/FUSE unchanged"
+  echo "filesystem_patch=targeted F2FS Project ID persistence compatibility; no wholesale F2FS/VFS replacement"
+  echo "f2fs_projectid_patch=applied; inode Project ID persistence independent of PRJQUOTA; requires on-disk EXTRA_ATTR and sufficient inode extra space"
   echo "fuse=Fleux FUSE implementation retained unchanged"
-  echo "filesystem_source_integrity=PASS; fs/f2fs, VFS remount, and FUSE sources unchanged"
+  echo "filesystem_source_integrity=PASS; only fs/f2fs/file.c and fs/f2fs/namei.c patched; VFS/FUSE unchanged"
+  echo "android13_mediaprovider_bridge=separate AOSP source patch artifact; not included in kernel image"
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
   echo "kernel_image=Image.gz-dtb"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt")
+  HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt")
+  [[ ! -f "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch" ]] || HASH_INPUTS+=("$ARTIFACT_DIR/android13-mediaprovider-projectid.patch")
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt")
   fi
