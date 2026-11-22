@@ -682,6 +682,19 @@ replace_once("kernel/sched/core.c", old, new, "deferred block accounting")
 # Keep the V11 workqueue sleeping notification unconditional: a task delayed
 # on the fair runqueue is still sleeping and must release worker concurrency.
 
+# Preserve the real PSI state when moving a delayed task between cgroups.
+replace_once(
+    "kernel/sched/psi.c",
+    "\tif (task_on_rq_queued(task))\n"
+    "\t\ttask_flags = TSK_RUNNING;\n"
+    "\telse if (task->in_iowait)\n"
+    "\t\ttask_flags = TSK_IOWAIT;\n\n"
+    "\tif (task->flags & PF_MEMSTALL)\n"
+    "\t\ttask_flags |= TSK_MEMSTALL;\n",
+    "\ttask_flags = task->psi_flags;\n",
+    "preserve PSI flags across cgroup migration",
+)
+
 # PSI must distinguish a delayed queued task from a runnable task on migration.
 replace_once(
     "kernel/sched/stats.h",
