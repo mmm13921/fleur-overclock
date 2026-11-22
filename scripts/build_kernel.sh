@@ -103,8 +103,10 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_mode_default=0"
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     echo "scheduler=Linux 6.18 EEVDF backport layer 1; DELAY_DEQUEUE and DELAY_ZERO pending"
-    echo "modem_patch=DPMAIF syscore PM state guard applied; full 4.14 modem-stack transplant not implemented"
-    echo "modem_validation=static DPMAIF/ECCCI audit only; device radio validation required"
+    echo "modem_patch=4.14 MD-state resume guard semantics adapted to native 4.19 DPMAIF syscore path"
+    echo "modem_pm_architecture=DPMAIF syscore owns suspend/resume; legacy CCCI HIF callbacks remain disabled to prevent duplicate restore"
+    echo "modem_validation=static PM call-chain audit only; root cause not identified; device radio validation required"
+    echo "modem_full_4_14_stack_transplant=not implemented; native 4.19 ECCCI/DPMAIF retained"
   fi
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"

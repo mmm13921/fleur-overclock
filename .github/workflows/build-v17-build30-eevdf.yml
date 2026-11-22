@@ -14,6 +14,7 @@ on:
       - 'scripts/audit_android_storage.py'
       - 'eevdf/**'
       - 'research/android13-mediaprovider/**'
+      - 'docs/modem-pm-port.md'
   workflow_dispatch:
 permissions:
   contents: read
@@ -81,9 +82,10 @@ jobs:
           cp artifacts/android-storage-audit.txt artifacts/eevdf-layer1-audit.txt "$AK_DIR/"
           cp artifacts/eevdf-audit.txt artifacts/modem-pm-audit.txt artifacts/modem-stack-audit.txt "$AK_DIR/"
           cp docs/scheduler-modes-port.md "$AK_DIR/SCHEDULER-MODES.txt"
+          cp docs/modem-pm-port.md "$AK_DIR/MODEM-PM-PORT.txt"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config build-manifest.txt meys-v1-eevdf-source.patch storage-projectid-audit.txt scheduler-modes-audit.txt official-4.19.191-fs-mount-audit.txt android-storage-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt modem-pm-audit.txt modem-stack-audit.txt SCHEDULER-MODES.txt
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config build-manifest.txt meys-v1-eevdf-source.patch storage-projectid-audit.txt scheduler-modes-audit.txt official-4.19.191-fs-mount-audit.txt android-storage-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt modem-pm-audit.txt modem-stack-audit.txt SCHEDULER-MODES.txt MODEM-PM-PORT.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip"
           sha256sum artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip | tee artifacts/EEVDF-SHA256.txt
