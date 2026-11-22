@@ -156,7 +156,7 @@ static long calc_group_runnable(struct cfs_rq *cfs_rq, long shares)
 replace_once(
     "kernel/sched/fair.c",
     "runnable = shares = READ_ONCE(gcfs_rq->tg->shares);",
-    "shares = READ_ONCE(gcfs_rq->tg->shares);\\n\\trunnable = gcfs_rq->h_nr_runnable;",
+    "shares = READ_ONCE(gcfs_rq->tg->shares);\n\trunnable = gcfs_rq->h_nr_runnable;",
     "non-SMP group runnable accounting",
 )
 
