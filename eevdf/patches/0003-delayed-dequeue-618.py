@@ -786,15 +786,12 @@ replace_once(
     "delayed entity scheduler class transition cleanup",
 )
 
-fair = read("kernel/sched/fair.c")
-marker = "int can_migrate_task(struct task_struct *p, struct lb_env *env)"
-if marker not in fair:
-    raise SystemExit("can_migrate_task insertion anchor missing")
-start = fair.index(marker)
-brace = fair.index("{", start)
-insert = "\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\t\treturn 0;\n"
-fair = fair[:brace + 1] + insert + fair[brace + 1:]
-write("kernel/sched/fair.c", fair)
+replace_once(
+    "kernel/sched/fair.c",
+    "\tint tsk_cache_hot;",
+    "\tint tsk_cache_hot;\n\n\tif (p->se.sched_delayed && env->migration_type != migrate_load)\n\t\treturn 0;",
+    "delayed entity migration load-balance guard",
+)
 
 # The group unregister path appears before the fair dequeue helper definition.
 replace_once(
