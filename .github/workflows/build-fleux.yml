@@ -1,6 +1,13 @@
 name: Fleux HyperOS-safe filesystem kernel build
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/build_kernel.sh"
+      - "patches/mods_all.py"
+      - ".github/workflows/build-fleux.yml"
   workflow_dispatch:
     inputs:
       source_ref:
