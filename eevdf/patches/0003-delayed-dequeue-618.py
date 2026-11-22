@@ -916,6 +916,7 @@ checks = {
     "zero_lag_requeue": "static void requeue_delayed_entity(" in fair and "se->vlag = 0;" in fair,
     "throttle_bypasses_delay": "DEQUEUE_SLEEP | DEQUEUE_THROTTLE" in fair,
     "throttle_hierarchical_runnable_accounting": "runnable_delta = cfs_rq->h_nr_runnable;" in fair and "qcfs_rq->h_nr_runnable -= runnable_delta;" in fair and "cfs_rq->h_nr_runnable += runnable_delta;" in fair,
+    "delayed_runnable_throttle_boundary": fair.count("if (!entity_is_task(se) && cfs_rq_throttled(se->my_q))") == 2,
     "pelt_excludes_delayed_entities": "if (se->sched_delayed)" in read("kernel/sched/sched.h") and "return 0;" in read("kernel/sched/sched.h")[read("kernel/sched/sched.h").find("static inline long se_runnable"):],
     "group_runnable_weight": "return cfs_rq->h_nr_runnable;" in fair,
     "task_fork_state_init": "p->se.sched_delayed" in core and "p->se.rel_deadline" in core,
