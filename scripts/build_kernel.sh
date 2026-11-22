@@ -55,6 +55,10 @@ if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
   SOURCE_PATCH="$ARTIFACT_DIR/meys-v1-eevdf-source.patch"
   KERNEL_LOCALVERSION="-Meys-V1-EEVDF"
 fi
+if ! git -C "$SRC_DIR" diff --quiet HEAD -- fs/f2fs fs/namespace.c fs/super.c fs/fuse include/uapi/linux/fuse.h; then
+  echo "Filesystem preservation audit failed: a patch modified native Fleux F2FS, VFS, or FUSE sources." >&2
+  exit 1
+fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
@@ -110,6 +114,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "filesystem_patch=none; no wholesale 4.19.191 F2FS/VFS replacement"
   echo "f2fs_projectid_patch=not applied; native Fleux FS_IOC_FSSETXATTR implementation retained"
   echo "fuse=Fleux FUSE implementation retained unchanged"
+  echo "filesystem_source_integrity=PASS; fs/f2fs, VFS remount, and FUSE sources unchanged"
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
   echo "kernel_image=Image.gz-dtb"
