@@ -263,6 +263,9 @@ static void set_delayed(struct sched_entity *se)
 	/* Task entities stop contributing to hierarchical runnable counts. */
 	if (!entity_is_task(se))
 		return;
+#ifdef CONFIG_MTK_CORE_CTL
+	inc_nr_heavy_running(3, task_of(se), -1, false);
+#endif
 
 	for_each_sched_entity(se) {
 		struct cfs_rq *cfs_rq;
@@ -381,6 +384,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 {
 	bool task_sleep = flags & DEQUEUE_SLEEP;
 	bool task_delayed = flags & DEQUEUE_DELAYED;
+	bool was_delayed = se->sched_delayed;
 	struct task_struct *p = NULL;
 	int h_nr_queued = 0;
 	int h_nr_runnable = 0;
@@ -447,10 +451,10 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	}
 
 	if (!se) {
-		if (p) {
-			#ifdef CONFIG_MTK_CORE_CTL
+		if (p && !was_delayed) {
+#ifdef CONFIG_MTK_CORE_CTL
 			inc_nr_heavy_running(3, p, -1, false);
-			#endif
+#endif
 		}
 		sub_nr_running(rq, h_nr_queued);
 	}
@@ -488,6 +492,9 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		schedtune_enqueue_task(p, cpu_of(rq));
 
 	if (flags & ENQUEUE_DELAYED) {
+#ifdef CONFIG_MTK_CORE_CTL
+		inc_nr_heavy_running(2, p, 1, false);
+#endif
 		requeue_delayed_entity(se);
 		return;
 	}
@@ -538,7 +545,8 @@ static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!se) {
 #ifdef CONFIG_MTK_CORE_CTL
-		inc_nr_heavy_running(2, p, 1, false);
+		if (!p->se.sched_delayed)
+			inc_nr_heavy_running(2, p, 1, false);
 #endif
 		add_nr_running(rq, 1);
 		if (!task_new)
