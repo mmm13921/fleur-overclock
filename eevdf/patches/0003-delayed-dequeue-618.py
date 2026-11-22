@@ -632,8 +632,8 @@ replace_once(
 )
 replace_once(
     "kernel/sched/fair.c",
-    "task_delta = cfs_rq->h_nr_running;",
-    "task_delta = cfs_rq->h_nr_running;\n\trunnable_delta = cfs_rq->h_nr_runnable;",
+    "\trcu_read_unlock();\n\n\ttask_delta = cfs_rq->h_nr_running;",
+    "\trcu_read_unlock();\n\n\ttask_delta = cfs_rq->h_nr_running;\n\trunnable_delta = cfs_rq->h_nr_runnable;",
     "throttle runnable delta snapshot",
 )
 replace_once(
@@ -671,7 +671,7 @@ for old, new, label in (
 # A delayed entity cannot be left behind when a policy/class transition removes
 # it from fair scheduling. Force its delayed dequeue before queued-state tests.
 core = read("kernel/sched/core.c")
-anchor = "\tqueued = task_on_rq_queued(p);\n\trunning = task_current(rq, p);"
+anchor = "\tqueued = task_on_rq_queued(p);\n\trunning = task_current(rq, p);\n\tif (queued)\n\t\tdequeue_task(rq, p, queue_flags);"
 if anchor not in core:
     raise SystemExit("sched_setscheduler queued-state anchor missing")
 replace_once(
