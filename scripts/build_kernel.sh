@@ -44,7 +44,9 @@ export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-Meys}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "-Meys-EEVDF"
+"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
+grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 python3 "$WORKSPACE/scripts/audit_android_storage.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
