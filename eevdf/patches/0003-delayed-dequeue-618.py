@@ -939,7 +939,15 @@ replace_once(
 replace_once(
     "kernel/sched/fair.c",
     "qcfs_rq->h_nr_running -= task_delta;",
-    "qcfs_rq->h_nr_running -= task_delta;\n\t\tqcfs_rq->h_nr_runnable -= runnable_delta;\n\t\tse_update_runnable(se);\n\t\tupdate_cfs_group(se);",
+    "qcfs_rq->h_nr_running -= task_delta;\n\t\tqcfs_rq->h_nr_runnable -= runnable_delta;\n\t\tse_update_runnable(se);\n\t\tupdate_cfs_group(se);\n"
+    "#ifdef CONFIG_FAIR_GROUP_SCHED\n"
+    "\t\tif (!entity_is_task(se)) {\n"
+    "\t\t\tse->slice = cfs_rq_min_slice(se->my_q);\n"
+    "\t\t\tse->custom_slice = 1;\n"
+    "\t\t\tif (se->on_rq && se != qcfs_rq->curr)\n"
+    "\t\t\t\tmin_vruntime_propagate(&se->run_node, NULL);\n"
+    "\t\t}\n"
+    "#endif",
     "throttle runnable delta removal",
 )
 replace_once(
