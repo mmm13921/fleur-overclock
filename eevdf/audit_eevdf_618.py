@@ -30,7 +30,7 @@ checks = [
     ("layer1.relative_deadline", "SCHED_FEAT(PLACE_REL_DEADLINE, true)" in src["features"] and "se->rel_deadline = 1" in src["fair"]),
     ("layer1.base_slice_sysctl", "sched_base_slice" in src["sysctl"] and "sysctl_sched_base_slice" in src["fair"]),
     ("layer1.proc_sys_feature_controls", all(n in src["sysctl"] for n in ("sched_eevdf_place_lag", "sched_eevdf_place_deadline_initial", "sched_eevdf_place_rel_deadline", "sched_eevdf_run_to_parity", "sched_eevdf_preempt_short"))),
-    ("layer2.dequeue_bool_api", "bool (*dequeue_task)" in src["sched_class"] and "static inline bool dequeue_task(" in src["core"] and all(re.search(r"static bool\\s+dequeue_task_" + n + r"\\s*\\(", src[k]) is not None for k,n in (("fair","fair"),("deadline","dl"),("idle","idle"),("rt","rt"),("stop","stop")))),
+    ("layer2.dequeue_bool_api", "bool (*dequeue_task)" in src["sched_class"] and "static inline bool dequeue_task(" in src["core"] and all(re.search(r"static bool\s+dequeue_task_" + n + r"\s*\(", src[k]) is not None for k,n in (("fair","fair"),("deadline","dl"),("idle","idle"),("rt","rt"),("stop","stop")))),
     ("later.delay_dequeue", "SCHED_FEAT(DELAY_DEQUEUE" in src["features"] and "DELAY_DEQUEUE" in src["fair"]),
     ("later.delay_zero", "SCHED_FEAT(DELAY_ZERO" in src["features"] and "DELAY_ZERO" in src["fair"]),
     ("later.custom_slice_runtime", "custom_slice" in src["entity"] and "custom_slice" in src["fair"] and "sched_runtime" in src["core"]),
