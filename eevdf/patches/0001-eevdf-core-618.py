@@ -649,7 +649,7 @@ checks = {
 missing = [name for name, ok in checks.items() if not ok]
 lines = ["Meys V1 EEVDF Linux 6.18 backport — layer 1 audit",
          "target=Fleux V11 / Linux 4.19.325",
-         "implemented=augmented min_vruntime+min_slice tree, protected virtual deadline, PREEMPT_SHORT, PLACE_REL_DEADLINE, sched_base_slice, /proc/sys/kernel EEVDF feature controls, per-task custom slice via sched_attr.sched_runtime"]
+         "implemented=augmented min_vruntime+min_slice tree, protected virtual deadline, PREEMPT_SHORT, PLACE_REL_DEADLINE, sched_base_slice, /proc/sys/kernel EEVDF feature controls, internal group-entity custom slice; sched_attr.sched_runtime ABI preserved for SCHED_DEADLINE"]
 for name, ok in checks.items():
     lines.append(("PASS=" if ok else "FAIL=") + name)
 lines += [
