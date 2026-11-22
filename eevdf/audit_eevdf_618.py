@@ -43,7 +43,7 @@ checks = [
     ("layer3.hierarchical_dequeue", "static int dequeue_entities(" in src["fair"] and "h_nr_runnable -= h_nr_runnable" in src["fair"]),
     ("layer3.delayed_wakeup", "ENQUEUE_NOCLOCK | ENQUEUE_DELAYED" in src["core"] and "requeue_delayed_entity(se);" in src["fair"]),
     ("layer3.delayed_pick_cleanup", "dequeue_entities(rq_of(cfs_rq), se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
-    ("layer3.delayed_next_buddy_guard", "!cfs_rq->next->sched_delayed" in src["fair"] and "!pse->sched_delayed" in src["fair"]),
+    ("layer3.delayed_next_buddy_guard", "!cfs_rq->next->sched_delayed" in src["fair"] and "!pse->sched_delayed" in src["fair"] and "if (se->sched_delayed)" in src["fair"]),
     ("layer3.deferred_block_accounting", "if (dequeue_task(rq, prev" in src["core"] and "void __block_task(" in src["core"]),
     ("layer3.delay_zero_requeue", "static void requeue_delayed_entity(" in src["fair"] and "se->vlag = 0;" in src["fair"]),
     ("layer3.pelt_excludes_delayed", "if (se->sched_delayed)" in src["sched_class"] and "return 0;" in src["sched_class"]),
