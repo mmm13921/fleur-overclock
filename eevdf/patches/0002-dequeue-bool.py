@@ -65,7 +65,7 @@ def find_body_end(src, open_brace):
 
 def convert_dequeue_function(path, name):
     src = read(path)
-    pattern = re.compile(r"(?m)^static\\s+void\\s+" + re.escape(name) + r"\\s*\\(")
+    pattern = re.compile(r"(?m)^static\s+void\s+" + re.escape(name) + r"\s*\(")
     matches = list(pattern.finditer(src))
     if len(matches) != 1:
         raise SystemExit(f"{path}:{name}: expected one definition, found {len(matches)}")
@@ -75,12 +75,12 @@ def convert_dequeue_function(path, name):
         raise SystemExit(f"{path}:{name}: opening brace not found")
     close_brace = find_body_end(src, open_brace)
     body = src[open_brace + 1:close_brace]
-    if re.search(r"\\breturn\\s*;", body) or re.search(r"\\breturn\\s+[^;]+;", body):
+    if re.search(r"\breturn\s*;", body) or re.search(r"\breturn\s+[^;]+;", body):
         raise SystemExit(f"{path}:{name}: existing return path needs manual review")
     signature = src[match.start():match.end()].replace("static void", "static bool", 1)
     updated = (
         src[:match.start()] + signature + src[match.end():close_brace]
-        + "\\n\\treturn true;\\n" + src[close_brace:]
+        + "\n\treturn true;\n" + src[close_brace:]
     )
     write(path, updated)
 
@@ -101,8 +101,8 @@ replace_once(
 )
 replace_once(
     "kernel/sched/core.c",
-    "\\tuclamp_rq_dec(rq, p);\\n\\tp->sched_class->dequeue_task(rq, p, flags);",
-    "\\tuclamp_rq_dec(rq, p);\\n\\treturn p->sched_class->dequeue_task(rq, p, flags);",
+    "\tuclamp_rq_dec(rq, p);\n\tp->sched_class->dequeue_task(rq, p, flags);",
+    "\tuclamp_rq_dec(rq, p);\n\treturn p->sched_class->dequeue_task(rq, p, flags);",
     "core dequeue_task bool propagation",
 )
 
@@ -121,7 +121,7 @@ checks = {
     "core_wrapper_bool": "static inline bool dequeue_task(" in read("kernel/sched/core.c"),
     "core_returns_class_result": "return p->sched_class->dequeue_task(rq, p, flags);" in read("kernel/sched/core.c"),
     "all_scheduler_classes_bool": all(
-        re.search(r"static bool\\s+" + name + r"\\s*\\(", read(path)) is not None
+        re.search(r"static bool\s+" + name + r"\s*\(", read(path)) is not None
         and "return true;" in read(path)[read(path).find(name):read(path).find(name) + 5000]
         for path, name in classes.items()
     ),
@@ -141,7 +141,7 @@ lines += [
     "result=" + ("PASS" if all(checks.values()) else "FAIL"),
 ]
 audit.parent.mkdir(parents=True, exist_ok=True)
-audit.write_text("\\n".join(lines) + "\\n")
-print("\\n".join(lines))
+audit.write_text("\n".join(lines) + "\n")
+print("\n".join(lines))
 if not all(checks.values()):
     raise SystemExit("dequeue bool API audit failed")
