@@ -785,11 +785,4 @@ def main():
 
 
 if __name__=='__main__':
-    main()```
-
-Usage: `python3 port_mods.py IN.img OUT.img [--dry] [--cci MHz --cci-volt V] [--cpu MHz --cpu-volt V] [--gpu a,b,c,d] [--gpu-volt V] [--min-big MHz] [--min-little MHz] [--kernel Image.gz-dtb] [--magisk REF_MAGISK_BOOT] [--sched-bounds|--sched-u32] [--vm-bounds] [--od-rate0] [--cap-percpu] [--cap-max]`. Input may also be a raw Image.gz-dtb (kernel and appended dtbs patched).
-
-## Appendix B — disp_oc.py (needs port_mods.py in the same folder)
-
-Usage: `python3 disp_oc.py in.img out.img 96 [--dry] [--rate]`
-
+    main()
