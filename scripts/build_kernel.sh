@@ -103,9 +103,9 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_mode_default=0"
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
     echo "scheduler=Linux 6.18 EEVDF backport layer 1; DELAY_DEQUEUE and DELAY_ZERO pending"
-    echo "modem_patch=shared 4.14 MD-state guard applied to native 4.19 DPMAIF syscore and device noirq resume paths"
-    echo "modem_pm_architecture=DPMAIF syscore plus registered CCCI device noirq callbacks; both resume paths share MD-state guard; legacy CCCI HIF callbacks remain disabled"
-    echo "modem_validation=static audit of both registered PM resume paths; radio root cause partially narrowed; device radio validation required"
+    echo "modem_patch=CCCI MD-state guard applied to active native 4.19 DPMAIF syscore resume path"
+    echo "modem_pm_architecture=DPMAIF syscore owns DPMAIF restore; CCCI platform syscore hook does not restore HIF; device noirq callbacks are weak stubs on MT6781; legacy CCCI HIF callbacks remain disabled"
+    echo "modem_validation=static audit of active MT6781 DPMAIF syscore route; radio root cause partially narrowed; device radio validation required"
     echo "modem_full_4_14_stack_transplant=not implemented; native 4.19 ECCCI/DPMAIF retained"
   fi
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
