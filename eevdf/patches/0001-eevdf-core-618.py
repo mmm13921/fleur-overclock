@@ -321,13 +321,13 @@ replace_once(
 replace_once(
     "kernel/sched/fair.c",
     "SET_SYSCTL(sched_min_granularity);",
-    "SET_SYSCTL(sched_min_granularity);\\n\\tSET_SYSCTL(sched_base_slice);",
+    "SET_SYSCTL(sched_min_granularity);\n\tSET_SYSCTL(sched_base_slice);",
     "normalize EEVDF base slice with scheduler scaling",
 )
 replace_once(
     "kernel/sched/fair.c",
     "WRT_SYSCTL(sched_min_granularity);",
-    "WRT_SYSCTL(sched_min_granularity);\\n\\tWRT_SYSCTL(sched_base_slice);",
+    "WRT_SYSCTL(sched_min_granularity);\n\tWRT_SYSCTL(sched_base_slice);",
     "update normalized EEVDF base slice on sysctl writes",
 )
 
