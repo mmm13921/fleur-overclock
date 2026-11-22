@@ -14,6 +14,7 @@ paths = {
     "idle": root / "kernel/sched/idle.c",
     "rt": root / "kernel/sched/rt.c",
     "stop": root / "kernel/sched/stop_task.c",
+    "stats": root / "kernel/sched/stats.h",
 }
 missing = [str(p) for p in paths.values() if not p.is_file()]
 if missing:
@@ -46,6 +47,7 @@ checks = [
     ("layer3.delayed_wakeup", "requeue_delayed_entity(se);" in src["fair"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" in src["core"]),
     ("layer3.local_workqueue_delayed_wakeup", "else if (p->se.sched_delayed)" in src["core"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);" in src["core"]),
     ("layer3.uclamp_delayed_accounting", "if (!p->se.sched_delayed || (flags & ENQUEUE_DELAYED))" in src["core"] and "if (!p->se.sched_delayed)\n\t\tuclamp_rq_dec(rq, p);" in src["core"]),
+    ("layer3.psi_delayed_accounting", "if (p->se.sched_delayed)" in src["stats"] and "set |= TSK_IOWAIT;" in src["stats"] and "psi_enqueue(p, flags & (ENQUEUE_WAKEUP | ENQUEUE_DELAYED));" in src["core"]),
     ("layer3.delayed_pick_cleanup", "dequeue_entities(rq_of(cfs_rq), se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
     ("layer3.delayed_next_buddy_guard", "!cfs_rq->next->sched_delayed" in src["fair"] and "!pse->sched_delayed" in src["fair"] and "if (se->sched_delayed)" in src["fair"]),
     ("layer3.deferred_block_accounting", "if (dequeue_task(rq, prev" in src["core"] and "void __block_task(" in src["core"]),
