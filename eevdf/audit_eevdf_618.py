@@ -41,7 +41,7 @@ checks = [
     ("layer3.delayed_state_field", "sched_delayed" in src["entity"]),
     ("layer3.hierarchical_runnable_counter", "h_nr_runnable" in src["sched_class"]),
     ("layer3.delayed_dequeue_entity", "static bool\ndequeue_entity(" in src["fair"] and "set_delayed(se);" in src["fair"]),
-    ("layer3.dequeue_refreshes_group_runnable_weight", re.search(r"static bool\\s+dequeue_entity\\([^)]*\\)\\s*\\{(?:(?!\\n\\}).)*?se_update_runnable\\(se\\);(?:(?!\\n\\}).)*?update_cfs_group\\(se\\);", src["fair"], re.S) is not None),
+    ("layer3.dequeue_refreshes_group_runnable_weight", re.search(r"static bool\s+dequeue_entity\([^)]*\)\s*\{(?:(?!\n\}).)*?se_update_runnable\(se\);(?:(?!\n\}).)*?update_cfs_group\(se\);", src["fair"], re.S) is not None),
     ("layer3.hierarchical_dequeue", "static int dequeue_entities(" in src["fair"] and "h_nr_runnable -= h_nr_runnable" in src["fair"]),
     ("layer3.delayed_wakeup", "requeue_delayed_entity(se);" in src["fair"] and "enqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED)" in src["core"]),
     ("layer3.delayed_pick_cleanup", "dequeue_entities(rq_of(cfs_rq), se, DEQUEUE_SLEEP | DEQUEUE_DELAYED)" in src["fair"]),
