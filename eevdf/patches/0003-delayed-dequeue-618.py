@@ -106,7 +106,7 @@ if "DEQUEUE_DELAYED" not in sched_h:
         "#define DEQUEUE_THROTTLE\t0x800\n",
         "delayed dequeue flags",
     )
-if not re.search(r"(?m)^#define ENQUEUE_DELAYED\\s+", read("kernel/sched/sched.h")):
+if not re.search(r"(?m)^#define ENQUEUE_DELAYED\s+", read("kernel/sched/sched.h")):
     replace_once(
         "kernel/sched/sched.h",
         "#define ENQUEUE_INITIAL\t\t0x80",
