@@ -61,8 +61,8 @@ def blob_id(src, treeish, path):
     return result.stdout.decode().strip() if result.returncode == 0 else None
 
 def fuse_protocol(text):
-    major = re.search(r"(?m)^#define FUSE_KERNEL_VERSION (\\d+)$", text)
-    minor = re.search(r"(?m)^#define FUSE_KERNEL_MINOR_VERSION (\\d+)$", text)
+    major = re.search(r"(?m)^#define FUSE_KERNEL_VERSION (\d+)$", text)
+    minor = re.search(r"(?m)^#define FUSE_KERNEL_MINOR_VERSION (\d+)$", text)
     return (major.group(1) + "." + minor.group(1)) if major and minor else "unknown"
 
 def main():
