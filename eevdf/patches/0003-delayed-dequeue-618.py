@@ -696,10 +696,24 @@ if core.count(old_iowait) != 2:
     raise SystemExit("expected both SMP and UP try_to_wake_up iowait paths")
 write("kernel/sched/core.c", core.replace(old_iowait, new_iowait))
 
-# A delayed entity remains queued. ttwu_remote() must only flip its
-# state and run wakeup-preemption; enqueueing it again would double-account
-# nr_running, util_est and schedtune. The fair enqueue path handles the
-# ENQUEUE_DELAYED case only when a real enqueue is required.
+# A delayed entity remains queued and on_rq. A wakeup therefore takes
+# ttwu_remote() rather than the full activation path. Re-enter the normal
+# enqueue wrapper with ENQUEUE_DELAYED so generic sleep accounting is paired
+# and the fair class clears delayed state without adding a second runqueue
+# entity.
+core = read("kernel/sched/core.c")
+old = "\t\tupdate_rq_clock(rq);\n\t\tttwu_do_wakeup(rq, p, wake_flags, &rf);"
+if old not in core:
+    raise SystemExit("ttwu_remote wakeup anchor missing")
+replace_once(
+    "kernel/sched/core.c", old,
+    "\t\tupdate_rq_clock(rq);\n"
+    "\t\tif (p->se.sched_delayed)\n"
+    "\t\t\tenqueue_task(rq, p, ENQUEUE_NOCLOCK | ENQUEUE_DELAYED);\n"
+    "\t\tttwu_do_wakeup(rq, p, wake_flags, &rf);",
+    "delayed wakeup requeue",
+)
+
 replace_once(
     "kernel/sched/fair.c",
     "static void set_next_buddy(struct sched_entity *se)\n{\n\tif (entity_is_task(se)",
