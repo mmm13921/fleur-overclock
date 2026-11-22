@@ -446,8 +446,14 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 			break;
 	}
 
-	if (!se)
+	if (!se) {
+		if (p) {
+			#ifdef CONFIG_MTK_CORE_CTL
+			inc_nr_heavy_running(3, p, -1, false);
+			#endif
+		}
 		sub_nr_running(rq, h_nr_queued);
+	}
 
 	if (p && task_delayed) {
 		WARN_ON_ONCE(!task_sleep);
