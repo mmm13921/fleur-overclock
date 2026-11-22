@@ -1,33 +1,40 @@
-name: Clean up old branches
+name: Clean up old branches and workflow runs
 on:
   workflow_dispatch:
     inputs:
       execute:
-        description: "Actually delete branches (otherwise dry-run)"
+        description: "Actually perform deletions (otherwise dry-run)"
         required: true
         type: boolean
         default: false
-      confirm:
-        description: 'Type DELETE to authorize deletion'
+      delete_failed_runs:
+        description: "Delete failed, timed-out, or action-required workflow runs"
         required: true
-        type: string
-        default: "REVIEW"
+        type: boolean
+        default: false
+      delete_unstarted_runs:
+        description: "Delete queued or waiting workflow runs that have not started"
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: write
-  actions: read
+  actions: write
 concurrency:
-  group: branch-cleanup
+  group: repository-cleanup
   cancel-in-progress: false
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Review and optionally delete old branches
+      - name: Review and optionally delete branches and workflow runs
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           EXECUTE: ${{ inputs.execute }}
-          CONFIRM: ${{ inputs.confirm }}
+          DELETE_FAILED_RUNS: ${{ inputs.delete_failed_runs }}
+          DELETE_UNSTARTED_RUNS: ${{ inputs.delete_unstarted_runs }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -40,15 +47,12 @@ jobs:
           )
           DEFAULT_BRANCH="$(gh api "repos/$REPOSITORY" --jq .default_branch)"
           echo "Default branch: $DEFAULT_BRANCH"
-          echo "Branches that will be kept:"
+          echo "Branches to preserve:"
           printf '  - %s\n' "${KEEP_BRANCHES[@]}"
-          if [[ "$EXECUTE" == "true" && "$CONFIRM" != "DELETE" ]]; then
-            echo "::error::Execution requires confirm=DELETE."
-            exit 1
-          fi
           if [[ "$EXECUTE" != "true" ]]; then
-            echo "DRY RUN ONLY — no branches will be deleted."
+            echo "DRY RUN — no branch or workflow-run history will be deleted."
           fi
+          echo "::group::Branch cleanup"
           while IFS= read -r branch; do
             [[ -z "$branch" ]] && continue
             keep=false
@@ -61,13 +65,40 @@ jobs:
               continue
             fi
             if [[ "$EXECUTE" != "true" ]]; then
-              echo "WOULD DELETE  $branch"
+              echo "WOULD DELETE BRANCH  $branch"
               continue
             fi
             encoded_branch="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")"
             if gh api --method DELETE "repos/$REPOSITORY/git/refs/heads/$encoded_branch"; then
-              echo "DELETED  $branch"
+              echo "DELETED BRANCH  $branch"
             else
-              echo "::warning::Could not delete $branch (possibly protected or restricted)."
+              echo "::warning::Could not delete branch $branch (possibly protected or restricted)."
             fi
           done < <(gh api --paginate "repos/$REPOSITORY/branches?per_page=100" --jq '.[].name')
+          echo "::endgroup::"
+          if [[ "$DELETE_FAILED_RUNS" == "true" || "$DELETE_UNSTARTED_RUNS" == "true" ]]; then
+            echo "::group::Workflow run cleanup"
+            while IFS=$'\t' read -r run_id run_name run_status conclusion; do
+              [[ -z "$run_id" ]] && continue
+              [[ "$run_id" == "$CURRENT_RUN_ID" ]] && continue
+              remove=false
+              if [[ "$DELETE_FAILED_RUNS" == "true" ]] && [[ "$conclusion" == "failure" || "$conclusion" == "timed_out" || "$conclusion" == "action_required" ]]; then
+                remove=true
+              fi
+              if [[ "$DELETE_UNSTARTED_RUNS" == "true" ]] && [[ "$run_status" == "queued" || "$run_status" == "requested" || "$run_status" == "waiting" || "$run_status" == "pending" ]]; then
+                remove=true
+              fi
+              [[ "$remove" == "true" ]] || continue
+              if [[ "$EXECUTE" != "true" ]]; then
+                echo "WOULD DELETE RUN  id=$run_id name=$run_name status=$run_status conclusion=$conclusion"
+              elif gh api --method DELETE "repos/$REPOSITORY/actions/runs/$run_id"; then
+                echo "DELETED RUN  id=$run_id name=$run_name status=$run_status conclusion=$conclusion"
+              else
+                echo "::warning::Could not delete workflow run $run_id ($run_name)."
+              fi
+            done < <(gh api --paginate "repos/$REPOSITORY/actions/runs?per_page=100" --jq '.workflow_runs[] | [.id, .name, .status, (.conclusion // "-")] | @tsv')
+            echo "::endgroup::"
+          else
+            echo "Workflow-run cleanup not selected; no run history will be deleted."
+          fi
+          echo "Cleanup finished."
