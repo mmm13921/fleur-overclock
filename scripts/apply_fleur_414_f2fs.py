@@ -109,13 +109,20 @@ def main():
          "timespec64_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)"),
         ("timespec_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)",
          "timespec64_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)"),
-        ("timespec_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
-         "timespec64_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)"),
     )
     for old_call, new_call in time_pairs:
         require(f2fs_header.count(old_call) == 1,
                 "expected exactly one legacy timestamp comparison: " + old_call)
         f2fs_header = f2fs_header.replace(old_call, new_call, 1)
+    fourth_time, fourth_count = re.subn(
+        r"timespec_equal\\(F2FS_I\\(inode\\)->i_disk_time \\+ 3,\\s*&F2FS_I\\(inode\\)->i_crtime\\)",
+        "timespec64_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
+        f2fs_header,
+        count=1,
+    )
+    require(fourth_count == 1,
+            "expected exactly one line-wrapped creation-time comparison")
+    f2fs_header = fourth_time
     header_path.write_text(f2fs_header)
 
     f2fs_file = (src / "fs/f2fs/file.c").read_text()
