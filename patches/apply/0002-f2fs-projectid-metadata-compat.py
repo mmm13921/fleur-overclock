@@ -86,11 +86,8 @@ new = """static int f2fs_ioc_setproject(struct file *filp, __u32 projid)
 	 * EXTRA_ATTR, accept vold's tagging request as a compatibility no-op:
 	 * quota isolation is unavailable, but app-directory setup must not fail.
 	 */
-	if (!f2fs_has_extra_attr(inode)) {
-		if (!quota_enabled)
-			return 0;
+	if (!f2fs_has_extra_attr(inode))
 		return -EOPNOTSUPP;
-	}
 
 	kprojid = make_kprojid(&init_user_ns, (projid_t)projid);
 	if (projid_eq(kprojid, F2FS_I(inode)->i_projid))
@@ -170,7 +167,7 @@ report.write_text("\n".join((
     "project_inheritance=children inherit project ID when parent PROJINHERIT is set and EXTRA_ATTR exists",
     "legacy_unsupported_metadata_behavior=FSSETXATTR succeeds as a no-op if EXTRA_ATTR is absent or i_projid does not fit; project ID is not persisted",
     "metadata_persistence_requirement=on-disk EXTRA_ATTR and sufficient per-inode extra size; otherwise safe no-op when PRJQUOTA is disabled",
-    "quota_enforcement=requires a filesystem formatted with PRJQUOTA; this compatibility path does not provide enforcement",
+    "quota_enforcement=requires on-disk PRJQUOTA; compatibility path persists IDs but does not claim quota enforcement",
     "data_safety=no superblock feature bits modified; no data partition reformat or mount-option mutation",
 )) + "\n")
 print(report.read_text(), end="")
