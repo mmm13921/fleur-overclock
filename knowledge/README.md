@@ -42,6 +42,7 @@
 | [Build baselines](build-baselines.md) | Build 30، 38، 49 و نسخه‌های EEVDF |
 | [مودم و DPMAIF](modem-dpmaif.md) | مرجع رسمی 4.14.186، DPMAIF، PM و تست رادیو |
 | [باگ داده و storage](storage-data.md) | Telegram، Recorder، FUSE، F2FS، Project ID و MediaProvider |
+| [Screen Recorder EACCES](screenrecorder-eacces.md) | شکست open فایل موقت MediaStore و بررسی FUSE/مجوزها |
 | [HMP/EAS/Hybrid](hmp-scheduler.md) | selector، topology و تنظیمات scheduler |
 | [Performance و Touch/GPU](performance-touch-gpu.md) | COD، لمس، فرکانس‌ها، VM و app retention |
 | [EEVDF 6.18](builds/eevdf-618.md) | بک‌پورت، خطاهای compile و بررسی معنایی |
