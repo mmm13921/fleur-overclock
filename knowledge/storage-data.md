@@ -82,3 +82,10 @@
 
 ### چک‌لیست اپ‌های رگرسیون
 حداقل Telegram، Recorder، Camera/Media, Downloads و اپ‌های scoped-storage باید روی baseline و build جدید با مسیر ذخیره‌سازی یکسان تست شوند. فایل باید با shell/root بررسی شود: آیا ایجاد شده؟ اندازه تغییر می‌کند؟ owner و SELinux context چیست؟ سپس MediaStore visibility جدا بررسی شود.
+
+
+## Screen Recorder — شکست ساخت فایل MP4
+
+در لاگ 2026-11-24، انکودر `c2.mtk.avc.encoder` با موفقیت start می‌شود، اما بازکردن فایل موقت مخفی در `DCIM/ScreenRecorder` با `EACCES` شکست می‌خورد. fallback ساخت MediaMuxer نیز همان خطا را می‌گیرد و سپس ScreenRecorder با NPE متوقف می‌شود. این رخداد به‌تنهایی خرابی MediaCodec یا F2FS را ثابت نمی‌کند.
+
+تحلیل دقیق، مقایسهٔ FUSE با سورس رسمی 4.14، محدودیت‌های امنیتی و دستورهای تشخیصی read-only در [screenrecorder-eacces.md](screenrecorder-eacces.md) ثبت شده است. تا پیش از ثبت mount options و metadata واقعی مسیر، هیچ bypass برای FUSE permission یا تغییر سراسری SELinux اعمال نشود.
