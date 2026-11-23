@@ -152,6 +152,9 @@ def main():
     require("fscrypt_operations" in f2fs_super or "fscrypt" in f2fs_super,
             "F2FS fscrypt integration is missing")
 
+    require(f2fs_header.count("timespec_equal(") == 4 and "timespec64_equal(" not in f2fs_header,
+            "F2FS inode timestamp compatibility must use four timespec_equal calls for donor struct timespec fields")
+
     checked = run_git(src, ["diff", "HEAD", "--check"], check=False)
     require(checked.returncode == 0,
             "source diff check failed:\n" +
@@ -174,7 +177,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
-        "api_compat=four timespec_equal calls converted to timespec64_equal; linux/time64.h included for 4.19.325 inode timestamps",
+        "api_compat=donor struct timespec fields use four timespec_equal comparisons; linux/time32.h included; inode layout and on-disk format unchanged",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
