@@ -163,7 +163,7 @@ def main():
     namei_path = src / "fs/f2fs/namei.c"
     f2fs_namei = namei_path.read_text()
     function_match = re.search(
-        r"static struct inode \\*f2fs_new_inode\\([^)]*\\)\\s*\\{",
+        r"static struct inode \*f2fs_new_inode\([^)]*\)\s*\{",
         f2fs_namei,
     )
     require(function_match is not None,
@@ -182,12 +182,12 @@ def main():
                 break
     require(function_end is not None, "f2fs_new_inode function body is unterminated")
     function_body = f2fs_namei[function_start:function_end]
-    old_inode_decl = "\\tstruct inode *inode;\\n"
+    old_inode_decl = "\tstruct inode *inode;\n"
     require(function_body.count(old_inode_decl) == 1,
             "expected exactly one inode declaration inside f2fs_new_inode")
     function_body = function_body.replace(
         old_inode_decl,
-        old_inode_decl + "\\tstruct timespec64 now;\\n",
+        old_inode_decl + "\tstruct timespec64 now;\n",
         1,
     )
     f2fs_namei = f2fs_namei[:function_start] + function_body + f2fs_namei[function_end:]
