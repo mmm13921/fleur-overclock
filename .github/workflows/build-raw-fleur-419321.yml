@@ -1,0 +1,85 @@
+name: Raw Fleur Linux 4.19.321 Baseline
+run-name: Raw Fleur 4.19.321 compile check
+on:
+  push:
+    branches:
+      - test/raw-fleur-419321-baseline
+    paths:
+      - '.github/workflows/build-raw-fleur-419321.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: raw-fleur-419321-baseline
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Compile untouched fleur 4.19.321 source
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout build harness only
+        uses: actions/checkout@v4
+      - name: Install original GCC build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bc bison build-essential ca-certificates flex gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi git libelf-dev libssl-dev make python3 python-is-python3 rsync
+      - name: Fetch exact unmodified fleur 4.19.321 source
+        env:
+          SOURCE_URL: https://github.com/doanhidm1/kernel_xiaomi_fleur.git
+          SOURCE_SHA: ae8b13e84c4c620a3faff26799d4280d0ecbbbd8
+        run: |
+          set -euo pipefail
+          git clone --no-checkout --filter=blob:none "$SOURCE_URL" kernel-src
+          git -C kernel-src fetch --depth=1 origin "$SOURCE_SHA"
+          git -C kernel-src checkout --detach "$SOURCE_SHA"
+          test "$(git -C kernel-src rev-parse HEAD)" = "$SOURCE_SHA"
+          grep -q '^VERSION = 4$' kernel-src/Makefile
+          grep -q '^PATCHLEVEL = 19$' kernel-src/Makefile
+          grep -q '^SUBLEVEL = 321$' kernel-src/Makefile
+          test -f kernel-src/arch/arm64/configs/mt6781_defconfig
+          mkdir -p artifacts
+          {
+            echo "source_url=$SOURCE_URL"
+            echo "source_branch=lineage-21"
+            echo "source_commit=$SOURCE_SHA"
+            echo "kernel_version=4.19.321"
+            echo "config=mt6781_defconfig"
+            echo "build_mode=untouched upstream source; GCC cross compiler"
+            echo "patches_applied=none"
+          } | tee artifacts/source-manifest.txt
+          git -C kernel-src status --short
+      - name: Configure original MT6781 defconfig
+        run: |
+          set -euo pipefail
+          make -C kernel-src O="$PWD/out" ARCH=arm64 mt6781_defconfig
+      - name: Compile kernel without source modifications
+        run: |
+          set -euo pipefail
+          make -C kernel-src -j"$(nproc)" O="$PWD/out" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+          test -s out/vmlinux
+          test -s out/arch/arm64/boot/Image
+          cp out/.config artifacts/kernel.config
+          cp out/vmlinux artifacts/vmlinux
+          cp out/arch/arm64/boot/Image artifacts/Image
+          for f in out/arch/arm64/boot/Image.gz out/arch/arm64/boot/Image.gz-dtb out/arch/arm64/boot/Image-dtb; do
+            if [ -s "$f" ]; then cp "$f" artifacts/; fi
+          done
+          {
+            echo "compile_result=PASS"
+            echo "vmlinux=present"
+            echo "Image=present"
+            echo "compiler=$(aarch64-linux-gnu-gcc --version | head -n 1)"
+            echo "source_worktree_changes=$(git -C kernel-src status --porcelain | wc -l)"
+            sha256sum artifacts/Image artifacts/vmlinux artifacts/kernel.config
+          } | tee artifacts/build-result.txt
+          test -z "$(git -C kernel-src status --porcelain)"
+      - name: Upload raw baseline build and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-fleur-419321-baseline
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
