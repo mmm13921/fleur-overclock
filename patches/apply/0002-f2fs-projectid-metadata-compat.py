@@ -117,7 +117,7 @@ new_function = """static int f2fs_ioc_setproject(struct file *filp, __u32 projid
 		return PTR_ERR(ipage);
 
 	if (!F2FS_FITS_IN_INODE(F2FS_INODE(ipage), fi->i_extra_isize,
-								i_projid)) {
+									i_projid)) {
 		f2fs_put_page(ipage, 1);
 		return project_quota ? -EOVERFLOW : 0;
 	}
@@ -171,9 +171,9 @@ inode_text = replace_once(inode_text, old_read_projid, new_read_projid,
 
 old_write_projid = """if (f2fs_sb_has_project_quota(F2FS_I_SB(inode)) &&
 			F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,
-							i_projid))"""
+								i_projid))"""
 new_write_projid = """if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,
-							i_projid))"""
+								i_projid))"""
 inode_text = replace_once(inode_text, old_write_projid, new_write_projid,
                           "inode project-ID write path")
 
@@ -196,7 +196,7 @@ checks = {
     "quota_transfer_only_when_project_quota_enabled": "if (project_quota) {\n\t\terr = f2fs_transfer_project_quota(inode, kprojid);" in patched_fn,
     "project_id_read_when_extra_attr_exists": "if (f2fs_has_extra_attr(inode))\n\t\tfa->fsx_projid" in file_text,
     "project_id_inode_read_not_gated_by_project_quota": "if (f2fs_has_extra_attr(inode) &&\n\t\t\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" in read_fn and "f2fs_sb_has_project_quota(sbi) &&" not in read_fn[read_fn.find("i_projid =") - 250:read_fn.find("i_projid =") + 100],
-    "project_id_inode_write_not_gated_by_project_quota": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,\n\t\t\t\t\t\ti_projid))" in write_fn and "f2fs_sb_has_project_quota(F2FS_I_SB(inode))" not in write_fn,
+    "project_id_inode_write_not_gated_by_project_quota": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,\n\t\t\t\t\t\t\t\ti_projid))" in write_fn and "f2fs_sb_has_project_quota(F2FS_I_SB(inode))" not in write_fn,
     "project_inheritance_when_extra_attr_exists": "f2fs_sb_has_extra_attr(sbi)" in namei_text,
 }
 failed = [name for name, ok in checks.items() if not ok]
