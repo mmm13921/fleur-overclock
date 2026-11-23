@@ -148,6 +148,16 @@ def main():
             "expected one legacy F2FS ktime_get_boottime_seconds helper")
     segment_path.write_text(segment.replace(boottime_helper, "", 1))
 
+    inode_path = src / "fs/f2fs/inode.c"
+    f2fs_inode = inode_path.read_text()
+    for field in ("atime", "ctime", "mtime"):
+        old_stamp = "F2FS_I(inode)->i_disk_time[" + str({"atime": 0, "ctime": 1, "mtime": 2}[field]) + "] = inode->i_" + field + ";"
+        new_stamp = "F2FS_I(inode)->i_disk_time[" + str({"atime": 0, "ctime": 1, "mtime": 2}[field]) + "] = timespec64_to_timespec(inode->i_" + field + ");"
+        require(f2fs_inode.count(old_stamp) == 2,
+                "expected exactly two cached-disk " + field + " timestamp assignments")
+        f2fs_inode = f2fs_inode.replace(old_stamp, new_stamp, 2)
+    inode_path.write_text(f2fs_inode)
+
     file_path = src / "fs/f2fs/file.c"
     f2fs_file = file_path.read_text()
     old_fault = """static int f2fs_filemap_fault(struct vm_fault *vmf)
@@ -233,7 +243,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
-        "api_compat=F2FS legacy time helper removed in favor of 4.19 core API; vm_fault callbacks use vm_fault_t; inode setattr uses timespec64_trunc; cached disk timestamps remain field-wise compared without pointer casts or on-disk layout changes",
+        "api_compat=F2FS legacy time helper removed in favor of 4.19 core API; vm_fault callbacks use vm_fault_t; inode setattr uses timespec64_trunc; VFS timespec64 values explicitly converted to cached struct timespec via timespec64_to_timespec; F2FS inode/on-disk layout unchanged",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
