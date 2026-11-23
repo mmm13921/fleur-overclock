@@ -14,6 +14,7 @@ super_text = (src / "fs/f2fs/super.c").read_text()
 
 checks = {
     "inode_project_id_read_with_extra_attr": "if (f2fs_has_extra_attr(inode) &&\n\t\t\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" in inode_text,
+    "inode_project_id_read_not_gated_by_project_quota": "if (f2fs_has_extra_attr(inode) && f2fs_sb_has_project_quota(sbi) &&\n\t\t\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" not in inode_text,
     "inode_project_id_write_with_extra_attr": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize," in inode_text,
     "inode_project_id_not_gated_by_project_quota": "if (f2fs_sb_has_project_quota(F2FS_I_SB(inode)) &&\n\t\t\tF2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize," not in inode_text,
     "project_quota_feature_handler": "F2FS_FEATURE_FUNCS(project_quota, PRJQUOTA);" in header_text,
