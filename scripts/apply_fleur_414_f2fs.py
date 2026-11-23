@@ -112,7 +112,7 @@ def main():
                 "expected exactly one converted timestamp comparison: " + call)
         f2fs_header = f2fs_header.replace(call, call.replace("timespec64_equal", "timespec_equal"), 1)
     fourth_time, fourth_count = re.subn(
-        r"timespec64_equal\\(F2FS_I\\(inode\\)->i_disk_time \\+ 3,\\s*&F2FS_I\\(inode\\)->i_crtime\\)",
+        r"timespec64_equal\(F2FS_I\(inode\)->i_disk_time \+ 3,\s*&F2FS_I\(inode\)->i_crtime\)",
         "timespec_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
         f2fs_header,
         count=1,
