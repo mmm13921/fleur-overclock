@@ -134,7 +134,49 @@ def main():
         )
     header_path.write_text(f2fs_header)
 
-    f2fs_file = (src / "fs/f2fs/file.c").read_text()
+    # Adapt the 4.14 F2FS implementation to the 4.19.325 VFS/time APIs.
+    # The target kernel already provides ktime_get_boottime_seconds().
+    segment_path = src / "fs/f2fs/segment.h"
+    segment = segment_path.read_text()
+    boottime_helper = """static inline time64_t ktime_get_boottime_seconds(void)
+{
+\treturn ktime_divns(ktime_get_boottime(), NSEC_PER_SEC);
+}
+
+"""
+    require(segment.count(boottime_helper) == 1,
+            "expected one legacy F2FS ktime_get_boottime_seconds helper")
+    segment_path.write_text(segment.replace(boottime_helper, "", 1))
+
+    file_path = src / "fs/f2fs/file.c"
+    f2fs_file = file_path.read_text()
+    old_fault = """static int f2fs_filemap_fault(struct vm_fault *vmf)
+{
+\tstruct inode *inode = file_inode(vmf->vma->vm_file);
+\tint err;
+"""
+    new_fault = """static vm_fault_t f2fs_filemap_fault(struct vm_fault *vmf)
+{
+\tstruct inode *inode = file_inode(vmf->vma->vm_file);
+\tvm_fault_t err;
+"""
+    require(f2fs_file.count(old_fault) == 1,
+            "legacy f2fs_filemap_fault signature/return variable anchor is missing")
+    f2fs_file = f2fs_file.replace(old_fault, new_fault, 1)
+    require(f2fs_file.count("static int f2fs_vm_page_mkwrite(struct vm_fault *vmf)") == 1,
+            "legacy f2fs_vm_page_mkwrite signature is missing or ambiguous")
+    f2fs_file = f2fs_file.replace(
+        "static int f2fs_vm_page_mkwrite(struct vm_fault *vmf)",
+        "static vm_fault_t f2fs_vm_page_mkwrite(struct vm_fault *vmf)", 1)
+    for field in ("atime", "mtime", "ctime"):
+        old_time = "timespec_trunc(attr->ia_" + field + ","
+        require(f2fs_file.count(old_time) == 1,
+                "expected one legacy timespec_trunc for ia_" + field)
+        f2fs_file = f2fs_file.replace(old_time,
+                                      "timespec64_trunc(attr->ia_" + field + ",", 1)
+    file_path.write_text(f2fs_file)
+
+    f2fs_file = file_path.read_text()
     f2fs_header = (src / "fs/f2fs/f2fs.h").read_text()
     f2fs_super = (src / "fs/f2fs/super.c").read_text()
     f2fs_namei = (src / "fs/f2fs/namei.c").read_text()
@@ -191,7 +233,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
-        "api_compat=three cached struct timespec values compared field-wise against VFS timespec64; creation time uses timespec_equal; no pointer casts or inode/on-disk layout changes",
+        "api_compat=F2FS legacy time helper removed in favor of 4.19 core API; vm_fault callbacks use vm_fault_t; inode setattr uses timespec64_trunc; cached disk timestamps remain field-wise compared without pointer casts or on-disk layout changes",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
