@@ -28,6 +28,8 @@ git clone --depth=1 --branch "$SOURCE_REF" "$SOURCE_URL" "$SRC_DIR"
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
+python3 -m py_compile "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py"
+python3 "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py" "$SRC_DIR" "$ARTIFACT_DIR/projectid-compatibility-audit.txt"
 python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" > "$ARTIFACT_DIR/modem-pm-audit.txt"
