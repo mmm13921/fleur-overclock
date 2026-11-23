@@ -91,35 +91,44 @@ def main():
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(blob.stdout)
 
-    # The transplanted Fleur 4.14 F2FS inode keeps its cached disk times
-    # and creation time as struct timespec. Compare them with timespec_equal;
-    # do not cast or widen these fields because that would alter F2FS internals.
+    # Fleur 4.14 stores cached disk timestamps as struct timespec, while
+    # the 4.19.325 VFS inode atime/ctime/mtime fields are struct timespec64.
+    # Compare seconds/nanoseconds directly; do not cast pointers or alter
+    # the F2FS inode layout or on-disk timestamp representation.
     header_path = src / "fs/f2fs/f2fs.h"
     f2fs_header = header_path.read_text()
-    if "#include <linux/time32.h>" not in f2fs_header:
-        include_anchor = "#include <linux/types.h>\n"
-        require(include_anchor in f2fs_header,
-                "F2FS header include anchor for time32 compatibility is missing")
-        f2fs_header = f2fs_header.replace(include_anchor,
-                                          include_anchor + "#include <linux/time32.h>\n", 1)
-    # Fleur 4.14.186 already uses timespec_equal() for these struct timespec fields.
-    # Accept either upstream spelling, normalize to timespec_equal(), and verify all four.
+    for include in ("#include <linux/time32.h>\n", "#include <linux/time64.h>\n"):
+        if include not in f2fs_header:
+            include_anchor = "#include <linux/types.h>\n"
+            require(include_anchor in f2fs_header,
+                    "F2FS header include anchor for time compatibility is missing")
+            f2fs_header = f2fs_header.replace(include_anchor, include_anchor + include, 1)
+    helper = """static inline bool f2fs_timespec64_equal(const struct timespec *a,
+                                        const struct timespec64 *b)
+{
+    return a->tv_sec == b->tv_sec && a->tv_nsec == b->tv_nsec;
+}
+
+"""
+    function_anchor = "static inline bool f2fs_is_time_consistent(struct inode *inode)\n{"
+    require(f2fs_header.count(function_anchor) == 1,
+            "F2FS timestamp consistency helper anchor is missing or ambiguous")
+    if "static inline bool f2fs_timespec64_equal(" not in f2fs_header:
+        f2fs_header = f2fs_header.replace(function_anchor, helper + function_anchor, 1)
     time_pairs = (
         ("F2FS_I(inode)->i_disk_time", "&inode->i_atime"),
         ("F2FS_I(inode)->i_disk_time + 1", "&inode->i_ctime"),
         ("F2FS_I(inode)->i_disk_time + 2", "&inode->i_mtime"),
-        ("F2FS_I(inode)->i_disk_time + 3", "&F2FS_I(inode)->i_crtime"),
     )
     for left, right in time_pairs:
         pattern = re.compile(
-            r"(?:timespec64_equal|timespec_equal)\(\s*" +
-            re.escape(left) + r"\s*,\s*" + re.escape(right) + r"\s*\)"
+            r"timespec_equal\(\s*" + re.escape(left) +
+            r"\s*,\s*" + re.escape(right) + r"\s*\)"
         )
-        matches = list(pattern.finditer(f2fs_header))
-        require(len(matches) == 1,
-                "expected exactly one F2FS inode timestamp comparison: " + left)
+        require(len(list(pattern.finditer(f2fs_header))) == 1,
+                "expected exactly one F2FS/VFS timestamp comparison: " + left)
         f2fs_header = pattern.sub(
-            lambda match: match.group(0).replace("timespec64_equal", "timespec_equal"),
+            lambda match: match.group(0).replace("timespec_equal", "f2fs_timespec64_equal"),
             f2fs_header,
             count=1,
         )
@@ -155,8 +164,10 @@ def main():
     require("fscrypt_operations" in f2fs_super or "fscrypt" in f2fs_super,
             "F2FS fscrypt integration is missing")
 
-    require(f2fs_header.count("timespec_equal(") == 4 and "timespec64_equal(" not in f2fs_header,
-            "F2FS inode timestamp compatibility must use four timespec_equal calls for donor struct timespec fields")
+    require(f2fs_header.count("f2fs_timespec64_equal(") == 4 and
+            f2fs_header.count("timespec_equal(") == 1 and
+            "timespec64_equal(" not in f2fs_header,
+            "F2FS timestamp compatibility must use three explicit timespec/timespec64 comparisons and one timespec creation-time comparison")
 
     checked = run_git(src, ["diff", "HEAD", "--check"], check=False)
     require(checked.returncode == 0,
@@ -180,7 +191,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
-        "api_compat=donor struct timespec fields use four timespec_equal comparisons; linux/time32.h included; inode layout and on-disk format unchanged",
+        "api_compat=three cached struct timespec values compared field-wise against VFS timespec64; creation time uses timespec_equal; no pointer casts or inode/on-disk layout changes",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
