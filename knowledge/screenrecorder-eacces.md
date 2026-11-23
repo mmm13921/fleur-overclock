@@ -54,3 +54,27 @@ logcat -b all -d -v threadtime | grep -iE 'MediaProvider|FuseDaemon|ScreenRecord
 - MediaStore/FUSE open: شکست با EACCES.
 - علت دقیق بین mount option، directory metadata و MediaProvider hidden-temp-file policy: هنوز نیازمند دادهٔ mount/runtime است.
 - kernel-only fix تأییدشده: فعلاً وجود ندارد.
+
+
+## تکمیل بررسی با خروجی دستگاه — 2026-11-24
+
+خروجی mount و metadata دریافت‌شده:
+- `/mnt/user/0/emulated` و `/storage/emulated` هر دو FUSE با `rw` و `allow_other` هستند؛ پس نبودن `allow_other` رد می‌شود.
+- هیچ‌کدام از این دو mount در خروجی `default_permissions` ندارند؛ بنابراین نباید صرفاً بر اساس mode بیت‌های VFS نتیجه گرفت که kernel خودش مجوز نهایی را اعمال می‌کند.
+- `/data/media/0/DCIM`: mode `0775`, owner `1023:1023`, SELinux `u:object_r:media_rw_data_file:s0:c223,c256,c512,c768`.
+- `/data/media/0/DCIM/ScreenRecorder`: mode `0700`, owner `1023:1023`, همان SELinux type و MCS categories.
+- SELinux در حالت `Enforcing` است.
+- F2FS bind mounts در خروجی برای `Android/data` و `Android/obb` دیده می‌شوند، نه برای خود `DCIM`; بنابراین این داده‌ها خرابی F2FS را به‌عنوان علت مستقیم خطای ضبط تأیید نمی‌کنند.
+
+### برداشت و اقدام بعدی
+
+`allow_other` نبودن علت نیست. مورد برجسته، mode `0700` پوشهٔ ScreenRecorder است؛ اما چون مسیر از FUSE عبور می‌کند و MediaProvider مجوزهای URI/مالکیت را بررسی می‌کند، هنوز باید UID درخواست‌کننده و تصمیم MediaProvider در لحظهٔ open مشخص شود. تا آن زمان chmod/chown یا تغییر SELinux اعمال نکنید.
+
+دستورهای بعدی برای تشخیص:
+```sh
+pm list packages | grep -iE 'screenrecorder|screen.recorder'
+dumpsys package com.miui.screenrecorder | grep -iE 'userId=|appId=|targetSdk'
+logcat -b all -d -v threadtime | grep -iE 'MediaProvider|FuseDaemon|ScreenRecorder|EACCES|Permission to access file|Couldn.t find file' | tail -n 250
+dmesg | grep -iE 'avc: denied|fuse|f2fs|EACCES|EIO|ENOSPC' | tail -n 150
+```
+اگر نام پکیج با `com.miui.screenrecorder` متفاوت بود، دستور dumpsys را با نامی که دستور اول نشان می‌دهد اجرا کنید. به‌خصوص لاگ `MediaProvider` اطراف همان timestamp تعیین می‌کند آیا درخواست به‌دلیل نبودن رکورد فایل، URI grant، pending/hidden-file policy یا مجوز دیگر رد شده است.
