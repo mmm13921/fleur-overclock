@@ -1,5 +1,5 @@
 name: Meys ProjectID 30 + EEVDF + Modem PM
-run-name: Meys ProjectID 30 EEVDF + Modem PM (${{ github.event_name }})
+run-name: Meys patched-8 + F2FS ProjectID inode persistence audit (${{ github.event_name }})
 on:
   push:
     branches:
@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build-and-package:
-    name: Build Meys ProjectID 30 + EEVDF + Modem PM
+    name: Build Meys patched-8 + F2FS ProjectID inode persistence
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
