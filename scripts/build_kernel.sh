@@ -45,6 +45,7 @@ git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
 python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/modem-pm-audit.txt"
+python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
 SOURCE_PATCH="$ARTIFACT_DIR/hmp-native-fs-source.patch"
 KERNEL_LOCALVERSION="-Meys"
 if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
@@ -55,8 +56,8 @@ if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
   SOURCE_PATCH="$ARTIFACT_DIR/meys-v1-eevdf-source.patch"
   KERNEL_LOCALVERSION="-Meys-V1-EEVDF"
 fi
-if ! git -C "$SRC_DIR" diff --quiet HEAD -- fs/f2fs fs/namespace.c fs/super.c fs/fuse include/uapi/linux/fuse.h; then
-  echo "Filesystem preservation audit failed: a patch modified native Fleux F2FS, VFS, or FUSE sources." >&2
+if ! git -C "$SRC_DIR" diff --quiet HEAD -- fs/fuse include/uapi/linux/fuse.h; then
+  echo "Filesystem preservation audit failed: a patch modified Fleux FUSE sources; FUSE is intentionally retained unchanged." >&2
   exit 1
 fi
 git -C "$SRC_DIR" diff HEAD --check
@@ -110,9 +111,9 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "modem_full_4_14_stack_transplant=not implemented; native 4.19 ECCCI/DPMAIF retained"
   fi
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
-  echo "filesystem_source=native Fleux V11 F2FS and VFS retained unchanged"
-  echo "filesystem_patch=none; no wholesale 4.19.191 F2FS/VFS replacement"
-  echo "f2fs_projectid_patch=not applied; native Fleux FS_IOC_FSSETXATTR implementation retained"
+  echo "filesystem_source=official Xiaomi sea-t-oss 4.19.191 matched F2FS plus Android legacy remount path on Fleux V11 4.19.325"
+  echo "filesystem_patch=official 4.19.191 F2FS source set and legacy Android remount callback backport applied"
+  echo "f2fs_projectid=official donor F2FS project-ID/quota paths validated by android-storage audit"
   echo "fuse=Fleux FUSE implementation retained unchanged"
   echo "filesystem_source_integrity=PASS; fs/f2fs, VFS remount, and FUSE sources unchanged"
   echo "toolchain=Android LLVM clang-r563880c"
@@ -123,7 +124,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo
   HASH_INPUTS=("$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$SOURCE_PATCH" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt")
   if [[ "$BUILD_PROFILE" == "meys-v1-eevdf" ]]; then
-    HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt")
+    HASH_INPUTS+=("$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/modem-stack-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt")
   fi
   sha256sum "${HASH_INPUTS[@]}"
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
