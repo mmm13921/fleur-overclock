@@ -192,7 +192,7 @@ read_fn = inode_text[read_start:read_end]
 write_start, write_end = extract_function(inode_text, "void f2fs_update_inode(struct inode *inode, struct page *node_page)")
 write_fn = inode_text[write_start:write_end]
 checks = {
-    "inode_project_id_read_with_extra_attr": "if (f2fs_has_extra_attr(inode) &&\\n\\t\\t\\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" in read_fn,
+    "inode_project_id_read_with_extra_attr": "if (f2fs_has_extra_attr(inode) &&\n\t\t\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" in read_fn,
     "inode_project_id_read_not_gated_by_project_quota": "f2fs_sb_has_project_quota(sbi)" not in read_fn[read_fn.find("i_projid") - 180:read_fn.find("i_projid") + 180],
     "inode_project_id_write_with_extra_attr": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize," in write_fn,
     "inode_project_id_write_not_gated_by_project_quota": "f2fs_sb_has_project_quota(F2FS_I_SB(inode))" not in write_fn[write_fn.find("i_projid") - 180:write_fn.find("i_projid") + 180],
