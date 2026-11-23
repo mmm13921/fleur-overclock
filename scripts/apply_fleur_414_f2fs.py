@@ -112,8 +112,8 @@ def main():
     )
     for left, right in time_pairs:
         pattern = re.compile(
-            r"(?:timespec64_equal|timespec_equal)\\(\\s*" +
-            re.escape(left) + r"\\s*,\\s*" + re.escape(right) + r"\\s*\\)"
+            r"(?:timespec64_equal|timespec_equal)\(\s*" +
+            re.escape(left) + r"\s*,\s*" + re.escape(right) + r"\s*\)"
         )
         matches = list(pattern.finditer(f2fs_header))
         require(len(matches) == 1,
