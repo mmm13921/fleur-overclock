@@ -1,0 +1,81 @@
+name: Fleur 4.19.325 Raw Baseline
+run-name: Fleur MT6781 4.19.325 untouched source baseline
+on:
+  push:
+    branches:
+      - test/raw-fleur-419325-baseline
+    paths:
+      - '.github/workflows/build-raw-fleur-419325.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: raw-fleur-419325-baseline
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Compile untouched MT6781 4.19.325 baseline
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout build harness only
+        uses: actions/checkout@v4
+      - name: Install GCC build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bc bison build-essential ca-certificates flex gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi git libelf-dev libssl-dev make python3 python-is-python3 rsync
+      - name: Fetch exact MT6781 4.19.325 source
+        env:
+          SOURCE_URL: https://github.com/mt6781-devs/android_kernel_xiaomi_mt6781.git
+          SOURCE_SHA: 9996b68a1808b38f2f9e7798b26479e721bc2a84
+        run: |
+          set -euo pipefail
+          git clone --no-checkout --filter=blob:none "$SOURCE_URL" kernel-src
+          git -C kernel-src fetch --depth=1 origin "$SOURCE_SHA"
+          git -C kernel-src checkout --detach "$SOURCE_SHA"
+          test "$(git -C kernel-src rev-parse HEAD)" = "$SOURCE_SHA"
+          grep -q '^VERSION = 4$' kernel-src/Makefile
+          grep -q '^PATCHLEVEL = 19$' kernel-src/Makefile
+          grep -q '^SUBLEVEL = 325$' kernel-src/Makefile
+          test -f kernel-src/arch/arm64/configs/mt6781_defconfig
+          mkdir -p artifacts
+          {
+            echo "source_url=$SOURCE_URL"
+            echo "source_commit=$SOURCE_SHA"
+            echo "kernel_version=4.19.325"
+            echo "config=mt6781_defconfig"
+            echo "patches=NONE (untouched source baseline)"
+          } | tee artifacts/source-manifest.txt
+      - name: Configure MT6781 defconfig
+        run: |
+          set -euo pipefail
+          make -C kernel-src O="$PWD/out" ARCH=arm64 mt6781_defconfig
+      - name: Compile kernel
+        run: |
+          set -euo pipefail
+          make -C kernel-src -j"$(nproc)" O="$PWD/out" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+          test -s out/vmlinux
+          test -s out/arch/arm64/boot/Image
+          cp out/.config artifacts/kernel.config
+          cp out/vmlinux artifacts/vmlinux
+          cp out/arch/arm64/boot/Image artifacts/Image
+          for f in out/arch/arm64/boot/Image.gz out/arch/arm64/boot/Image.gz-dtb out/arch/arm64/boot/Image-dtb; do
+            if [ -s "$f" ]; then cp "$f" artifacts/; fi
+          done
+          {
+            echo "compile_result=PASS"
+            echo "vmlinux=present"
+            echo "Image=present"
+            echo "compiler=$(aarch64-linux-gnu-gcc --version | head -n 1)"
+            echo "source_commit=9996b68a1808b38f2f9e7798b26479e721bc2a84"
+            sha256sum artifacts/Image artifacts/vmlinux artifacts/kernel.config
+          } | tee artifacts/build-result.txt
+      - name: Upload build artifacts and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleur-419325-raw-baseline
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
