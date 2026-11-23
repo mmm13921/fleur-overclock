@@ -45,17 +45,25 @@ jobs:
             echo "source_commit=$SOURCE_SHA"
             echo "kernel_version=4.19.321"
             echo "config=mt6781_defconfig"
-            echo "patches=one targeted Uclamp inline linkage fix"
+            echo "patches=Uclamp and keyslot linkage; DSI buffer initialization; keypad loop braces"
           } | tee artifacts/source-manifest.txt
-      - name: Apply minimal Uclamp inline linkage fix
+      - name: Apply targeted 4.19.321 compile compatibility fixes
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           h = Path("kernel-src/kernel/sched/sched.h")
           c = Path("kernel-src/kernel/sched/core.c")
+          kh = Path("kernel-src/include/linux/keyslot-manager.h")
+          kc = Path("kernel-src/block/keyslot-manager.c")
+          dsi = Path("kernel-src/drivers/gpu/drm/mediatek/mtk_dsi.c")
+          kpd = Path("kernel-src/drivers/input/keyboard/mediatek/mt6781/hal_kpd.c")
           hs = h.read_text()
           cs = c.read_text()
+          khs = kh.read_text()
+          kcs = kc.read_text()
+          dsis = dsi.read_text()
+          kpds = kpd.read_text()
           declaration = """inline void uclamp_se_set(struct uclamp_se *uc_se,
           				 unsigned int value, bool user_defined);"""
           definition = """static inline void uclamp_se_set(struct uclamp_se *uc_se,
@@ -87,17 +95,48 @@ jobs:
           hs = hs.replace(declaration, "", 1)
           hs = hs.replace(bucket, bucket + "\n\n" + definition, 1)
           cs = cs.replace(old_core, "", 1)
+          # ksm_flock() accesses a private struct, so use a normal external function.
+          ksm_decl = "inline void ksm_flock(struct keyslot_manager *ksm, unsigned int flags);"
+          ksm_def = "inline void ksm_flock(struct keyslot_manager *ksm, unsigned int flags)"
+          if khs.count(ksm_decl) != 1 or kcs.count(ksm_def) != 1:
+              raise SystemExit("Expected one ksm_flock declaration and definition")
+          khs = khs.replace(ksm_decl, "void ksm_flock(struct keyslot_manager *ksm, unsigned int flags);", 1)
+          kcs = kcs.replace(ksm_def, "void ksm_flock(struct keyslot_manager *ksm, unsigned int flags)", 1)
+          bad_copy = 'memcpy(lcm_mipi_read_write.lcm_setting_table.para_list, "",64);'
+          if dsis.count(bad_copy) != 1:
+              raise SystemExit("Expected exactly one invalid DSI empty-string memcpy")
+          dsis = dsis.replace(bad_copy, 'memset(lcm_mipi_read_write.lcm_setting_table.para_list, 0, sizeof(lcm_mipi_read_write.lcm_setting_table.para_list));', 1)
+          bad_loop = """\tfor (i = 0; i < KPD_NUM_MEMS; i++)
+          \t\tkeymap_state[i] = kpd_keymap_state[i];
+          \t\tkpd_info("init_keymap_state done: %x %x %x %x %x!\\n",
+          \t\t\tkeymap_state[0], keymap_state[1], keymap_state[2],
+          \t\t keymap_state[3], keymap_state[4]);"""
+          good_loop = """\tfor (i = 0; i < KPD_NUM_MEMS; i++) {
+          \t\tkeymap_state[i] = kpd_keymap_state[i];
+          \t}
+          \tkpd_info("init_keymap_state done: %x %x %x %x %x!\\n",
+          \t\tkeymap_state[0], keymap_state[1], keymap_state[2],
+          \t\tkeymap_state[3], keymap_state[4]);"""
+          if kpds.count(bad_loop) != 1:
+              raise SystemExit("Expected exact keypad loop block")
+          kpds = kpds.replace(bad_loop, good_loop, 1)
           h.write_text(hs)
           c.write_text(cs)
-          print("Moved uclamp_se_set() into sched.h as static inline; removed duplicate core.c definition.")
+          kh.write_text(khs)
+          kc.write_text(kcs)
+          dsi.write_text(dsis)
+          kpd.write_text(kpds)
+          print("Applied Uclamp, keyslot linkage, DSI buffer, and keypad loop fixes.")
           PY
           grep -n -A6 -B2 'static inline void uclamp_se_set' kernel-src/kernel/sched/sched.h
           if grep -n 'inline void uclamp_se_set' kernel-src/kernel/sched/core.c; then
             echo "Duplicate core.c definition remains"
             exit 1
           fi
+          grep -n 'void ksm_flock' kernel-src/include/linux/keyslot-manager.h kernel-src/block/keyslot-manager.c
+          grep -n 'memset(lcm_mipi_read_write.lcm_setting_table.para_list' kernel-src/drivers/gpu/drm/mediatek/mtk_dsi.c
           git -C kernel-src diff --check
-          git -C kernel-src diff -- kernel/sched/sched.h kernel/sched/core.c | tee artifacts/uclamp-inline-fix.diff
+          git -C kernel-src diff -- kernel/sched/sched.h kernel/sched/core.c include/linux/keyslot-manager.h block/keyslot-manager.c drivers/gpu/drm/mediatek/mtk_dsi.c drivers/input/keyboard/mediatek/mt6781/hal_kpd.c | tee artifacts/compatibility-fixes.diff
       - name: Configure MT6781 defconfig
         run: |
           set -euo pipefail
