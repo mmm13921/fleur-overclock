@@ -91,32 +91,29 @@ def main():
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(blob.stdout)
 
-    # Linux 4.14 stores the F2FS disk-time cache as timespec64. Fleux
-    # 4.19.325 inode timestamps are also timespec64, but timespec_equal()
-    # accepts 32-bit struct timespec. Adapt only the three exact call sites.
+    # The transplanted Fleur 4.14 F2FS inode keeps its cached disk times
+    # and creation time as struct timespec. Compare them with timespec_equal;
+    # do not cast or widen these fields because that would alter F2FS internals.
     header_path = src / "fs/f2fs/f2fs.h"
     f2fs_header = header_path.read_text()
-    if "#include <linux/time64.h>" not in f2fs_header:
+    if "#include <linux/time32.h>" not in f2fs_header:
         include_anchor = "#include <linux/types.h>\n"
         require(include_anchor in f2fs_header,
-                "F2FS header include anchor for time64 compatibility is missing")
+                "F2FS header include anchor for time32 compatibility is missing")
         f2fs_header = f2fs_header.replace(include_anchor,
-                                          include_anchor + "#include <linux/time64.h>\n", 1)
-    time_pairs = (
-        ("timespec_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)",
-         "timespec64_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)"),
-        ("timespec_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)",
-         "timespec64_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)"),
-        ("timespec_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)",
-         "timespec64_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)"),
+                                          include_anchor + "#include <linux/time32.h>\n", 1)
+    time_calls = (
+        "timespec64_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)",
+        "timespec64_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)",
+        "timespec64_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)",
     )
-    for old_call, new_call in time_pairs:
-        require(f2fs_header.count(old_call) == 1,
-                "expected exactly one legacy timestamp comparison: " + old_call)
-        f2fs_header = f2fs_header.replace(old_call, new_call, 1)
+    for call in time_calls:
+        require(f2fs_header.count(call) == 1,
+                "expected exactly one converted timestamp comparison: " + call)
+        f2fs_header = f2fs_header.replace(call, call.replace("timespec64_equal", "timespec_equal"), 1)
     fourth_time, fourth_count = re.subn(
-        r"timespec_equal\(F2FS_I\(inode\)->i_disk_time \+ 3,\s*&F2FS_I\(inode\)->i_crtime\)",
-        "timespec64_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
+        r"timespec64_equal\\(F2FS_I\\(inode\\)->i_disk_time \\+ 3,\\s*&F2FS_I\\(inode\\)->i_crtime\\)",
+        "timespec_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
         f2fs_header,
         count=1,
     )
