@@ -38,19 +38,19 @@ jobs:
           grep -q '^VERSION = 4$' kernel-src/Makefile
           grep -q '^PATCHLEVEL = 19$' kernel-src/Makefile
           grep -q '^SUBLEVEL = 325$' kernel-src/Makefile
-          test -f kernel-src/arch/arm64/configs/mt6781_defconfig
+          test -f kernel-src/arch/arm64/configs/fleur_defconfig
           mkdir -p artifacts
           {
             echo "source_url=$SOURCE_URL"
             echo "source_commit=$SOURCE_SHA"
             echo "kernel_version=4.19.325"
-            echo "config=mt6781_defconfig"
+            echo "config=fleur_defconfig"
             echo "patches=NONE (untouched source baseline)"
           } | tee artifacts/source-manifest.txt
       - name: Configure MT6781 defconfig
         run: |
           set -euo pipefail
-          make -C kernel-src O="$PWD/out" ARCH=arm64 mt6781_defconfig
+          make -C kernel-src O="$PWD/out" ARCH=arm64 fleur_defconfig
       - name: Compile kernel
         run: |
           set -euo pipefail
