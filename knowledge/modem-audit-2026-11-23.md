@@ -123,3 +123,69 @@ Run the capture as root only if the shell lacks permission. Do not clear the buf
 - [ ] Device validation of calls, registration, and mobile data.
 
 **Conclusion:** a real PM lifecycle discrepancy has been identified for further audit, but no evidence yet ties it to the reported signal loss. This branch is an investigation baseline, not a completed modem fix or flashable release.
+
+
+## Full 4.14 → 4.19 modem-port feasibility audit (additional, 2026-11-23)
+
+### Compared source revisions
+
+- Official Xiaomi fleur 4.14.186 reference: `MiCode/Xiaomi_Kernel_OpenSource`, commit `32022887f842ec64e317fc22745fedf35e982837`.
+- Fleux target inspected: `daliboss/fleux`, ref `lineage-24.0`, commit `e2d900276a445fc9e31592c80df89a6f5e24175d` (Fleux V11 / Linux 4.19.325).
+- Current upstream Fleux refs visible in GitLab at audit time: branch/tag V11; no V12 branch or tag was visible.
+- The project's build helper `scripts/build_kernel.sh` is hard-pinned to `SOURCE_REF=v11` and deliberately rejects other refs. It cannot honestly build V12 until an actual V12 ref and matching builder integration exist.
+
+### Inventory result
+
+The pinned official 4.14 ECCCI subtree contains 139 tracked files. The inspected Fleux 4.19 ECCCI subtree contains 209 tracked files. There are 135 shared relative file paths; only one of those common paths had an identical Git blob ID, while 134 shared paths had different content. The old tree also has four paths absent from the target (`mixdev/*` and `modem_sys3.c`); the target tree has additional 4.19-era/platform-specific files and drivers.
+
+This means the task is not a simple missing-directory copy. The two implementations have diverged substantially at both common-code and integration layers.
+
+### Confirmed device/modem identity
+
+Both inspected `mt6785/ccci_config.h` files select:
+- `MD_GENERATION (6295)`
+- `MD_PLATFORM_INFO "6295"`
+- `AP_PLATFORM_INFO "MT6781"` when `CCCI_PLATFORM_MT6781` is defined.
+
+Both ECCCI Makefiles map `CONFIG_MACH_MT6781` to the `mt6785` platform directory and define `CCCI_PLATFORM_MT6781`. Fleux's `fleur_defconfig` enables `CONFIG_MTK_CCCI_DEVICES`, `CONFIG_MTK_MD1_SUPPORT=11`, `CONFIG_MTK_ECCCI_DRIVER`, and `CONFIG_MTK_ECCCI_C2K`.
+
+Therefore, the target already contains an MT6781/MD6295 ECCCI stack, with DPMAIF, CCIF and CLDMA transport code. A wholesale "port the missing modem" operation would be misleading.
+
+### High-risk incompatibility: shared-memory layout
+
+Fleux 4.19's `ccci_modem.c` contains a dedicated `ccci_6295_md_smem_layout_config()` path guarded by `MD_GENERATION == 6295`. In the pinned 4.14 source, the inspected modem shared-memory implementation uses 6293-era region tables and does not have that dedicated 6295 layout routine.
+
+The shared-memory layout is part of the AP↔MD firmware contract. Replacing the 4.19 `ccci_modem.c` with the older 4.14 file could silently change shared-memory offsets, reservations or UDC/DFD regions and prevent the baseband from booting or communicating. Preserve the 4.19 6295 memory-layout implementation unless an exact firmware/LK contract proves a specific 4.14 behaviour is required.
+
+### High-risk incompatibility: HIF/system-PM ownership
+
+Official 4.14 wires DPMAIF `.suspend` and `.resume` into `ccci_hif_dpmaif_ops`; `ccci_hif.c` dispatches those through `ccci_hif_suspend()` and `ccci_hif_resume()`. The system suspend/resume path in the 4.14 modem system code coordinates the modem and HIF.
+
+Fleux 4.19 instead comments those DPMAIF HIF callbacks out, leaves the central HIF suspend/resume wrappers empty, registers a DPMAIF-specific `syscore_ops`, and uses a platform-device probe path. CLDMA also has its own 4.19-specific syscore implementation. Restoring the old callback wiring without removing or reconciling the 4.19 syscore path risks duplicate, missing, or incorrectly ordered PM operations.
+
+The 4.19 DPMAIF syscore callbacks directly dereference `dpmaif_ctrl` without an initial null check; the existing project helper `scripts/apply_modem_pm_compat.py` adds a limited null/FSM-state guard. This is a sensible isolated safety improvement to audit, but it is not proof of the reported radio-loss root cause.
+
+### Recommended port strategy
+
+Do not replace the whole ECCCI subtree and do not copy 4.14 platform/PM code as-is. The target already has the correct MT6781/MD6295 identity and a newer 4.19 integration. The technically safer work sequence is:
+
+1. Preserve the current 4.19 MD6295 shared-memory contract, MT6781 platform mapping, device-tree resources and firmware-facing ABI.
+2. Build a symbol/API/config dependency map for 4.14-only behaviour versus the 4.19 implementation, including CCIF, CLDMA, DPMAIF, FSM, ports, Conn_MD, CCMNI, clocks, regulators, EMI/IOMMU and reserved memory.
+3. Audit all 4.19 PM owners and registration order before changing any suspend/resume path; resolve the DPMAIF/CLDMA syscore versus old HIF callback ownership explicitly.
+4. Selectively backport only a behaviour that is missing or demonstrably defective in the target, adapting its API and preserving the MD6295-specific logic.
+5. Compile, inspect symbol/config/device-tree output and package only after the approved Fleux V12 source ref is available; do not silently use V11 as a substitute.
+6. Validate cold boot, MD1 ready state, SIM readiness, registration, repeated voice calls, SMS, mobile data, cell handover, airplane-mode cycles and screen-off suspend/resume on fleur.
+
+### Build gate and current status
+
+- [x] Pinned 4.14 source and current Fleux target compared.
+- [x] Confirmed both are MT6781 / MD6295, not two interchangeable modem generations.
+- [x] Confirmed the target has a 6295-specific shared-memory layout absent from the inspected older source.
+- [x] Confirmed the DPMAIF PM architecture differs and cannot be transplanted without reconciling ownership.
+- [ ] Full dependency/API/config/device-tree map.
+- [ ] Root cause correlated to the user's radio-loss logs.
+- [ ] Selective 4.14 behaviour backport.
+- [ ] Build against Fleux V12.
+- [ ] Device validation.
+
+No 4.14 modem driver code has been copied into this branch, no kernel build has been run for this request, and no flashable ZIP has been produced. This is intentional: the current evidence shows that wholesale replacement could regress the existing MD6295 memory contract and 4.19 PM integration. The branch remains an audit/porting work branch, not a modem fix.
