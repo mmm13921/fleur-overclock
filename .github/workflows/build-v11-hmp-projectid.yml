@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - meys-projectid-30-eevdf-modem
+      - test/meys-patched-8-android-data-fix
     paths:
       - '.github/workflows/build-v11-hmp-projectid.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_modem_pm_compat.py'
       - 'eevdf/**'
       - 'scripts/apply_f2fs_projectid_compat.py'
+      - 'patches/apply/0002-f2fs-projectid-metadata-compat.py'
       - 'scripts/apply_scheduler_modes.py'
       - 'scripts/apply_official_419191_fs_mount.py'
       - 'scripts/anykernel_meys_v1_eevdf.sh'
@@ -91,6 +93,7 @@ jobs:
           cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
           cp artifacts/hmp-storage-projectid-source.patch "$AK_DIR/hmp-storage-projectid-source.patch"
           cp artifacts/storage-projectid-audit.txt "$AK_DIR/storage-projectid-audit.txt"
+          cp artifacts/projectid-compatibility-audit.txt "$AK_DIR/projectid-compatibility-audit.txt"
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/scheduler-modes-audit.txt"
           cp artifacts/modem-pm-audit.txt "$AK_DIR/modem-pm-audit.txt"
           cp artifacts/eevdf-layer1-audit.txt "$AK_DIR/eevdf-layer1-audit.txt"
@@ -103,7 +106,7 @@ jobs:
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip" \
               META-INF tools LICENSE README.md anykernel.sh Image.gz-dtb kernel.config \
               build-manifest.txt hmp-storage-projectid-source.patch \
-              storage-projectid-audit.txt scheduler-modes-audit.txt \
+              storage-projectid-audit.txt projectid-compatibility-audit.txt scheduler-modes-audit.txt \
               official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
               modem-pm-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt
           )
@@ -119,11 +122,11 @@ jobs:
       - name: Publish Meys experimental prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: meys-projectid-30-eevdf-modem-${{ github.run_number }}
-          name: Meys ProjectID 30 + EEVDF + Modem PM — build ${{ github.run_number }}
+          tag_name: ${{ github.ref_name == 'test/meys-patched-8-android-data-fix' && format('meys-patched-8-storage-test-{0}', github.run_number) || format('meys-projectid-30-eevdf-modem-{0}', github.run_number) }}
+          name: ${{ github.ref_name == 'test/meys-patched-8-android-data-fix' && format('Meys patched-8 Android data test — build {0}', github.run_number) || format('Meys ProjectID 30 + EEVDF + Modem PM — build {0}', github.run_number) }}
           target_commitish: ${{ github.sha }}
-          prerelease: false
-          make_latest: true
+          prerelease: ${{ github.ref_name == 'test/meys-patched-8-android-data-fix' }}
+          make_latest: ${{ github.ref_name != 'test/meys-patched-8-android-data-fix' }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
@@ -139,6 +142,8 @@ jobs:
 
             Includes the first Linux 6.18 EEVDF semantic backport layer and MT6781 DPMAIF syscore PM safety guard. EEVDF DELAY_DEQUEUE/DELAY_ZERO are not included; the modem change is not a full 4.14 modem driver port.
 
+            Includes a guarded legacy-userdata F2FS Project ID compatibility path: preserve native quota transfer when PRJQUOTA and EXTRA_ATTR exist; persist project IDs when EXTRA_ATTR exists without PRJQUOTA; return success without persistence only when legacy userdata cannot store project IDs. No userdata format or superblock feature mutation is performed.
+
             The Android 13 MediaProvider FUSE ioctl bridge source patch is
             included as a separate release asset and validated for clean
             application to the pinned AOSP Android 13 branch. It is NOT built
@@ -150,6 +155,7 @@ jobs:
             artifacts/Meys-V1-EEVDF-Modem-AnyKernel3.zip
             artifacts/hmp-storage-projectid-source.patch
             artifacts/storage-projectid-audit.txt
+            artifacts/projectid-compatibility-audit.txt
             artifacts/scheduler-modes-audit.txt
             artifacts/official-4.19.191-fs-mount-audit.txt
             artifacts/android-storage-audit.txt
