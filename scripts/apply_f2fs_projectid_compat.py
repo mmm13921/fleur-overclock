@@ -20,7 +20,7 @@ checks = {
     "quota_transfer_guarded": "if (project_quota) {\n\t\terr = f2fs_transfer_project_quota(inode, kprojid);" in file_text,
     "project_id_fsgetxattr_with_extra_attr": "if (f2fs_has_extra_attr(inode))\n\t\tfa->fsx_projid" in file_text,
     "project_id_inode_read_persisted_without_prjquota": "if (f2fs_has_extra_attr(inode) &&\n\t\t\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" in inode_text and "f2fs_sb_has_project_quota(sbi) &&" not in inode_text[inode_text.find("static int do_read_inode"):inode_text.find("struct inode *f2fs_iget")],
-    "project_id_inode_written_without_prjquota": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,\n\t\t\t\t\t\ti_projid))" in inode_text and "f2fs_sb_has_project_quota(F2FS_I_SB(inode))" not in inode_text[inode_text.find("void f2fs_update_inode"):inode_text.find("void f2fs_update_inode_page")],
+    "project_id_inode_written_without_prjquota": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,\n\t\t\t\t\t\t\t\ti_projid))" in inode_text and "f2fs_sb_has_project_quota(F2FS_I_SB(inode))" not in inode_text[inode_text.find("void f2fs_update_inode"):inode_text.find("void f2fs_update_inode_page")],
     "project_id_read_write_roundtrip": "ri->i_projid = cpu_to_le32(i_projid);" in inode_text and "le32_to_cpu(ri->i_projid)" in inode_text,
     "project_inheritance_with_extra_attr": "f2fs_sb_has_extra_attr(sbi)" in namei_text and "F2FS_PROJINHERIT_FL" in namei_text,
     "native_fssetxattr_vfs_validation": "vfs_ioc_fssetxattr_check(inode, &old_fa, &fa)" in file_text and "f2fs_ioc_setproject(filp, fa.fsx_projid)" in file_text,
