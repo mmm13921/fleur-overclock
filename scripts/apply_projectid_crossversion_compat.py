@@ -16,7 +16,7 @@ def kernel_version(src):
     makefile = (src / "Makefile").read_text()
     values = {}
     for key in ("VERSION", "PATCHLEVEL", "SUBLEVEL"):
-        match = re.search(r"(?m)^" + key + r"\\s*=\\s*(\\d+)", makefile)
+        match = re.search(r"(?m)^" + key + r"\s*=\s*(\d+)", makefile)
         if not match:
             fail("cannot read kernel " + key)
         values[key] = match.group(1)
