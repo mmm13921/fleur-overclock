@@ -162,14 +162,22 @@ def main():
     # Fleur 4.14 F2FS on-disk creation-time cache remains struct timespec.
     namei_path = src / "fs/f2fs/namei.c"
     f2fs_namei = namei_path.read_text()
-    old_crtime = "F2FS_I(inode)->i_crtime = current_time(inode);"
-    require(f2fs_namei.count(old_crtime) == 1,
-            "expected exactly one legacy F2FS creation-time assignment")
+    old_inode_decl = "\tstruct inode *inode;\n"
+    require(f2fs_namei.count(old_inode_decl) == 1,
+            "expected exactly one f2fs_new_inode inode declaration")
     f2fs_namei = f2fs_namei.replace(
-        old_crtime,
-        "F2FS_I(inode)->i_crtime = timespec64_to_timespec(current_time(inode));",
+        old_inode_decl,
+        old_inode_decl + "\tstruct timespec64 now;\n",
         1,
     )
+    old_time_chain = """\tinode->i_mtime = inode->i_atime = inode->i_ctime =
+\t\t\tF2FS_I(inode)->i_crtime = current_time(inode);"""
+    new_time_chain = """\tnow = current_time(inode);
+\tinode->i_mtime = inode->i_atime = inode->i_ctime = now;
+\tF2FS_I(inode)->i_crtime = timespec64_to_timespec(now);"""
+    require(f2fs_namei.count(old_time_chain) == 1,
+            "expected exactly one chained F2FS inode creation timestamp assignment")
+    f2fs_namei = f2fs_namei.replace(old_time_chain, new_time_chain, 1)
     namei_path.write_text(f2fs_namei)
 
     file_path = src / "fs/f2fs/file.c"
@@ -257,7 +265,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
-        "api_compat=F2FS legacy time helper removed in favor of 4.19 core API; vm_fault callbacks use vm_fault_t; inode setattr uses timespec64_trunc; VFS timespec64 values, including current_time() creation timestamp, explicitly converted to cached struct timespec via timespec64_to_timespec; F2FS inode/on-disk layout unchanged",
+        "api_compat=F2FS legacy time helper removed in favor of 4.19 core API; vm_fault callbacks use vm_fault_t; inode setattr uses timespec64_trunc; VFS timespec64 values, with inode VFS timestamps kept as timespec64 and the F2FS creation-time cache explicitly converted to struct timespec; F2FS inode/on-disk layout unchanged",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
