@@ -2,11 +2,12 @@ name: Meys Build 30 EEVDF 6.18 layer 1 + modem PM guard
 run-name: Meys Build 30 patched EEVDF build (${{ github.event_name }})
 on:
   push:
-    branches: [meys-vx-v17-build30-eevdf618-modemaudit]
+    branches: [meys-vx-v17-build30-eevdf618-modemaudit, meys-vx-v18-build30-eevdf-fs419191-test]
     paths:
       - '.github/workflows/build-v17-build30-eevdf.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_modem_pm_compat.py'
+      - 'scripts/apply_official_419191_fs_mount.py'
       - 'scripts/audit_modem_stack.py'
       - 'scripts/anykernel_build30_eevdf.sh'
       - 'scripts/apply_*.py'
@@ -69,12 +70,12 @@ jobs:
           cp artifacts/meys-v1-eevdf-source.patch "$AK_DIR/"
           cp artifacts/scheduler-modes-audit.txt "$AK_DIR/"
           cp artifacts/android-storage-audit.txt artifacts/eevdf-layer1-audit.txt "$AK_DIR/"
-          cp artifacts/eevdf-audit.txt artifacts/modem-pm-audit.txt artifacts/modem-stack-audit.txt "$AK_DIR/"
+          cp artifacts/eevdf-audit.txt artifacts/modem-pm-audit.txt artifacts/modem-stack-audit.txt artifacts/official-4.19.191-fs-mount-audit.txt "$AK_DIR/"
           cp docs/scheduler-modes-port.md "$AK_DIR/SCHEDULER-MODES.txt"
           cp docs/modem-pm-port.md "$AK_DIR/MODEM-PM-PORT.txt"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config build-manifest.txt meys-v1-eevdf-source.patch scheduler-modes-audit.txt android-storage-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt modem-pm-audit.txt modem-stack-audit.txt SCHEDULER-MODES.txt MODEM-PM-PORT.txt
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh Image.gz-dtb kernel.config build-manifest.txt meys-v1-eevdf-source.patch scheduler-modes-audit.txt android-storage-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt modem-pm-audit.txt modem-stack-audit.txt official-4.19.191-fs-mount-audit.txt SCHEDULER-MODES.txt MODEM-PM-PORT.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip"
           sha256sum artifacts/Meys-Build30-EEVDF-Layer1-AnyKernel3.zip | tee artifacts/EEVDF-SHA256.txt
