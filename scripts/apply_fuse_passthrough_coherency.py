@@ -80,16 +80,23 @@ text = replace_once(
 
 text = replace_once(
     text,
-    "\t\taio_req->iocb_fuse = iocb_fuse;\n\t\tkiocb_clone(&aio_req->iocb, iocb_fuse, passthrough_filp);",
-    "\t\taio_req->iocb_fuse = iocb_fuse;\n\t\taio_req->pos = iocb_fuse->ki_pos;\n\t\tkiocb_clone(&aio_req->iocb, iocb_fuse, passthrough_filp);",
+    "\t\tfile_start_write(passthrough_filp);\n\t\t__sb_writers_release(passthrough_inode->i_sb, SB_FREEZE_WRITE);\n\n\t\taio_req->iocb_fuse = iocb_fuse;\n\t\tkiocb_clone(&aio_req->iocb, iocb_fuse, passthrough_filp);",
+    "\t\tfile_start_write(passthrough_filp);\n\t\t__sb_writers_release(passthrough_inode->i_sb, SB_FREEZE_WRITE);\n\n\t\taio_req->iocb_fuse = iocb_fuse;\n\t\taio_req->pos = iocb_fuse->ki_pos;\n\t\tkiocb_clone(&aio_req->iocb, iocb_fuse, passthrough_filp);",
     "async write position",
 )
 
 text = replace_once(
     text,
-    "\t\tif (ret != -EIOCBQUEUED)\n\t\t\tfuse_aio_cleanup_handler(aio_req);",
-    "\t\tif (ret != -EIOCBQUEUED)\n\t\t\tfuse_aio_cleanup_handler(aio_req, ret);",
-    "async immediate completion call",
+    "\t\tret = call_read_iter(passthrough_filp, &aio_req->iocb, iter);\n\t\tif (ret != -EIOCBQUEUED)\n\t\t\tfuse_aio_cleanup_handler(aio_req);",
+    "\t\tret = call_read_iter(passthrough_filp, &aio_req->iocb, iter);\n\t\tif (ret != -EIOCBQUEUED)\n\t\t\tfuse_aio_cleanup_handler(aio_req, ret);",
+    "async read completion call",
+)
+
+text = replace_once(
+    text,
+    "\t\tret = call_write_iter(passthrough_filp, &aio_req->iocb, iter);\n\t\tif (ret != -EIOCBQUEUED)\n\t\t\tfuse_aio_cleanup_handler(aio_req);",
+    "\t\tret = call_write_iter(passthrough_filp, &aio_req->iocb, iter);\n\t\tif (ret != -EIOCBQUEUED)\n\t\t\tfuse_aio_cleanup_handler(aio_req, ret);",
+    "async write completion call",
 )
 
 required = [
