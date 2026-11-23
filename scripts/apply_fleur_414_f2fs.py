@@ -158,6 +158,20 @@ def main():
         f2fs_inode = f2fs_inode.replace(old_stamp, new_stamp, 2)
     inode_path.write_text(f2fs_inode)
 
+    # current_time() returns timespec64 on the 4.19 VFS, while the
+    # Fleur 4.14 F2FS on-disk creation-time cache remains struct timespec.
+    namei_path = src / "fs/f2fs/namei.c"
+    f2fs_namei = namei_path.read_text()
+    old_crtime = "F2FS_I(inode)->i_crtime = current_time(inode);"
+    require(f2fs_namei.count(old_crtime) == 1,
+            "expected exactly one legacy F2FS creation-time assignment")
+    f2fs_namei = f2fs_namei.replace(
+        old_crtime,
+        "F2FS_I(inode)->i_crtime = timespec64_to_timespec(current_time(inode));",
+        1,
+    )
+    namei_path.write_text(f2fs_namei)
+
     file_path = src / "fs/f2fs/file.c"
     f2fs_file = file_path.read_text()
     old_fault = """static int f2fs_filemap_fault(struct vm_fault *vmf)
@@ -243,7 +257,7 @@ def main():
         "project_id_inheritance=verified",
         "compression=F2FS compression Kconfig and object integration verified",
         "fscrypt=F2FS fscrypt integration verified",
-        "api_compat=F2FS legacy time helper removed in favor of 4.19 core API; vm_fault callbacks use vm_fault_t; inode setattr uses timespec64_trunc; VFS timespec64 values explicitly converted to cached struct timespec via timespec64_to_timespec; F2FS inode/on-disk layout unchanged",
+        "api_compat=F2FS legacy time helper removed in favor of 4.19 core API; vm_fault callbacks use vm_fault_t; inode setattr uses timespec64_trunc; VFS timespec64 values, including current_time() creation timestamp, explicitly converted to cached struct timespec via timespec64_to_timespec; F2FS inode/on-disk layout unchanged",
         "vfs_policy=4.19.325 VFS core retained; no 4.14 VFS core wholesale replacement",
         "fuse_policy=Fleux 4.19.325 FUSE retained pending Android FUSE write-path audit",
         "hardware_validation=not performed by CI",
