@@ -166,7 +166,7 @@ def main():
 
     require(f2fs_header.count("f2fs_timespec64_equal(") == 4 and
             f2fs_header.count("timespec_equal(") == 1 and
-            "timespec64_equal(" not in f2fs_header,
+            re.search(r"(?<!f2fs_)timespec64_equal\\(", f2fs_header) is None,
             "F2FS timestamp compatibility must use three explicit timespec/timespec64 comparisons and one timespec creation-time comparison")
 
     checked = run_git(src, ["diff", "HEAD", "--check"], check=False)
