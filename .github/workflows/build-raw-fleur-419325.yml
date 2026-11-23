@@ -41,7 +41,6 @@ jobs:
           test -f kernel-src/arch/arm64/configs/fleur_defconfig
           # Compiler-only compatibility fixes; no filesystem, storage, crypto, modem, or driver changes.
           sed -i 's/^static inline __printf(1, 0) int bpf_do_trace_printk/static __printf(1, 0) int bpf_do_trace_printk/' kernel-src/kernel/trace/bpf_trace.c
-          sed -i 's/^inline void ksm_flock/static void ksm_flock/' /dev/null 2>/dev/null || true
           sed -i 's/^inline void ksm_flock/void ksm_flock/' kernel-src/include/linux/keyslot-manager.h kernel-src/block/keyslot-manager.c
           mkdir -p artifacts
           {
