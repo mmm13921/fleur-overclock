@@ -6,38 +6,37 @@ if len(sys.argv) != 3:
 
 src = Path(sys.argv[1]).resolve()
 report = Path(sys.argv[2]).resolve()
-files = {
-    "file.c": (src / "fs/f2fs/file.c").read_text(),
-    "namei.c": (src / "fs/f2fs/namei.c").read_text(),
-    "f2fs.h": (src / "fs/f2fs/f2fs.h").read_text(),
-    "super.c": (src / "fs/f2fs/super.c").read_text(),
-}
+file_text = (src / "fs/f2fs/file.c").read_text()
+namei_text = (src / "fs/f2fs/namei.c").read_text()
+header_text = (src / "fs/f2fs/f2fs.h").read_text()
+super_text = (src / "fs/f2fs/super.c").read_text()
+
 checks = {
-    "native_project_quota_gate": "if (!f2fs_sb_has_project_quota(sbi))" in files["file.c"],
-    "native_extra_attr_requirement": "if (!f2fs_has_extra_attr(inode))" in files["file.c"],
-    "native_inode_project_id_persistence": "F2FS_I(inode)->i_projid = kprojid;" in files["file.c"] and "f2fs_mark_inode_dirty_sync(inode, true);" in files["file.c"],
-    "native_quota_transfer": "f2fs_transfer_project_quota(inode, kprojid)" in files["file.c"] and "dquot_initialize(inode)" in files["file.c"],
-    "native_fssetxattr": "vfs_ioc_fssetxattr_check(inode, &old_fa, &fa)" in files["file.c"] and "f2fs_ioc_setproject(filp, fa.fsx_projid)" in files["file.c"],
-    "native_project_inheritance": "F2FS_PROJINHERIT_FL" in files["namei.c"] and "f2fs_sb_has_project_quota" in files["namei.c"],
-    "native_project_id_inode_field": "i_projid" in files["f2fs.h"],
-    "native_project_quota_mount_option": "prjquota" in files["super.c"] or "PRJQUOTA" in files["super.c"],
+    "project_quota_feature_handler": "F2FS_FEATURE_FUNCS(project_quota, PRJQUOTA);" in header_text,
+    "extra_attr_feature_handler": "F2FS_FEATURE_FUNCS(extra_attr, EXTRA_ATTR);" in header_text,
+    "legacy_no_extra_attr_compatibility": "return project_quota ? -EOPNOTSUPP : 0;" in file_text,
+    "project_id_inode_persistence": "F2FS_I(inode)->i_projid = kprojid;" in file_text and "f2fs_mark_inode_dirty_sync(inode, true);" in file_text,
+    "quota_transfer_guarded": "if (project_quota) {\n\t\terr = f2fs_transfer_project_quota(inode, kprojid);" in file_text,
+    "project_id_fsgetxattr_with_extra_attr": "if (f2fs_has_extra_attr(inode))\n\t\tfa->fsx_projid" in file_text,
+    "project_inheritance_with_extra_attr": "f2fs_sb_has_extra_attr(sbi)" in namei_text and "F2FS_PROJINHERIT_FL" in namei_text,
+    "native_fssetxattr_vfs_validation": "vfs_ioc_fssetxattr_check(inode, &old_fa, &fa)" in file_text and "f2fs_ioc_setproject(filp, fa.fsx_projid)" in file_text,
+    "project_quota_mount_support": '"prjquota"' in super_text or "PRJQUOTA" in super_text,
 }
 failed = [name for name, ok in checks.items() if not ok]
 if failed:
-    raise SystemExit("Official 4.19.191 native Project ID audit failed: " + ", ".join(failed))
+    raise SystemExit("F2FS Project ID compatibility audit failed: " + ", ".join(failed))
 
 report.parent.mkdir(parents=True, exist_ok=True)
 lines = [
     "result=PASS",
-    "implementation=unmodified official Xiaomi sea-t-oss Linux 4.19.191 F2FS Project ID implementation",
-    "source_tree=complete fs/f2fs tree copied by apply_official_419191_fs_mount.py",
-    "fssetxattr=native VFS validation and F2FS project-ID ioctl path",
-    "metadata=native i_projid persistence through F2FS inode metadata",
-    "quota=native dquot initialization and project quota transfer",
-    "inheritance=native PROJINHERIT handling",
-    "unsupported_userdata=native upstream behavior; no synthetic success and no silent metadata no-op",
-    "format_requirement=userdata must already have compatible on-disk EXTRA_ATTR and PRJQUOTA features for real project quota",
+    "implementation=selective Android vold Project ID compatibility on official Xiaomi sea-t-oss 4.19.191 F2FS",
+    "legacy_userdata=FSSETXATTR does not fail solely because PRJQUOTA/EXTRA_ATTR are absent; project ID is not persisted if EXTRA_ATTR is absent",
+    "extra_attr_without_project_quota=per-inode project ID persistence and inheritance retained; no quota enforcement",
+    "project_quota_with_extra_attr=native quota transfer and inode metadata persistence retained",
+    "project_quota_without_extra_attr=EOPNOTSUPP retained to avoid claiming unsupported quota metadata",
+    "vfs_validation=preserved",
     "superblock_mutation=none",
+    "userdata_reformat=not required or performed",
     "checks=" + ",".join(checks),
 ]
 report.write_text("\n".join(lines) + "\n")
