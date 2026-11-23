@@ -22,6 +22,7 @@ def replace_once(text, pattern, replacement, label):
 resume_impl = """static void dpmaif_sysresume(void)
 {
 	enum MD_STATE md_state;
+	int ret;
 
 	if (!dpmaif_ctrl) {
 		CCCI_ERROR_LOG(-1, TAG, "[%s] dpmaif_ctrl is NULL\\n", __func__);
@@ -48,7 +49,10 @@ resume_impl = """static void dpmaif_sysresume(void)
 	CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
 		"[%s] restore DPMAIF (md_state=%d, dpmaif_state=%d)\\n",
 		__func__, md_state, dpmaif_ctrl->dpmaif_state);
-	dpmaif_resume(dpmaif_ctrl->hif_id);
+	ret = dpmaif_resume(dpmaif_ctrl->hif_id);
+	if (ret < 0)
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"[%s] DPMAIF resume failed: ret=%d\\n", __func__, ret);
 }"""
 
 suspend_impl = """static int dpmaif_syssuspend(void)
@@ -76,6 +80,13 @@ dpmaif = replace_once(
 
 if '#include "ccci_fsm.h"' not in dpmaif:
     raise SystemExit("DPMAIF source no longer includes ccci_fsm.h; refusing unsafe patch")
+
+dpmaif = replace_once(
+    dpmaif,
+    r'CCCI_DEBUG_LOG\(0, TAG, "sys_resume no need restore\\n"\);',
+    'CCCI_NORMAL_LOG(0, TAG, "sys_resume no restore: power-down flag not set\\n");',
+    "DPMAIF resume no-restore diagnostic",
+)
 
 dpmaif_path.write_text(dpmaif)
 print("Applied MT6781 DPMAIF syscore PM safety patch.")
