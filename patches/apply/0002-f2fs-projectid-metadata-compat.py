@@ -70,6 +70,28 @@ file_path = src / "fs/f2fs/file.c"
 namei_path = src / "fs/f2fs/namei.c"
 file_text = file_path.read_text()
 namei_text = namei_path.read_text()
+inode_path = src / "fs/f2fs/inode.c"
+inode_text = inode_path.read_text()
+
+# F2FS must load and store i_projid whenever the inode has EXTRA_ATTR.
+# PRJQUOTA controls quota accounting, not the presence of inode metadata.
+inode_text = replace_once(
+    inode_text,
+    """if (f2fs_has_extra_attr(inode) && f2fs_sb_has_project_quota(sbi) &&
+			F2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))""",
+    """if (f2fs_has_extra_attr(inode) &&
+			F2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))""",
+    "inode project-ID read gate",
+)
+inode_text = replace_once(
+    inode_text,
+    """if (f2fs_sb_has_project_quota(F2FS_I_SB(inode)) &&
+			F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,
+								i_projid)) {""",
+    """if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize,
+								i_projid)) {""",
+    "inode project-ID write gate",
+)
 
 signature = "static int f2fs_ioc_setproject(struct file *filp, __u32 projid)"
 start, end = extract_function(file_text, signature)
@@ -160,11 +182,20 @@ namei_text = replace_once(namei_text, old_inherit, new_inherit, "new-inode proje
 
 file_path.write_text(file_text)
 namei_path.write_text(namei_text)
+inode_path.write_text(inode_text)
 
 # Verify the exact compatibility semantics after transformation.
 patched_start, patched_end = extract_function(file_text, signature)
 patched_fn = file_text[patched_start:patched_end]
+read_start, read_end = extract_function(inode_text, "static int do_read_inode(struct inode *inode)")
+read_fn = inode_text[read_start:read_end]
+write_start, write_end = extract_function(inode_text, "void f2fs_update_inode(struct inode *inode, struct page *node_page)")
+write_fn = inode_text[write_start:write_end]
 checks = {
+    "inode_project_id_read_with_extra_attr": "if (f2fs_has_extra_attr(inode) &&\\n\\t\\t\\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" in read_fn,
+    "inode_project_id_read_not_gated_by_project_quota": "f2fs_sb_has_project_quota(sbi)" not in read_fn[read_fn.find("i_projid") - 180:read_fn.find("i_projid") + 180],
+    "inode_project_id_write_with_extra_attr": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize," in write_fn,
+    "inode_project_id_write_not_gated_by_project_quota": "f2fs_sb_has_project_quota(F2FS_I_SB(inode))" not in write_fn[write_fn.find("i_projid") - 180:write_fn.find("i_projid") + 180],
     "legacy_no_extra_attr_no_quota_returns_success": "return project_quota ? -EOPNOTSUPP : 0;" in patched_fn,
     "quota_enabled_without_extra_attr_still_errors": "return project_quota ? -EOPNOTSUPP : 0;" in patched_fn,
     "project_id_persisted_with_extra_attr": "F2FS_I(inode)->i_projid = kprojid;" in patched_fn and "f2fs_mark_inode_dirty_sync(inode, true);" in patched_fn,
@@ -181,7 +212,8 @@ report.write_text("\n".join((
     "target=F2FS FS_IOC_FSSETXATTR Project ID compatibility for Android vold",
     "baseline=official Xiaomi sea-t-oss Linux 4.19.191 F2FS source, applied on Meys patched-8 V11/4.19.325 build",
     "legacy_without_EXTRA_ATTR_or_PRJQUOTA=accept FSSETXATTR as no-op to avoid EOPNOTSUPP during app-directory setup",
-    "EXTRA_ATTR_without_PRJQUOTA=persist per-inode project ID and preserve inheritance; no quota transfer or enforcement",
+    "EXTRA_ATTR_without_PRJQUOTA=read and persist per-inode project ID; preserve inheritance; no quota transfer or enforcement",
+    "inode_project_id_storage=read/write i_projid when EXTRA_ATTR and inode space are present, independent of PRJQUOTA",
     "PRJQUOTA_with_EXTRA_ATTR=retain native project quota transfer and metadata persistence",
     "PRJQUOTA_without_EXTRA_ATTR=retain EOPNOTSUPP because quota metadata cannot be represented safely",
     "insufficient_inode_extra_size=EOVERFLOW with PRJQUOTA; compatibility no-op without PRJQUOTA",
