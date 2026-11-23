@@ -162,14 +162,35 @@ def main():
     # Fleur 4.14 F2FS on-disk creation-time cache remains struct timespec.
     namei_path = src / "fs/f2fs/namei.c"
     f2fs_namei = namei_path.read_text()
-    old_inode_decl = "\tstruct inode *inode;\n"
-    require(f2fs_namei.count(old_inode_decl) == 1,
-            "expected exactly one f2fs_new_inode inode declaration")
-    f2fs_namei = f2fs_namei.replace(
+    function_match = re.search(
+        r"static struct inode \\*f2fs_new_inode\\([^)]*\\)\\s*\\{",
+        f2fs_namei,
+    )
+    require(function_match is not None,
+            "f2fs_new_inode function definition is missing")
+    function_start = function_match.start()
+    brace_start = f2fs_namei.find("{", function_match.start())
+    depth = 0
+    function_end = None
+    for index in range(brace_start, len(f2fs_namei)):
+        if f2fs_namei[index] == "{":
+            depth += 1
+        elif f2fs_namei[index] == "}":
+            depth -= 1
+            if depth == 0:
+                function_end = index + 1
+                break
+    require(function_end is not None, "f2fs_new_inode function body is unterminated")
+    function_body = f2fs_namei[function_start:function_end]
+    old_inode_decl = "\\tstruct inode *inode;\\n"
+    require(function_body.count(old_inode_decl) == 1,
+            "expected exactly one inode declaration inside f2fs_new_inode")
+    function_body = function_body.replace(
         old_inode_decl,
-        old_inode_decl + "\tstruct timespec64 now;\n",
+        old_inode_decl + "\\tstruct timespec64 now;\\n",
         1,
     )
+    f2fs_namei = f2fs_namei[:function_start] + function_body + f2fs_namei[function_end:]
     old_time_chain = """\tinode->i_mtime = inode->i_atime = inode->i_ctime =
 \t\t\tF2FS_I(inode)->i_crtime = current_time(inode);"""
     new_time_chain = """\tnow = current_time(inode);
