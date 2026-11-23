@@ -102,24 +102,27 @@ def main():
                 "F2FS header include anchor for time32 compatibility is missing")
         f2fs_header = f2fs_header.replace(include_anchor,
                                           include_anchor + "#include <linux/time32.h>\n", 1)
-    time_calls = (
-        "timespec64_equal(F2FS_I(inode)->i_disk_time, &inode->i_atime)",
-        "timespec64_equal(F2FS_I(inode)->i_disk_time + 1, &inode->i_ctime)",
-        "timespec64_equal(F2FS_I(inode)->i_disk_time + 2, &inode->i_mtime)",
+    # Fleur 4.14.186 already uses timespec_equal() for these struct timespec fields.
+    # Accept either upstream spelling, normalize to timespec_equal(), and verify all four.
+    time_pairs = (
+        ("F2FS_I(inode)->i_disk_time", "&inode->i_atime"),
+        ("F2FS_I(inode)->i_disk_time + 1", "&inode->i_ctime"),
+        ("F2FS_I(inode)->i_disk_time + 2", "&inode->i_mtime"),
+        ("F2FS_I(inode)->i_disk_time + 3", "&F2FS_I(inode)->i_crtime"),
     )
-    for call in time_calls:
-        require(f2fs_header.count(call) == 1,
-                "expected exactly one converted timestamp comparison: " + call)
-        f2fs_header = f2fs_header.replace(call, call.replace("timespec64_equal", "timespec_equal"), 1)
-    fourth_time, fourth_count = re.subn(
-        r"timespec64_equal\(F2FS_I\(inode\)->i_disk_time \+ 3,\s*&F2FS_I\(inode\)->i_crtime\)",
-        "timespec_equal(F2FS_I(inode)->i_disk_time + 3, &F2FS_I(inode)->i_crtime)",
-        f2fs_header,
-        count=1,
-    )
-    require(fourth_count == 1,
-            "expected exactly one line-wrapped creation-time comparison")
-    f2fs_header = fourth_time
+    for left, right in time_pairs:
+        pattern = re.compile(
+            r"(?:timespec64_equal|timespec_equal)\\(\\s*" +
+            re.escape(left) + r"\\s*,\\s*" + re.escape(right) + r"\\s*\\)"
+        )
+        matches = list(pattern.finditer(f2fs_header))
+        require(len(matches) == 1,
+                "expected exactly one F2FS inode timestamp comparison: " + left)
+        f2fs_header = pattern.sub(
+            lambda match: match.group(0).replace("timespec64_equal", "timespec_equal"),
+            f2fs_header,
+            count=1,
+        )
     header_path.write_text(f2fs_header)
 
     f2fs_file = (src / "fs/f2fs/file.c").read_text()
