@@ -8,10 +8,14 @@ src = Path(sys.argv[1]).resolve()
 report = Path(sys.argv[2]).resolve()
 file_text = (src / "fs/f2fs/file.c").read_text()
 namei_text = (src / "fs/f2fs/namei.c").read_text()
+inode_text = (src / "fs/f2fs/inode.c").read_text()
 header_text = (src / "fs/f2fs/f2fs.h").read_text()
 super_text = (src / "fs/f2fs/super.c").read_text()
 
 checks = {
+    "inode_project_id_read_with_extra_attr": "if (f2fs_has_extra_attr(inode) &&\\n\\t\\t\\tF2FS_FITS_IN_INODE(ri, fi->i_extra_isize, i_projid))" in inode_text,
+    "inode_project_id_write_with_extra_attr": "if (F2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize," in inode_text,
+    "inode_project_id_not_gated_by_project_quota": "if (f2fs_sb_has_project_quota(F2FS_I_SB(inode)) &&\\n\\t\\t\\tF2FS_FITS_IN_INODE(ri, F2FS_I(inode)->i_extra_isize," not in inode_text,
     "project_quota_feature_handler": "F2FS_FEATURE_FUNCS(project_quota, PRJQUOTA);" in header_text,
     "extra_attr_feature_handler": "F2FS_FEATURE_FUNCS(extra_attr, EXTRA_ATTR);" in header_text,
     "legacy_no_extra_attr_compatibility": "return project_quota ? -EOPNOTSUPP : 0;" in file_text,
@@ -31,7 +35,8 @@ lines = [
     "result=PASS",
     "implementation=selective Android vold Project ID compatibility on official Xiaomi sea-t-oss 4.19.191 F2FS",
     "legacy_userdata=FSSETXATTR does not fail solely because PRJQUOTA/EXTRA_ATTR are absent; project ID is not persisted if EXTRA_ATTR is absent",
-    "extra_attr_without_project_quota=per-inode project ID persistence and inheritance retained; no quota enforcement",
+    "extra_attr_without_project_quota=inode i_projid read/write persistence and inheritance retained; no quota enforcement",
+    "legacy_without_extra_attr=FSSETXATTR no-op; no project ID persistence or quota enforcement",
     "project_quota_with_extra_attr=native quota transfer and inode metadata persistence retained",
     "project_quota_without_extra_attr=EOPNOTSUPP retained to avoid claiming unsupported quota metadata",
     "vfs_validation=preserved",
