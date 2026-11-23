@@ -1,0 +1,132 @@
+name: Fleur 4.19.321 Uclamp Inline Fix Test
+run-name: Fleur 4.19.321 scheduler inline compatibility
+on:
+  push:
+    branches:
+      - test/raw-fleur-419321-uclamp-inline-fix
+    paths:
+      - '.github/workflows/build-raw-fleur-419321-uclamp-fix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: raw-fleur-419321-uclamp-inline-fix
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Compile Fleur 4.19.321 with minimal Uclamp fix
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout build harness only
+        uses: actions/checkout@v4
+      - name: Install GCC build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bc bison build-essential ca-certificates flex gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi git libelf-dev libssl-dev make python3 python-is-python3 rsync
+      - name: Fetch exact Fleur 4.19.321 source
+        env:
+          SOURCE_URL: https://github.com/doanhidm1/kernel_xiaomi_fleur.git
+          SOURCE_SHA: ae8b13e84c4c620a3faff26799d4280d0ecbbbd8
+        run: |
+          set -euo pipefail
+          git clone --no-checkout --filter=blob:none "$SOURCE_URL" kernel-src
+          git -C kernel-src fetch --depth=1 origin "$SOURCE_SHA"
+          git -C kernel-src checkout --detach "$SOURCE_SHA"
+          test "$(git -C kernel-src rev-parse HEAD)" = "$SOURCE_SHA"
+          grep -q '^VERSION = 4$' kernel-src/Makefile
+          grep -q '^PATCHLEVEL = 19$' kernel-src/Makefile
+          grep -q '^SUBLEVEL = 321$' kernel-src/Makefile
+          test -f kernel-src/arch/arm64/configs/mt6781_defconfig
+          mkdir -p artifacts
+          {
+            echo "source_url=$SOURCE_URL"
+            echo "source_commit=$SOURCE_SHA"
+            echo "kernel_version=4.19.321"
+            echo "config=mt6781_defconfig"
+            echo "patches=one targeted Uclamp inline linkage fix"
+          } | tee artifacts/source-manifest.txt
+      - name: Apply minimal Uclamp inline linkage fix
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          h = Path("kernel-src/kernel/sched/sched.h")
+          c = Path("kernel-src/kernel/sched/core.c")
+          hs = h.read_text()
+          cs = c.read_text()
+          declaration = """inline void uclamp_se_set(struct uclamp_se *uc_se,
+          				 unsigned int value, bool user_defined);"""
+          definition = """static inline void uclamp_se_set(struct uclamp_se *uc_se,
+          				   unsigned int value, bool user_defined)
+          {
+          	uc_se->value = value;
+          	uc_se->bucket_id = uclamp_bucket_id(value);
+          	uc_se->user_defined = user_defined;
+          }"""
+          old_core = """inline void uclamp_se_set(struct uclamp_se *uc_se,
+          				 unsigned int value, bool user_defined)
+          {
+          	uc_se->value = value;
+          	uc_se->bucket_id = uclamp_bucket_id(value);
+          	uc_se->user_defined = user_defined;
+          }
+
+          """
+          bucket = """static inline unsigned int uclamp_bucket_id(unsigned int clamp_value)
+          {
+          	return min_t(unsigned int, clamp_value / UCLAMP_BUCKET_DELTA, UCLAMP_BUCKETS - 1);
+          }"""
+          if hs.count(declaration) != 1:
+              raise SystemExit("Expected exactly one Uclamp declaration in sched.h")
+          if hs.count(bucket) != 1:
+              raise SystemExit("Expected exactly one uclamp_bucket_id definition in sched.h")
+          if cs.count(old_core) != 1:
+              raise SystemExit("Expected exactly one out-of-line Uclamp definition in core.c")
+          hs = hs.replace(declaration, "", 1)
+          hs = hs.replace(bucket, bucket + "\n\n" + definition, 1)
+          cs = cs.replace(old_core, "", 1)
+          h.write_text(hs)
+          c.write_text(cs)
+          print("Moved uclamp_se_set() into sched.h as static inline; removed duplicate core.c definition.")
+          PY
+          grep -n -A6 -B2 'static inline void uclamp_se_set' kernel-src/kernel/sched/sched.h
+          if grep -n 'inline void uclamp_se_set' kernel-src/kernel/sched/core.c; then
+            echo "Duplicate core.c definition remains"
+            exit 1
+          fi
+          git -C kernel-src diff --check
+          git -C kernel-src diff -- kernel/sched/sched.h kernel/sched/core.c | tee artifacts/uclamp-inline-fix.diff
+      - name: Configure MT6781 defconfig
+        run: |
+          set -euo pipefail
+          make -C kernel-src O="$PWD/out" ARCH=arm64 mt6781_defconfig
+      - name: Compile kernel
+        run: |
+          set -euo pipefail
+          make -C kernel-src -j"$(nproc)" O="$PWD/out" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+          test -s out/vmlinux
+          test -s out/arch/arm64/boot/Image
+          cp out/.config artifacts/kernel.config
+          cp out/vmlinux artifacts/vmlinux
+          cp out/arch/arm64/boot/Image artifacts/Image
+          for f in out/arch/arm64/boot/Image.gz out/arch/arm64/boot/Image.gz-dtb out/arch/arm64/boot/Image-dtb; do
+            if [ -s "$f" ]; then cp "$f" artifacts/; fi
+          done
+          {
+            echo "compile_result=PASS"
+            echo "vmlinux=present"
+            echo "Image=present"
+            echo "compiler=$(aarch64-linux-gnu-gcc --version | head -n 1)"
+            echo "source_commit=ae8b13e84c4c620a3faff26799d4280d0ecbbbd8"
+            sha256sum artifacts/Image artifacts/vmlinux artifacts/kernel.config
+          } | tee artifacts/build-result.txt
+      - name: Upload test artifacts and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleur-419321-uclamp-inline-fix
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
