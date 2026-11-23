@@ -29,8 +29,8 @@ if failed:
 report.parent.mkdir(parents=True, exist_ok=True)
 lines = [
     "result=PASS",
-    "implementation=unmodified official Xiaomi sea-t-oss Linux 4.19.191 F2FS Project ID implementation",
-    "source_tree=complete fs/f2fs tree copied by apply_official_419191_fs_mount.py",
+    "implementation=official Fleur 4.14.186 F2FS Project ID implementation with Linux 4.19.325 compatibility checks",
+    "source_tree=complete fs/f2fs tree transplanted from pinned Fleur 4.14.186 by apply_fleur_414_f2fs.py",
     "fssetxattr=native VFS validation and F2FS project-ID ioctl path",
     "metadata=native i_projid persistence through F2FS inode metadata",
     "quota=native dquot initialization and project quota transfer",
