@@ -1,6 +1,6 @@
 set -Eeuo pipefail
 SOURCE_REF="${1:-v12}"
-BUILD_PROFILE="${2:-meys-v12-android-data-sdcardfs}"
+BUILD_PROFILE="${2:-meys-v12-stock-mount-no-sdcardfs}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
 SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
@@ -12,9 +12,9 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="e2d900276a445fc9e31592c80df89a6f5e24175d"
     LOCALVERSION="-Meys-EEVDF"
     ;;
-  "v12:meys-v12-android-data-sdcardfs")
+  "v12:meys-v12-stock-mount-no-sdcardfs")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
-    LOCALVERSION="-Meys-V12-EEVDF-AndroidData"
+    LOCALVERSION="-Meys-V12-StockMount-NoSDCardFS"
     ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
@@ -103,6 +103,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
   echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
   echo "android13_mediaprovider_bridge=separate source patch generated from pinned AOSP Android 13; not included in kernel image"
+  echo "mount_profile=stock 4.19.191 VFS/F2FS semantics; SDCardFS intentionally disabled; FUSE retained"
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
   echo "kernel_image=Image.gz-dtb"
