@@ -113,6 +113,6 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/android13-mediaprovider-projectid.patch" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt"
+  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-storage-projectid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt"
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
