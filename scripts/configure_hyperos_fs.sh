@@ -111,7 +111,7 @@ done
   echo "reference_ref=lineage-23.2"
   echo "reference_kernel_version=4.19.325"
   echo "reference_commit=ae44e42c393b44b1534a7fcd7065366abe6bfe65"
-  echo "enabled_filesystems=ext4,f2fs,erofs,fuse,sdcardfs,overlayfs,exfat,vfat"
+  echo "enabled_filesystems=ext4,f2fs,erofs,fuse,overlayfs,exfat,vfat"
   echo "sdcardfs=disabled; stock VFS/F2FS mount semantics retained without SDCardFS"
   echo "ext4_xattr_support=built-in (no separate Kconfig symbol in this Fleux tree)"
   echo "f2fs_features=xattr,acl,security,encryption,compression-lzo-lz4-zstd"
