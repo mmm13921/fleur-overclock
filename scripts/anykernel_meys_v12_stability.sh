@@ -1,5 +1,5 @@
 #!/sbin/sh
-# AnyKernel3 installer for the isolated Fleux V12 Android/data sdcardfs test.
+# AnyKernel3 installer for the isolated Fleux V12 stability test.
 properties() { '
 kernel.string=Meys V12 Stability Isolation Test
 do.devicecheck=1
