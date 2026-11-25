@@ -38,7 +38,7 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable QUOTA_NETLINK_INTERFACE \
   --enable FUSE_FS \
   --enable CONFIGFS_FS \
-  --disable SDCARD_FS \
+  --enable SDCARD_FS \
   --enable EROFS_FS \
   --enable OVERLAY_FS \
   --enable EXFAT_FS \
@@ -81,6 +81,7 @@ required=(
   QUOTA_NETLINK_INTERFACE
   FUSE_FS
   CONFIGFS_FS
+  SDCARD_FS
   EROFS_FS
   OVERLAY_FS
   EXFAT_FS
@@ -111,8 +112,8 @@ done
   echo "reference_ref=lineage-23.2"
   echo "reference_kernel_version=4.19.325"
   echo "reference_commit=ae44e42c393b44b1534a7fcd7065366abe6bfe65"
-  echo "enabled_filesystems=ext4,f2fs,erofs,fuse,overlayfs,exfat,vfat"
-  echo "sdcardfs=disabled for V12 stability isolation; CONFIGFS_FS remains enabled"
+  echo "enabled_filesystems=ext4,f2fs,erofs,fuse,sdcardfs,overlayfs,exfat,vfat"
+  echo "sdcardfs=enabled for controlled Android/data compatibility test; CONFIGFS_FS remains enabled"
   echo "ext4_xattr_support=built-in (no separate Kconfig symbol in this Fleux tree)"
   echo "f2fs_features=xattr,acl,security,encryption,compression-lzo-lz4-zstd"
   echo "inline_fs_encryption=enabled"
