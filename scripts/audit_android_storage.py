@@ -23,14 +23,14 @@ def require_text(path, tokens, label):
 
 for symbol in (
     "FUSE_FS", "CONFIGFS_FS", "OVERLAY_FS", "F2FS_FS",
-    "F2FS_FS_XATTR", "F2FS_FS_POSIX_ACL", "F2FS_FS_ENCRYPTION",
+    "F2FS_FS_XATTR", "F2FS_FS_POSIX_ACL", "F2FS_FS_ENCRYPTION", "SDCARD_FS",
     "FS_ENCRYPTION", "FS_ENCRYPTION_INLINE_CRYPT", "QUOTA",
     "QUOTA_NETLINK_INTERFACE",
 ):
     require_config(symbol)
 
-if "CONFIG_SDCARD_FS=y" in cfg:
-    raise SystemExit("Android storage audit: sdcardfs must be disabled in this stability build")
+if "CONFIG_SDCARD_FS=y" not in cfg:
+    raise SystemExit("Android storage audit: sdcardfs must be enabled in this test build")
 
 # Keep Fleux's FUSE passthrough implementation for the shared-storage parent
 # mount. The stock 4.19.191 runtime evidence showed sdcardfs stacked over
@@ -81,21 +81,21 @@ require_text(
 report_path.parent.mkdir(parents=True, exist_ok=True)
 lines = [
     "result=PASS",
-    "target=Fleux V12 stability isolation (sdcardfs disabled)",
+    "target=Fleux V12 Android/data compatibility test (sdcardfs enabled)",
     "upstream_base=daliboss/fleux v12",
     "upstream_commit=6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9",
     "reference_runtime=official Fleur 4.19.191",
-    "reference_android_data_mount=unchanged; sdcardfs disabled for isolation",
+    "reference_android_data_mount=sdcardfs enabled; vold runtime mount policy requires device validation",
     "CONFIG_CONFIGFS_FS=y",
-    "CONFIG_SDCARD_FS=n (disabled)",
+    "CONFIG_SDCARD_FS=y (enabled)",
     "FUSE_FS=y",
     "FUSE_passthrough=retained for shared-storage parent mount",
     "overlayfs=enabled",
     "F2FS_xattr_acl_encryption=enabled",
     "inline_file_encryption=enabled",
     "F2FS_project_id=compatibility path retained",
-    "runtime_expectation=sdcardfs should not appear in /proc/filesystems; Android/data mount behavior is unchanged",
-    "runtime_limit=CI cannot prove lock-screen stability; validate boot, touch and storage on device",
+    "runtime_expectation=sdcardfs should appear in /proc/filesystems; Android/data mount behavior depends on vold mount policy",
+    "runtime_limit=CI cannot prove lock-screen stability or vold mount behavior; validate boot, touch and storage on device",
     "userdata_mutation=none",
     "userdata_reformat=not required or performed",
 ]
