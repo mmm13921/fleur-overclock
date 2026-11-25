@@ -16,9 +16,9 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-EEVDF-AndroidData"
     ;;
-  "v12:meys-v12-stability-no-sdcardfs")
+  "v12:meys-v12-sdcardfs-enabled-test")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
-    LOCALVERSION="-Meys-V12-Stability-NoSDCardFS"
+    LOCALVERSION="-Meys-V12-SDCardFS-Test"
     ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
