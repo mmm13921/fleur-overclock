@@ -7,7 +7,7 @@ if [[ ! -s "$CONFIG" || ! -f "$CONFIG_TOOL" ]]; then
   echo "Kernel .config or scripts/config is missing." >&2
   exit 2
 fi
-for path in fs/ext4/Kconfig fs/ext4/Makefile fs/f2fs/Kconfig fs/f2fs/Makefile fs/erofs/Kconfig fs/fuse/Kconfig; do
+for path in fs/ext4/Kconfig fs/ext4/Makefile fs/f2fs/Kconfig fs/f2fs/Makefile fs/erofs/Kconfig fs/fuse/Kconfig fs/configfs/Kconfig fs/sdcardfs/Kconfig fs/sdcardfs/Makefile; do
   if [[ ! -s "$SRC_DIR/$path" ]]; then
     echo "Required filesystem source is missing: $path" >&2
     exit 2
@@ -37,6 +37,8 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable QUOTA \
   --enable QUOTA_NETLINK_INTERFACE \
   --enable FUSE_FS \
+  --enable CONFIGFS_FS \
+  --enable SDCARD_FS \
   --enable EROFS_FS \
   --enable OVERLAY_FS \
   --enable EXFAT_FS \
@@ -78,6 +80,8 @@ required=(
   QUOTA
   QUOTA_NETLINK_INTERFACE
   FUSE_FS
+  CONFIGFS_FS
+  SDCARD_FS
   EROFS_FS
   OVERLAY_FS
   EXFAT_FS
@@ -108,10 +112,12 @@ done
   echo "reference_ref=lineage-23.2"
   echo "reference_kernel_version=4.19.325"
   echo "reference_commit=ae44e42c393b44b1534a7fcd7065366abe6bfe65"
-  echo "enabled_filesystems=ext4,f2fs,erofs,fuse,overlayfs,exfat,vfat"
+  echo "enabled_filesystems=ext4,f2fs,erofs,fuse,sdcardfs,overlayfs,exfat,vfat"
+  echo "sdcardfs=enabled built-in; CONFIGFS_FS enabled for package-list configfs interface"
   echo "ext4_xattr_support=built-in (no separate Kconfig symbol in this Fleux tree)"
   echo "f2fs_features=xattr,acl,security,encryption,compression-lzo-lz4-zstd"
   echo "inline_fs_encryption=enabled"
+  echo "android_data_compat=sdcardfs driver and mount-option parser enabled; runtime vold mount must be verified"
   echo "disabled_interceptors=nomount,susfs-feature-flags"
   echo "kernel_su_hook_mode=inline (CONFIG_KSU_SUSFS retained for Non-GKI 4.19)"
 } | tee "$OUT_DIR/hyperos-filesystem-audit.txt"
