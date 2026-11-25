@@ -77,7 +77,7 @@ jobs:
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
           cp artifacts/hmp-storage-projectid-source.patch artifacts/storage-projectid-audit.txt "$AK_DIR/"
           cp artifacts/projectid-compatibility-audit.txt artifacts/scheduler-modes-audit.txt "$AK_DIR/"
-          cp artifacts/official-4.19.191-fs-mount-audit.txt artifacts/android-storage-audit.txt "$AK_DIR/"
+          cp artifacts/official-4.19.191-fs-mount-audit.txt artifacts/android-storage-audit.txt artifacts/hyperos-filesystem-audit.txt "$AK_DIR/"
           cp artifacts/modem-pm-audit.txt artifacts/fuse-passthrough-cache-audit.txt "$AK_DIR/"
           cp artifacts/eevdf-layer1-audit.txt artifacts/eevdf-audit.txt "$AK_DIR/"
           (
@@ -87,7 +87,7 @@ jobs:
               anykernel.sh Image.gz-dtb kernel.config build-manifest.txt \
               hmp-storage-projectid-source.patch storage-projectid-audit.txt \
               projectid-compatibility-audit.txt scheduler-modes-audit.txt \
-              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt \
+              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt hyperos-filesystem-audit.txt \
               modem-pm-audit.txt fuse-passthrough-cache-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip"
@@ -120,11 +120,12 @@ jobs:
             artifacts/scheduler-modes-audit.txt
             artifacts/official-4.19.191-fs-mount-audit.txt
             artifacts/android-storage-audit.txt
+            artifacts/hyperos-filesystem-audit.txt
             artifacts/modem-pm-audit.txt
             artifacts/fuse-passthrough-cache-audit.txt
             artifacts/eevdf-layer1-audit.txt
             artifacts/eevdf-audit.txt
-            artifacts/MEYS-V12-ANDROID-DATA-SHA256.txt
+            artifacts/MEYS-V12-STABILITY-SHA256.txt
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
