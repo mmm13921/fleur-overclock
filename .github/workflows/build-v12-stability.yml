@@ -5,7 +5,7 @@ on:
     branches:
       - meys-v12-stability-no-sdcardfs
     paths:
-      - '.github/workflows/build-v12-android-data.yml'
+      - '.github/workflows/build-v12-stability.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/configure_hyperos_fs.sh'
       - 'scripts/audit_android_storage.py'
@@ -21,7 +21,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: meys-v12-android-data-${{ github.ref }}
+  group: meys-v12-stability-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
@@ -34,22 +34,6 @@ jobs:
     steps:
       - name: Check out builder
         uses: actions/checkout@v4
-      - name: Apply and audit Android 13 MediaProvider FUSE bridge
-        run: |
-          set -euo pipefail
-          python3 -m py_compile research/android13-mediaprovider/apply_projectid_ioctl_bridge.py
-          mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          git clone --depth=1 --branch android13-security-release \
-            https://android.googlesource.com/platform/packages/providers/MediaProvider \
-            "$RUNNER_TEMP/MediaProvider"
-          python3 "$GITHUB_WORKSPACE/research/android13-mediaprovider/apply_projectid_ioctl_bridge.py" "$RUNNER_TEMP/MediaProvider"
-          git -C "$RUNNER_TEMP/MediaProvider" diff --check
-          grep -q 'static void pf_projectid_ioctl' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
-          grep -q '.ioctl = pf_projectid_ioctl' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
-          grep -q 'FS_IOC_FSGETXATTR' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
-          grep -q 'FS_IOC_FSSETXATTR' "$RUNNER_TEMP/MediaProvider/jni/FuseDaemon.cpp"
-          git -C "$RUNNER_TEMP/MediaProvider" diff -- jni/FuseDaemon.cpp > "$GITHUB_WORKSPACE/artifacts/android13-mediaprovider-projectid.patch"
-          test -s "$GITHUB_WORKSPACE/artifacts/android13-mediaprovider-projectid.patch"
       - name: Check builder syntax
         run: |
           bash -n scripts/build_kernel.sh
@@ -88,7 +72,7 @@ jobs:
           git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
-          cp scripts/anykernel_meys_v12_android_data.sh "$AK_DIR/anykernel.sh"
+          cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
           cp README.md docs/v12-stability-no-sdcardfs-test.md "$AK_DIR/"
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
           cp artifacts/hmp-storage-projectid-source.patch artifacts/storage-projectid-audit.txt "$AK_DIR/"
@@ -107,7 +91,7 @@ jobs:
               modem-pm-audit.txt fuse-passthrough-cache-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip" | tee artifacts/MEYS-V12-ANDROID-DATA-SHA256.txt
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip" | tee artifacts/MEYS-V12-STABILITY-SHA256.txt
       - name: Publish experimental V12 prerelease
         uses: softprops/action-gh-release@v2
         with:
@@ -136,7 +120,6 @@ jobs:
             artifacts/scheduler-modes-audit.txt
             artifacts/official-4.19.191-fs-mount-audit.txt
             artifacts/android-storage-audit.txt
-            artifacts/android13-mediaprovider-projectid.patch
             artifacts/modem-pm-audit.txt
             artifacts/fuse-passthrough-cache-audit.txt
             artifacts/eevdf-layer1-audit.txt
