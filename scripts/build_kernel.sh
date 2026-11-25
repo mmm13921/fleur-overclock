@@ -1,20 +1,26 @@
 set -Eeuo pipefail
-SOURCE_REF="${1:-v11}"
-BUILD_PROFILE="${2:-hmp-storage-projectid}"
+SOURCE_REF="${1:-v12}"
+BUILD_PROFILE="${2:-meys-v12-android-data-sdcardfs}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
 SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
 OUT_DIR="${OUT_DIR:-$WORKSPACE/out}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$WORKSPACE/artifacts}"
 TOOLCHAIN_DIR="${TOOLCHAIN_DIR:-}"
-if [[ "$SOURCE_REF" != "v11" ]]; then
-  echo "This Meys build is pinned to upstream V11; refusing source ref: $SOURCE_REF" >&2
-  exit 2
-fi
-if [[ "$BUILD_PROFILE" != "meys-projectid-30-eevdf-modem" ]]; then
-  echo "Unsupported build profile: $BUILD_PROFILE" >&2
-  exit 2
-fi
+case "$SOURCE_REF:$BUILD_PROFILE" in
+  "v11:meys-projectid-30-eevdf-modem")
+    EXPECTED_SOURCE_COMMIT="e2d900276a445fc9e31592c80df89a6f5e24175d"
+    LOCALVERSION="-Meys-EEVDF"
+    ;;
+  "v12:meys-v12-android-data-sdcardfs")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-EEVDF-AndroidData"
+    ;;
+  *)
+    echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
+    exit 2
+    ;;
+esac
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
   echo "Set TOOLCHAIN_DIR to the extracted Android Clang r563880c directory." >&2
   exit 2
@@ -27,6 +33,12 @@ mkdir -p "$(dirname "$SRC_DIR")" "$ARTIFACT_DIR"
 git clone --depth=1 --branch "$SOURCE_REF" "$SOURCE_URL" "$SRC_DIR"
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
+ACTUAL_SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
+if [[ "$ACTUAL_SOURCE_COMMIT" != "$EXPECTED_SOURCE_COMMIT" ]]; then
+  echo "Upstream ref $SOURCE_REF resolved to unexpected commit: $ACTUAL_SOURCE_COMMIT" >&2
+  echo "Expected pinned commit: $EXPECTED_SOURCE_COMMIT" >&2
+  exit 2
+fi
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
 python3 -m py_compile "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py"
 python3 "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py" "$SRC_DIR" "$ARTIFACT_DIR/projectid-compatibility-audit.txt"
@@ -48,7 +60,7 @@ export SUBARCH=arm64
 export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-Meys}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
-"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "-Meys-EEVDF"
+"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$LOCALVERSION"
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
@@ -84,7 +96,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "modem_dpmaif_pm=MT6781 syscore resume state guard; not a full 4.14 modem driver port"
   echo "fuse_passthrough=Android FUSE writeback/cache-coherency backport for Linux 4.19"
   echo "eevdf=Linux 6.18 semantic backport layer 1; DELAY_DEQUEUE and DELAY_ZERO not implemented"
-  echo "kernel_version=4.19.325-Meys-EEVDF"
+  echo "kernel_version=4.19.325${LOCALVERSION}"
   echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
