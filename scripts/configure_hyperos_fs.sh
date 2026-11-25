@@ -38,6 +38,7 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable QUOTA_NETLINK_INTERFACE \
   --enable FUSE_FS \
   --enable CONFIGFS_FS \
+  --disable SDCARD_FS \
   --enable EROFS_FS \
   --enable OVERLAY_FS \
   --enable EXFAT_FS \
