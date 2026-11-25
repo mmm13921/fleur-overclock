@@ -9,36 +9,71 @@ cfg = set(config_path.read_text().splitlines())
 
 def require_config(symbol):
     if "CONFIG_" + symbol + "=y" not in cfg:
-        raise SystemExit("Android storage audit: CONFIG_" + symbol + " is not enabled")
+        raise SystemExit("Android storage audit: CONFIG_" + symbol + " is not enabled as built-in")
 
 def require_text(path, tokens, label):
-    text = (src / path).read_text()
+    target = src / path
+    if not target.is_file():
+        raise SystemExit("Android storage audit: required source file missing: " + path)
+    content = target.read_text()
     for token in tokens:
-        if token not in text:
+        if token not in content:
             raise SystemExit("Android storage audit: " + label + " missing " + repr(token) + " in " + path)
-    return text
+    return content
 
 for symbol in (
-    "FUSE_FS", "OVERLAY_FS", "F2FS_FS", "F2FS_FS_XATTR",
-    "F2FS_FS_POSIX_ACL", "F2FS_FS_ENCRYPTION", "FS_ENCRYPTION",
-    "FS_ENCRYPTION_INLINE_CRYPT", "QUOTA", "QUOTA_NETLINK_INTERFACE",
+    "FUSE_FS", "CONFIGFS_FS", "SDCARD_FS", "OVERLAY_FS", "F2FS_FS",
+    "F2FS_FS_XATTR", "F2FS_FS_POSIX_ACL", "F2FS_FS_ENCRYPTION",
+    "FS_ENCRYPTION", "FS_ENCRYPTION_INLINE_CRYPT", "QUOTA",
+    "QUOTA_NETLINK_INTERFACE",
 ):
     require_config(symbol)
 
-# The active Android shared-storage path in the user's mount table is FUSE.
-# Keep Fleux's newer FUSE passthrough implementation; do not replace it with
-# the older generic FUSE code from the phone's 4.14 tree.
-fuse_makefile = require_text(
+require_text(
+    "fs/Makefile",
+    ("obj-$(CONFIG_SDCARD_FS)", "sdcardfs/"),
+    "sdcardfs build integration",
+)
+require_text(
+    "fs/sdcardfs/Kconfig",
+    ("config SDCARD_FS", "depends on CONFIGFS_FS"),
+    "sdcardfs Kconfig dependency",
+)
+require_text(
+    "fs/sdcardfs/Makefile",
+    ("obj-$(CONFIG_SDCARD_FS) += sdcardfs.o", "sdcardfs-y :="),
+    "sdcardfs object integration",
+)
+require_text(
+    "fs/sdcardfs/main.c",
+    (
+        'fsparam_u32("fsuid", Opt_fsuid)',
+        'fsparam_u32("fsgid", Opt_fsgid)',
+        'fsparam_u32("gid", Opt_gid)',
+        'fsparam_u32("mask", Opt_mask)',
+        'fsparam_bool("multiuser", Opt_multiuser)',
+        'fsparam_bool("derive_gid", Opt_gid_derivation)',
+        'fsparam_bool("default_normal", Opt_default_normal)',
+        'fsparam_bool("unshared_obb", Opt_unshared_obb)',
+        'MODULE_ALIAS_FS(SDCARDFS_NAME)',
+    ),
+    "Android sdcardfs mount-option parser",
+)
+
+# Keep Fleux's FUSE passthrough implementation for the shared-storage parent
+# mount. The stock 4.19.191 runtime evidence showed sdcardfs stacked over
+# /data/media for Android/data and Android/obb.
+require_text(
     "fs/fuse/Makefile",
     ("fuse-objs", "passthrough.o"),
     "FUSE passthrough build integration",
 )
-fuse_file = require_text(
+require_text(
     "fs/fuse/file.c",
     ("fuse_passthrough_setup",),
     "FUSE open/passthrough integration",
 )
-fuse_impl = require_text(
+require_text(
     "fs/fuse/passthrough.c",
     (
         "fuse_passthrough_read_iter",
@@ -48,7 +83,7 @@ fuse_impl = require_text(
     ),
     "FUSE passthrough implementation",
 )
-fuse_uapi = require_text(
+require_text(
     "include/uapi/linux/fuse.h",
     (
         "#define FUSE_PASSTHROUGH",
@@ -57,44 +92,42 @@ fuse_uapi = require_text(
     ),
     "FUSE passthrough UAPI",
 )
+require_text(
+    "fs/f2fs/f2fs.h",
+    (
+        "F2FS_FEATURE_FUNCS(project_quota, PRJQUOTA);",
+        "F2FS_FEATURE_FUNCS(extra_attr, EXTRA_ATTR);",
+    ),
+    "F2FS Project ID feature handlers",
+)
+require_text(
+    "fs/f2fs/file.c",
+    ("case F2FS_IOC_FSSETXATTR:", "f2fs_ioc_setproject", "f2fs_transfer_project_quota"),
+    "F2FS Project ID ioctl path",
+)
 
-f2fs_h = (src / "fs/f2fs/f2fs.h").read_text()
-f2fs_file = (src / "fs/f2fs/file.c").read_text()
-for token in (
-    "F2FS_FEATURE_FUNCS(project_quota, PRJQUOTA);",
-    "F2FS_FEATURE_FUNCS(extra_attr, EXTRA_ATTR);",
-):
-    if token not in f2fs_h:
-        raise SystemExit("Android storage audit: missing F2FS feature handler: " + token)
-for token in ("case F2FS_IOC_FSSETXATTR:", "f2fs_ioc_setproject", "f2fs_transfer_project_quota"):
-    if token not in f2fs_file:
-        raise SystemExit("Android storage audit: missing F2FS project-id ioctl path: " + token)
-
-# Official Fleur 4.14 contains fs/sdcardfs, but the supplied live mount table
-# shows /storage/emulated on FUSE and Android/data + Android/obb on F2FS.
-# sdcardfs is therefore not the active path to transplant into this build.
 report_path.parent.mkdir(parents=True, exist_ok=True)
 lines = [
     "result=PASS",
-    "target=Android FUSE shared-storage path and F2FS app-storage prerequisites",
-    "reference_device_kernel=official Xiaomi Fleur 4.14.186",
-    "reference_legacy_fs=fs/sdcardfs present; not selected by supplied live mount table",
-    "FUSE_FS=enabled",
-    "FUSE_passthrough=present and linked into fuse.ko",
-    "FUSE_passthrough_read_write_mmap=present",
-    "FUSE_passthrough_open_ioctl=present",
-    "FUSE_4.14_copy=not applied; 4.14 FUSE is older and lacks Fleux passthrough implementation",
+    "target=Fleux V12 Android shared-storage compatibility",
+    "upstream_base=daliboss/fleux v12",
+    "upstream_commit=6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9",
+    "reference_runtime=official Fleur 4.19.191",
+    "reference_android_data_mount=sdcardfs over /data/media with fsuid/fsgid/gid/multiuser/mask/derive_gid/default_normal/unshared_obb",
+    "CONFIG_CONFIGFS_FS=y",
+    "CONFIG_SDCARD_FS=y",
+    "sdcardfs_mount_parser=required Android 4.19.191 option set present",
+    "sdcardfs_build=linked into kernel as built-in",
+    "FUSE_FS=y",
+    "FUSE_passthrough=retained for shared-storage parent mount",
     "overlayfs=enabled",
     "F2FS_xattr_acl_encryption=enabled",
     "inline_file_encryption=enabled",
-    "project_quota_config=enabled",
-    "F2FS_PRJQUOTA_handler=present",
-    "F2FS_EXTRA_ATTR_handler=present",
-    "FS_IOC_FSSETXATTR=present",
-    "runtime_limit=existing /data F2FS superblock must already contain PRJQUOTA and EXTRA_ATTR feature bits",
-    "runtime_limit_detail=kernel build cannot safely add on-disk F2FS feature bits; do not reformat /data as a troubleshooting step",
-    "mount_scope=/storage/emulated uses FUSE; Android/data and Android/obb are direct F2FS mounts in the supplied /proc/mounts",
-    "mime_handler_note=application/octet-stream is resolved by Android apps/intent filters, not by a kernel filesystem driver",
+    "F2FS_project_id=compatibility path retained",
+    "runtime_expectation=after boot, /proc/filesystems should list sdcardfs and vold should mount Android/data and Android/obb as sdcardfs",
+    "runtime_limit=CI cannot prove vold selected sdcardfs or that app-UID access succeeds; verify /proc/mounts and real app access on device",
+    "userdata_mutation=none",
+    "userdata_reformat=not required or performed",
 ]
 report_path.write_text("\n".join(lines) + "\n")
-print("\n".join(lines))
+print(report_path.read_text(), end="")
