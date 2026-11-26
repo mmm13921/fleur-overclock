@@ -116,7 +116,8 @@ hmp_h = replace_c_function(
 
 hmp_c = (root / "kernel/sched/hmp.c").read_text()
 hmp_c = hmp_c.replace("arch_get_nr_clusters()", "hmp_arch_get_nr_clusters()")
-hmp_c = hmp_c.replace("arch_get_cluster_id(", "arch_cpu_cluster_id(")
+hmp_c = hmp_c.replace("arch_get_cluster_id(", "hmp_arch_get_cluster_id(")
+hmp_c = hmp_c.replace("arch_get_cluster_cpus(", "hmp_arch_get_cluster_cpus(")
 hmp_c = hmp_c.replace("cpu_park(", "hmp_cpu_park(")
 hmp_c = hmp_c.replace("task_prefer_little(", "hmp_task_prefer_little(")
 hmp_c = hmp_c.replace("task_prefer_big(", "hmp_task_prefer_big(")
@@ -136,6 +137,21 @@ helpers = r'''
 static inline int hmp_arch_get_nr_clusters(void)
 {
 	return 2;
+}
+static inline int hmp_arch_get_cluster_id(unsigned int cpu)
+{
+	return cpu < 6 ? 0 : 1;
+}
+static inline void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster)
+{
+	int cpu;
+
+	cpumask_clear(mask);
+	for_each_possible_cpu(cpu) {
+		if ((cluster == 0 && cpu < 6) ||
+		    (cluster == 1 && cpu >= 6))
+			cpumask_set_cpu(cpu, mask);
+	}
 }
 static inline bool hmp_cpu_park(int cpu)
 {
