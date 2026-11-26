@@ -27,6 +27,27 @@ def replace_once(text, old, new, label, expected=1):
         raise SystemExit(f"{label}: expected {expected} anchor(s), found {found}")
     return text.replace(old, new)
 
+def add_walt_frequency_path(text, label):
+    anchor = "\tstruct rq *rq = cpu_rq(cpu);\n"
+    replacement = anchor + """#ifdef CONFIG_SCHED_WALT
+\tif (type == FREQUENCY_UTIL && !walt_disabled &&
+\t    sysctl_sched_use_walt_cpu_util) {
+\t\tutil = walt_cpu_freq_util(rq);
+#ifdef CONFIG_SCHED_TUNE
+\t\tutil += schedtune_cpu_margin_with(util, cpu, p);
+#else
+\t\tutil = uclamp_rq_util_with(rq, util, p);
+#endif
+\t\tdl_util = cpu_util_dl(rq);
+\t\tif (util + dl_util >= max)
+\t\t\treturn max;
+\t\tutil += cpu_bw_dl(rq);
+\t\treturn min(max, util);
+\t}
+#endif
+"""
+    return replace_once(text, anchor, replacement, label)
+
 # Add WALT as a selectable governor and as an optional default governor.
 default_anchor = "endchoice\n\nconfig CPU_FREQ_GOV_PERFORMANCE"
 default_block = """config CPU_FREQ_DEFAULT_GOV_WALT
@@ -92,14 +113,9 @@ for old, new in replacements:
         raise SystemExit(f"WALT governor source transform missing token: {old}")
     su = su.replace(old, new)
 
-su = replace_once(
-    su,
-    "unsigned long util_cfs = cpu_util_cfs(rq);",
-    "unsigned long util_cfs = walt_cpu_freq_util(rq);",
-    "WALT governor utilization source"
-)
-if "cpu_util_cfs(rq)" in su:
-    raise SystemExit("WALT governor still contains a PELT CFS utilization source")
+su = add_walt_frequency_path(su, "WALT governor frequency utilization")
+if "cpu_util_cfs(rq)" not in su:
+    raise SystemExit("WALT governor lost its PELT fallback source")
 if "walt_cpu_freq_util(rq)" not in su or '.name\t\t\t= "walt"' not in su:
     raise SystemExit("WALT governor post-transform audit failed")
 if "sched_cpufreq_governor_change" in su:
@@ -111,6 +127,7 @@ makefile.write_text(mk)
 
 # Preserve EAS domain rebuilds when the dedicated WALT governor is selected.
 base = source.read_text()
+base = add_walt_frequency_path(base, "schedutil WALT frequency utilization")
 extern_anchor = "extern bool sched_energy_update;\n"
 if base.count(extern_anchor) != 1:
     raise SystemExit("schedutil EAS extern anchor missing or duplicated")
