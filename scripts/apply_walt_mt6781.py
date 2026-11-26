@@ -124,6 +124,21 @@ replace_once("kernel/sched/sched.h",
     '#ifdef CONFIG_SCHED_WALT\nstatic inline bool\nwalt_task_in_cum_window_demand(struct rq *rq, struct task_struct *p)\n{\n\treturn cpu_of(rq) == task_cpu(p) &&\n\t       (p->on_rq || p->last_sleep_ts >= rq->window_start);\n}\n#endif\n\n#include "walt.h"\n#include "extension/eas_plus.h"',
     "scheduler WALT API inclusion")
 
+# All non-fair scheduling classes must provide the callback because WALT
+# updates demand for RT/DL/stop tasks as well as CFS tasks.
+replace_once("kernel/sched/rt.c",
+    "\t.update_curr\t\t= update_curr_rt,\n",
+    "\t.update_curr\t\t= update_curr_rt,\n#ifdef CONFIG_SCHED_WALT\n\t.fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg,\n#endif\n",
+    "WALT RT-class demand callback")
+replace_once("kernel/sched/deadline.c",
+    "\t.update_curr\t\t= update_curr_dl,\n",
+    "\t.update_curr\t\t= update_curr_dl,\n#ifdef CONFIG_SCHED_WALT\n\t.fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg,\n#endif\n",
+    "WALT deadline-class demand callback")
+replace_once("kernel/sched/stop_task.c",
+    "\t.update_curr\t\t= update_curr_stop,\n",
+    "\t.update_curr\t\t= update_curr_stop,\n#ifdef CONFIG_SCHED_WALT\n\t.fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg,\n#endif\n",
+    "WALT stop-class demand callback")
+
 # WALT-aware task and CPU utilization. PELT/util_est remain the fallback.
 replace_once("kernel/sched/fair.c",
     "const_debug unsigned int sysctl_sched_migration_cost\t= 500000UL;\n",
@@ -347,6 +362,9 @@ checks = {
     "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime", "walt_cpu_freq_util(struct rq *rq)", "lockdep_assert_held(&src_rq->lock)", "lockdep_assert_held(&dest_rq->lock)"],
     "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_fixup_busy_time(p, cpu);", "double_rq_lock(rq, dst_rq);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
     "kernel/sched/fair.c": ["walt_inc_cumulative_runnable_avg(rq, p);", "walt_dec_cumulative_runnable_avg(rq, p);", "walt_cpu_high_irqload(cpu)", "cumulative_runnable_avg", "p->ravg.demand"],
+    "kernel/sched/rt.c": ["fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg"],
+    "kernel/sched/deadline.c": ["fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg"],
+    "kernel/sched/stop_task.c": ["fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg"],
     "kernel/sched/cputime.c": ["wallclock = sched_clock_cpu(cpu);", "walt_account_irqtime(cpu, curr, delta, wallclock);"],
     "kernel/sysctl.c": ['"sched_use_walt_cpu_util"', '"sched_use_walt_task_util"', '"sched_walt_cpu_high_irqload"'],
 }
