@@ -1,15 +1,17 @@
-name: Fleux V12 HMP EAS Hybrid build
-run-name: Meys V12 HMP Hybrid build ${{ github.run_number }}
+name: Fleux V12 HMP Capacity Frequency Separation
+run-name: CAPACITY-FREQ-BUILD48
 on:
   push:
     branches:
-      - meys-v12-hmp-hybrid-full-port
+      - CAPACITY-FREQ-BUILD48
     paths:
       - '.github/workflows/build-hmp-hybrid-mt6781.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_scheduler_modes.py'
       - 'scripts/apply_hmp_mt6781.py'
       - 'scripts/apply_walt_mt6781.py'
+      - 'scripts/apply_schedutil_static_capacity.py'
+      - 'docs/schedutil-static-capacity-test.md'
       - 'vendor/hmp-fleur-4.14/**'
       - 'vendor/walt-fleur-4.14/**'
       - 'docs/scheduler-modes-port.md'
@@ -17,16 +19,16 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: meys-v12-hmp-hybrid-${{ github.ref }}
+  group: capacity-freq-build48-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
-    name: Build MT6781 HMP EAS Hybrid and AnyKernel3
+    name: Build MT6781 HMP Hybrid with Stable Schedutil Capacity Reference
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
       SOURCE_REF: v12
-      BUILD_PROFILE: meys-v12-hmp-hybrid-mt6781
+      BUILD_PROFILE: meys-v12-hmp-hybrid-capacity-freq-mt6781
     steps:
       - name: Checkout builder
         uses: actions/checkout@v4
@@ -34,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/build_kernel.sh
-          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_walt_mt6781.py
+          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -64,17 +66,17 @@ jobs:
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
           cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
-          cp README.md docs/scheduler-modes-port.md artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-demand-engine-audit.txt "$AK_DIR/"
+          cp README.md docs/scheduler-modes-port.md docs/schedutil-static-capacity-test.md artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-demand-engine-audit.txt artifacts/schedutil-static-capacity-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/CAPACITY-FREQ-BUILD48.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md schedutil-static-capacity-test.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt schedutil-static-capacity-audit.txt
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" | tee artifacts/HMP-HYBRID-SHA256.txt
+          unzip -t "$GITHUB_WORKSPACE/artifacts/CAPACITY-FREQ-BUILD48.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/CAPACITY-FREQ-BUILD48.zip" | tee artifacts/CAPACITY-FREQ-BUILD48-SHA256.txt
       - name: Upload build and audit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: meys-v12-hmp-hybrid-mt6781
+          name: CAPACITY-FREQ-BUILD48
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
