@@ -110,7 +110,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "eevdf=Linux 6.18 semantic backport layer 1; DELAY_DEQUEUE and DELAY_ZERO not implemented"
   echo "kernel_version=4.19.325${LOCALVERSION}"
   if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
-    echo "capacity_margin=0 in fits_capacity(); capacity-based fit/misfit threshold disabled"
+    echo "capacity_margin=0 in scheduler variable and MTK fits_capacity helper; capacity-based misfit/overutilized thresholds disabled"
   fi
   echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
   echo "scheduler_mode_default=0"
