@@ -179,8 +179,8 @@ hmp_h = replace_c_function(
 # Set EAS capacity margin to zero as requested (no additional utilization headroom).
 replace_once(
     "kernel/sched/fair.c",
-    "unsigned int capacity_margin\\t\\t\\t\\t= 1280;",
-    "unsigned int capacity_margin\\t\\t\\t\\t= 0;",
+    "unsigned int capacity_margin\t\t\t\t= 1280;",
+    "unsigned int capacity_margin\t\t\t\t= 0;",
     "EAS capacity margin zero",
 )
 hmp_c = (root / "kernel/sched/hmp.c").read_text()
