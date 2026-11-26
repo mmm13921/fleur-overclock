@@ -130,7 +130,6 @@ hmp_c = hmp_c.replace("arch_get_nr_clusters()", "hmp_arch_get_nr_clusters()")
 hmp_c = hmp_c.replace("arch_get_cluster_id(", "hmp_arch_get_cluster_id(")
 hmp_c = hmp_c.replace("arch_get_cluster_cpus(", "hmp_arch_get_cluster_cpus(")
 hmp_c = hmp_c.replace("cpu_park(", "hmp_cpu_park(")
-hmp_c = hmp_c.replace("cpu_isolated_mask", "&hmp_isolated_mask")
 hmp_c = hmp_c.replace("task_prefer_little(", "hmp_task_prefer_little(")
 hmp_c = hmp_c.replace("task_prefer_big(", "hmp_task_prefer_big(")
 hmp_c = hmp_c.replace("target->migrate_task", "target->hmp_migrate_task")
@@ -180,26 +179,21 @@ bool hmp_cpu_park(int cpu)
 }
 bool hmp_task_prefer_little(struct task_struct *p)
 {
-	(void)p;
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	return cpu_prefer(p) == SCHED_PREFER_LITTLE;
+#else
 	return false;
+#endif
 }
 bool hmp_task_prefer_big(struct task_struct *p)
 {
-	(void)p;
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	return cpu_prefer(p) == SCHED_PREFER_BIG;
+#else
 	return false;
+#endif
 }
 static DEFINE_SPINLOCK(hmp_force_migration);
-static cpumask_t hmp_isolated_mask;
-static inline void hmp_refresh_isolated_mask(void)
-{
-	int cpu;
-
-	cpumask_clear(&hmp_isolated_mask);
-	for_each_possible_cpu(cpu) {
-		if (cpu_isolated(cpu))
-			cpumask_set_cpu(cpu, &hmp_isolated_mask);
-	}
-}
 '''
 matches = list(re.finditer(r"^#include[^\n]*$", hmp_c, re.M))
 if not matches:
@@ -207,46 +201,6 @@ if not matches:
 pos = matches[-1].end()
 hmp_c = hmp_c[:pos] + "\n" + trace_fallbacks + "\n" + helpers + hmp_c[pos:]
 (root / "kernel/sched/hmp.c").write_text(hmp_c)
-
-replace_in_function(
-    "kernel/sched/hmp.c",
-    r"static inline unsigned int\s+hmp_select_faster_cpu\s*\(",
-    "int lowest_cpu = num_possible_cpus();",
-    "hmp_refresh_isolated_mask();\n\tint lowest_cpu = num_possible_cpus();",
-    "HMP faster CPU isolation refresh",
-)
-
-replace_in_function(
-    "kernel/sched/hmp.c",
-    r"static unsigned int hmp_select_cpu\s*\(",
-    "int curr = 0;",
-    "hmp_refresh_isolated_mask();\n\tint curr = 0;",
-    "HMP select CPU isolation refresh",
-)
-
-replace_in_function(
-    "kernel/sched/hmp.c",
-    r"static int hmp_select_task_rq_fair\s*\(",
-    "struct list_head *pos;",
-    "hmp_refresh_isolated_mask();\n\tstruct list_head *pos;",
-    "HMP wake placement isolation refresh",
-)
-
-replace_in_function(
-    "kernel/sched/hmp.c",
-    r"static unsigned int\s+hmp_up_migration\s*\([^;]*\)\s*(?=\{)",
-    "struct task_struct *p = task_of(se);",
-    "hmp_refresh_isolated_mask();\n\tstruct task_struct *p = task_of(se);",
-    "HMP up migration isolation refresh",
-)
-
-replace_in_function(
-    "kernel/sched/hmp.c",
-    r"static unsigned int\s+hmp_down_migration\s*\([^;]*\)\s*(?=\{)",
-    "struct task_struct *p = task_of(se);",
-    "hmp_refresh_isolated_mask();\n\tstruct task_struct *p = task_of(se);",
-    "HMP down migration isolation refresh",
-)
 
 replace_once(
     "kernel/Kconfig.preempt",
