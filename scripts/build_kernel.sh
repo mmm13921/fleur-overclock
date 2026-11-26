@@ -97,6 +97,8 @@ make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_I
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_EXTENSION
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_CPU_PREFER
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_HMP
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable IRQ_TIME_ACCOUNTING
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_SCHEDUTIL
@@ -107,6 +109,8 @@ make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
   grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "Native Fleur WALT demand accounting is required by HMP and did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_MTK_SCHED_EXTENSION=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_EXTENSION is required for native CPU isolation masks." >&2; exit 1; }
+  grep -qx "CONFIG_MTK_SCHED_CPU_PREFER=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_CPU_PREFER is required to preserve MTK task preference hints." >&2; exit 1; }
   grep -qx "CONFIG_SCHED_HMP=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for native WALT demand accounting." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "EAS requires schedutil support." >&2; exit 1; }
