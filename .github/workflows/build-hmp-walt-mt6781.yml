@@ -66,10 +66,10 @@ jobs:
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
           cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
-          cp README.md docs/scheduler-modes-port.md artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-demand-engine-audit.txt artifacts/walt-controls-audit.txt "$AK_DIR/"
+          cp README.md docs/scheduler-modes-port.md docs/walt-proc-sysctl.md artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-demand-engine-audit.txt artifacts/walt-controls-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-WALT-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt walt-controls-audit.txt
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-WALT-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md walt-proc-sysctl.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt walt-controls-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-WALT-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" | tee artifacts/HMP-WALT-SHA256.txt
