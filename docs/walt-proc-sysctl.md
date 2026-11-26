@@ -81,7 +81,7 @@ The controls below are sourced from the pinned Fleur 4.14 implementation or are 
 
 | Path under `/proc/sys/kernel/` | Default | Range / access | Effect |
 |---|---:|---|---|
-| `sched_use_walt_cpu_util` | 1 | 0–1, RW | Select WALT CPU utilization for scheduler placement; 0 falls back to PELT. |
+| `sched_use_walt_cpu_util` | 1 | 0–1, RW | Select WALT CPU utilization for scheduler placement and the WALT governor; 0 makes both paths fall back to PELT. |
 | `sched_use_walt_task_util` | 1 | 0–1, RW | Select WALT task demand for task utilization; 0 falls back to PELT/util_est. |
 | `sched_walt_init_task_load_pct` | 15 | 0–100, RW | Initial demand assigned to a newly forked task. |
 | `sched_walt_cpu_high_irqload` | 10,000,000 ns | 1–1,000,000,000, RW | IRQ-load threshold used by the WALT high-IRQ CPU filter. |
