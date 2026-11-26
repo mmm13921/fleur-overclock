@@ -9,6 +9,7 @@ on:
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_capacity_margin_zero.py'
       - 'scripts/anykernel_modem_resume_test.sh'
+      - 'debug/README.md'
 permissions:
   contents: read
 concurrency:
@@ -63,11 +64,12 @@ jobs:
           cp artifacts/kernel.config "$AK_DIR/kernel.config"
           cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
           cp artifacts/capacity-margin-audit.txt "$AK_DIR/capacity-margin-audit.txt"
+          cp artifacts/debug-archive.md "$AK_DIR/debug-archive.md"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V2-Capacity-Margin-0.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb \
-              kernel.config build-manifest.txt capacity-margin-audit.txt
+              kernel.config build-manifest.txt capacity-margin-audit.txt debug-archive.md
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V2-Capacity-Margin-0.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V2-Capacity-Margin-0.zip" | tee artifacts/CAPACITY-MARGIN-SHA256.txt
