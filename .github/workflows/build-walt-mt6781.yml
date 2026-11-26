@@ -11,6 +11,7 @@ on:
       - 'scripts/apply_walt_controls_mt6781.py'
       - 'scripts/apply_waltgov_mt6781.py'
       - 'docs/walt-proc-sysctl.md'
+      - 'vendor/walt-fleur-4.14/**'
   workflow_dispatch:
 permissions:
   contents: write
