@@ -1,5 +1,5 @@
 name: Fleux V12 MT6781 modem resume test
-run-name: Meys modem resume test build #@{ github.run_number }
+run-name: Meys modem resume test build ${{ github.run_number }}
 on:
   push:
     branches:
@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: fleux-modem-resume-test-@{ github.ref }
+  group: fleux-modem-resume-test-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
