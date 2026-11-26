@@ -152,6 +152,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "walt_governor=MTK-aware schedutil-derived 'walt' governor using max(current,previous) WALT execution-window busy-time demand; selected as default for both active CPUFreq policies"
     echo "walt_controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload,sched_walt_ravg_hist_size,sched_walt_window_stats_policy,sched_walt_account_wait_time,sched_walt_freq_account_wait_time,sched_walt_io_is_busy,sched_walt_ravg_window,sched_walt_disabled"
     echo "walt_governor_tunables=/sys/devices/system/cpu/cpufreq/policy*/walt/{up_rate_limit_us,down_rate_limit_us}"
+    echo "walt_irq_accounting=CONFIG_IRQ_TIME_ACCOUNTING=y; WALT IRQ busy-time and IRQ-load tracking enabled"
     echo "walt_audit=walt-mt6781-audit.txt;walt-controls-mt6781-audit.txt;waltgov-mt6781-audit.txt"
     echo "walt_limitations=Qualcomm-only core_ctl/related-thread-group ABI not imported; native MTK policy masks and thermal/DVFS protections retained; runtime sysctl and governor behavior require device validation"
   fi
