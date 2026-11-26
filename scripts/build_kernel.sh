@@ -75,9 +75,11 @@ python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
+  python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
   python3 "$WORKSPACE/scripts/apply_waltgov_mt6781.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
 fi
@@ -146,9 +148,9 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
     echo "walt=Fleur-native 20ms execution-window accounting, task/runqueue demand, wakeup/context-switch/tick/migration/hotplug/IRQ hooks"
     echo "walt_governor=MTK-aware schedutil-derived 'walt' governor using WALT runqueue utilization; selected as default for both active CPUFreq policies"
-    echo "walt_controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload"
+    echo "walt_controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload,sched_walt_ravg_hist_size,sched_walt_window_stats_policy,sched_walt_account_wait_time,sched_walt_freq_account_wait_time,sched_walt_io_is_busy,sched_walt_ravg_window,sched_walt_disabled"
     echo "walt_governor_tunables=/sys/devices/system/cpu/cpufreq/policy*/walt/{up_rate_limit_us,down_rate_limit_us}"
-    echo "walt_audit=walt-mt6781-audit.txt;waltgov-mt6781-audit.txt"
+    echo "walt_audit=walt-mt6781-audit.txt;walt-controls-mt6781-audit.txt;waltgov-mt6781-audit.txt"
     echo "walt_limitations=Qualcomm-only core_ctl/related-thread-group ABI not imported; native MTK policy masks and thermal/DVFS protections retained; runtime sysctl and governor behavior require device validation"
   fi
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
