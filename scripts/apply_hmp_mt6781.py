@@ -211,14 +211,14 @@ replace_in_function(
     "kernel/sched/fair.c",
     r"static void\s+enqueue_entity\s*\(",
     "enqueue_runnable_load_avg(cfs_rq, se);",
-    "enqueue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_enqueue_entity_load_avg(cfs_rq, se);\n#endif",
+    "enqueue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\tif (sched_feat(SCHED_HMP) && entity_is_task(se))\n\t\thmp_enqueue_entity_load_avg(cfs_rq, se);\n#endif",
     "HMP enqueue accounting",
 )
 replace_in_function(
     "kernel/sched/fair.c",
     r"static void\s+dequeue_entity\s*\(",
     "dequeue_runnable_load_avg(cfs_rq, se);",
-    "dequeue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_dequeue_entity_load_avg(cfs_rq, se);\n#endif",
+    "dequeue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\tif (sched_feat(SCHED_HMP) && entity_is_task(se))\n\t\thmp_dequeue_entity_load_avg(cfs_rq, se);\n#endif",
     "HMP dequeue accounting",
 )
 
@@ -293,14 +293,14 @@ replace_in_function(
     "kernel/sched/fair.c",
     r"static void\s+rq_online_fair\s*\(",
     "update_runtime_enabled(rq);",
-    "update_runtime_enabled(rq);\n#ifdef CONFIG_SCHED_HMP\n\thmp_online_cpu(cpu_of(rq));\n#endif",
+    "update_runtime_enabled(rq);\n#ifdef CONFIG_SCHED_HMP\n\tif (sched_feat(SCHED_HMP))\n\t\thmp_online_cpu(cpu_of(rq));\n#endif",
     "HMP CPU online",
 )
 replace_in_function(
     "kernel/sched/fair.c",
     r"static void\s+rq_offline_fair\s*\(",
     "update_sysctl();",
-    "update_sysctl();\n#ifdef CONFIG_SCHED_HMP\n\thmp_offline_cpu(cpu_of(rq));\n#endif",
+    "update_sysctl();\n#ifdef CONFIG_SCHED_HMP\n\tif (sched_feat(SCHED_HMP))\n\t\thmp_offline_cpu(cpu_of(rq));\n#endif",
     "HMP CPU offline",
 )
 replace_in_function(
