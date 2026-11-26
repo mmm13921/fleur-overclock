@@ -48,3 +48,10 @@ Do not add invented names such as `sched_freq_aggregate`, `sched_use_walt_cpu_ut
 7. Build, inspect symbols/config/sysctl table, then device boot and runtime validation.
 
 A sysctl is considered implemented only when writing it changes a live WALT code path safely. Merely registering a proc entry is not completion.
+
+## Current repository state
+
+- Pinned donor files are stored under `vendor/walt-qualcomm-4.19/` (`walt.c`, `walt.h`) from Qualcomm Android 4.19 branch `android-msm-redbull-4.19-s-beta-1`.
+- These are reference inputs only. They have not been copied into the Fleux kernel tree, and no WALT integration hooks, task/rq fields, Kconfig option, sysctl handlers, or schedutil path have been committed yet.
+- No WALT-enabled kernel build has been run. Do not treat this branch as a flashable WALT build.
+- The actual target is Fleux V12 commit `6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9`; the user's GitHub repository is the patch/build harness, not a mirror of the full kernel source.
