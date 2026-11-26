@@ -60,9 +60,16 @@ Do not add invented names such as `sched_freq_aggregate`, `sched_use_walt_cpu_ut
 
 A sysctl is considered implemented only when writing it changes a live WALT code path safely. Merely registering a proc entry is not completion.
 
-## Current repository state
+## MT6781 implementation stage (2026-11-26)
 
-- Pinned donor files are stored under `vendor/walt-qualcomm-4.19/` (`walt.c`, `walt.h`) from Qualcomm Android 4.19 branch `android-msm-redbull-4.19-s-beta-1`.
-- These are reference inputs only. They have not been copied into the Fleux kernel tree, and no WALT integration hooks, task/rq fields, Kconfig option, sysctl handlers, or schedutil path have been committed yet.
-- No WALT-enabled kernel build has been run. Do not treat this branch as a flashable WALT build.
+The build harness now applies `scripts/apply_walt_mt6781.py` to the pinned Fleux V12 source. The first implementation stage adds:
+- Per-task current/previous 20 ms execution windows and normalized WALT demand.
+- Per-runqueue aggregate runnable WALT demand.
+- Accounting hooks at CFS enqueue, dequeue, and runtime update.
+- WALT-aware schedutil utilization using the greater of PELT CFS utilization and WALT runnable demand, scaled to the CPU's original capacity.
+- PELT remains enabled; WALT is opt-in through `CONFIG_SCHED_WALT`.
+
+This is a real accounting/schedutil integration stage, not full Qualcomm WALT/HMP parity. It intentionally does not import Qualcomm cluster topology, core_ctl, related-thread groups, user hints, migration heuristics, IRQ accounting, or the runtime WALT sysctl ABI. CPU placement remains the existing MTK scheduler/HMP/PELT path. The build workflow is `.github/workflows/build-walt-mt6781.yml`; it builds the exact pinned V12 commit, packages an experimental AnyKernel3 ZIP, and publishes a prerelease only if compilation and packaging succeed.
+
+Do not flash until the CI build succeeds and the resulting config/audit are inspected. A successful CI compile does not prove bootability or correct runtime accounting; device testing is still required.
 - The actual target is Fleux V12 commit `6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9`; the user's GitHub repository is the patch/build harness, not a mirror of the full kernel source.
