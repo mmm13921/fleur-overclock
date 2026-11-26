@@ -41,6 +41,8 @@ if not re.search(r"if\s*\(\s*!sampling_rate\s*\)\s*sampling_rate\s*=\s*1\s*;", u
     raise SystemExit("zero sampling_rate safe divisor is missing")
 if "UINT_MAX / 2" not in update or "UINT_MAX / policy_dbs->rate_mult" not in update:
     raise SystemExit("dbs_update overflow saturation is missing")
+if "#include <linux/kernel.h>" not in ondemand:
+    raise SystemExit("ondemand kernel.h include is missing for min_t/UINT_MAX")
 if "min_t(u64, (u64)dbs_data->sampling_rate * policy_dbs->rate_mult, UINT_MAX)" not in od_update:
     raise SystemExit("ondemand sample-delay multiplication is not saturated")
 if "u64 delay_hi_us;" not in bias or "(u64)(freq_avg - freq_lo) * dbs_data->sampling_rate" not in bias:
