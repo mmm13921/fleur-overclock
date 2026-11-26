@@ -55,7 +55,7 @@ for symbol, source_name in (
     if not re.search(rf"(?m)^config {symbol}\s*$", kconfig):
         raise SystemExit(f"{symbol} Kconfig entry missing")
     expected_object = f"obj-$(CONFIG_{symbol})+={source_name}"
-    normalized_makefile = [line.strip().replace(" ", "").replace("\\t", "") for line in makefile.splitlines()]
+    normalized_makefile = [line.strip().replace(" ", "").replace(chr(9), "") for line in makefile.splitlines()]
     if expected_object not in normalized_makefile:
         raise SystemExit(f"{symbol} Makefile object wiring missing")
     if f"CONFIG_{symbol}=y" not in config:
