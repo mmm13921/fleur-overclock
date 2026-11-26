@@ -77,10 +77,10 @@ source = source[:update_start] + update + source[update_end:]
 od_path = root / "drivers/cpufreq/cpufreq_ondemand.c"
 od_source = od_path.read_text()
 if "#include <linux/kernel.h>" not in od_source:
-    include = re.search(r"(?m)^#include <linux/cpu\\.h>\\s*$", od_source)
+    include = re.search(r"(?m)^#include <linux/cpu\.h>\s*$", od_source)
     if not include:
         raise SystemExit("ondemand kernel.h include insertion anchor missing")
-    od_source = od_source[:include.end()] + "\\n#include <linux/kernel.h>" + od_source[include.end():]
+    od_source = od_source[:include.end()] + "\n#include <linux/kernel.h>" + od_source[include.end():]
 od_start, od_end = function_region(od_source, r"static\s+unsigned\s+int\s+od_dbs_update\s*\(", "od_dbs_update")
 od = od_source[od_start:od_end]
 if "return dbs_data->sampling_rate * policy_dbs->rate_mult;" not in od:
