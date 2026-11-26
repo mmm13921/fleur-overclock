@@ -32,6 +32,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid"
     ;;
+  "v12:meys-v12-hmp-hybrid-capacity-freq-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq"
+    ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
     exit 2
@@ -79,12 +83,17 @@ python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSP
 python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_schedutil_static_capacity.py"
+  python3 "$WORKSPACE/scripts/apply_schedutil_static_capacity.py" "$SRC_DIR" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
 fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
@@ -175,6 +184,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
+  if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then echo "schedutil_static_capacity_audit=schedutil-static-capacity-audit.txt"; fi
   sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md"
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
