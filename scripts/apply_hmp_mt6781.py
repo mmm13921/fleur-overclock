@@ -177,7 +177,7 @@ hmp_h = replace_c_function(
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
 hmp_c = (root / "kernel/sched/hmp.c").read_text()
-hmp_c = hmp_c.replace('#include <linux/list_sort.h>\n', '#include <linux/list_sort.h>\n#include "sched.h"\n#include "hmp.h"\n', 1)
+hmp_c = hmp_c.replace('#include <linux/list_sort.h>\n', '#include <linux/list_sort.h>\n#include "hmp.h"\n', 1)
 hmp_c = hmp_c.replace("arch_get_nr_clusters()", "hmp_arch_get_nr_clusters()")
 hmp_c = hmp_c.replace("arch_get_cluster_id(", "hmp_arch_get_cluster_id(")
 hmp_c = hmp_c.replace("arch_get_cluster_cpus(", "hmp_arch_get_cluster_cpus(")
