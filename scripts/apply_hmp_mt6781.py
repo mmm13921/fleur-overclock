@@ -354,11 +354,14 @@ new_hmp_capacity = """#define HMP_CAPACITY_MARGIN 1280
 if old_hmp_capacity not in hmp_c:
     raise SystemExit("HMP native capacity guard anchor missing")
 hmp_c = hmp_c.replace(old_hmp_capacity, new_hmp_capacity, 1)
-hmp_c = hmp_c.replace(
-    "static inline void fillin_cluster(struct cluster_info *cinfo,\\n\\t\\tstruct hmp_domain *hmpd)\\n{\\n\\tint cpu;\\n\\tunsigned long cpu_perf;",
-    "static inline void fillin_cluster(struct cluster_info *cinfo,\\n\\t\\tstruct hmp_domain *hmpd)\\n{\\n\\tint cpu;\\n\\tunsigned long cpu_perf = 0;",
-    1,
+hmp_c, initialized = re.subn(
+    r"(static inline void fillin_cluster\(struct cluster_info \*cinfo,\s*struct hmp_domain \*hmpd\)\s*\{\s*int cpu;\s*)unsigned long cpu_perf;",
+    r"\1unsigned long cpu_perf = 0;",
+    hmp_c,
+    count=1,
 )
+if initialized != 1:
+    raise SystemExit("HMP cluster capacity local initializer anchor missing")
 hmp_c = hmp_c.replace(
     "return (ca.cpu_perf > cb.cpu_perf) ? -1 : 1;",
     "return (ca.cpu_perf > cb.cpu_perf) ? -1 : (ca.cpu_perf < cb.cpu_perf ? 1 : 0);",
