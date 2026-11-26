@@ -300,7 +300,7 @@ replace_in_function(
     """#ifdef CONFIG_SCHED_HMP
 \tif (should_hmp(cpu)) {
 \t\tnew_cpu = hmp_select_task_rq_fair(sd_flag, p, prev_cpu, new_cpu);
-\t\tselect_reason = LB_HMP;
+\t\tselect_reason = LB_EAS;
 \t}
 #endif
 \treturn select_reason | new_cpu;""",
