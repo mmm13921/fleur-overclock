@@ -476,7 +476,7 @@ if '#include "hmp.c"' not in fair_text:
 
 for path, needle in [
     ("kernel/sched/hmp.c", "hmp_force_up_migration"),
-    ("kernel/sched/fair.c", "unsigned int capacity_margin\\t\\t\\t\\t= 0;"),
+    ("kernel/sched/fair.c", "unsigned int capacity_margin\t\t\t\t= 0;"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_cpus(&cpu_mask, id);"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_id(cpu)"),
     ("kernel/sched/hmp.h", "should_hmp"),
