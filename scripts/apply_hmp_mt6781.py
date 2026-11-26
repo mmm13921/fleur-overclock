@@ -181,6 +181,12 @@ static inline bool should_hmp(int cpu)
 # Set EAS capacity margin to zero as requested (no additional utilization headroom).
 replace_once(
     "kernel/sched/fair.c",
+    "#define fits_capacity(cap, max) ((cap) * 1280 < (max) * 1024)",
+    "#define fits_capacity(cap, max) ((cap) * 0 < (max) * 1024)",
+    "MTK EAS fits_capacity margin zero",
+)
+replace_once(
+    "kernel/sched/fair.c",
     "unsigned int capacity_margin\t\t\t\t= 1280;",
     "unsigned int capacity_margin\t\t\t\t= 0;",
     "EAS capacity margin zero",
@@ -479,6 +485,7 @@ if '#include "hmp.c"' not in fair_text:
 for path, needle in [
     ("kernel/sched/hmp.c", "hmp_force_up_migration"),
     ("kernel/sched/fair.c", "unsigned int capacity_margin\t\t\t\t= 0;"),
+    ("kernel/sched/fair.c", "#define fits_capacity(cap, max) ((cap) * 0 < (max) * 1024)"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_cpus(&cpu_mask, id);"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_id(cpu)"),
     ("kernel/sched/hmp.h", "should_hmp"),
