@@ -157,7 +157,9 @@ if not hmp_h.startswith("#ifndef _KERNEL_SCHED_HMP_H"):
 hmp_h = replace_c_function(
     hmp_h,
     r"static inline bool\s+should_hmp\s*\(\s*int cpu\s*\)",
-    """static inline bool should_hmp(int cpu)
+    """static inline unsigned long cpu_util(int cpu);
+static unsigned long capacity_of(int cpu);
+static inline bool should_hmp(int cpu)
 {
 \tif (!sched_smp_initialized || !sched_feat(SCHED_HMP))
 \t\treturn false;
