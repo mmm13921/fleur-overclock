@@ -175,7 +175,9 @@ ss = sched.read_text()
 m = re.search(r"struct sched_avg\s*\{", ss)
 if not m:
     raise SystemExit("sched_avg structure not found")
-end = ss.find("};", m.start())
+end = ss.find("} ____cacheline_aligned;", m.start())
+if end < 0:
+    end = ss.find("};", m.start())
 if end < 0:
     raise SystemExit("sched_avg structure end not found")
 if "loadwop_avg" not in ss[m.start():end]:
