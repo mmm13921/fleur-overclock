@@ -473,10 +473,44 @@ replace_once("include/linux/sched.h",
     "#define TASK_COMM_LEN\t\t\t16\n",
     "#define TASK_COMM_LEN\t\t\t16\n#ifdef CONFIG_SCHED_WALT\nextern unsigned int sysctl_sched_use_walt_cpu_util;\nextern unsigned int sysctl_sched_use_walt_task_util;\nextern unsigned int sysctl_sched_walt_init_task_load_pct;\nextern unsigned int sysctl_sched_walt_cpu_high_irqload;\n#endif\n",
     "WALT sysctl declarations")
-replace_once("kernel/sysctl.c",
-    "#endif\n#ifdef CONFIG_PROVE_LOCKING",
-    "#endif\n#ifdef CONFIG_SCHED_WALT\n\t{\n\t\t.procname\t= \"sched_use_walt_cpu_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_cpu_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_use_walt_task_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_task_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_init_task_load_pct\",\n\t\t.data\t\t= &sysctl_sched_walt_init_task_load_pct,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_cpu_high_irqload\",\n\t\t.data\t\t= &sysctl_sched_walt_cpu_high_irqload,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n#endif\n#ifdef CONFIG_PROVE_LOCKING",
-    "WALT sysctl ABI")
+walt_sysctl = root / "kernel/sysctl.c"
+sysctl_data = walt_sysctl.read_text()
+walt_table = """#ifdef CONFIG_SCHED_WALT
+\t{
+\t\t.procname\t= "sched_use_walt_cpu_util",
+\t\t.data\t\t= &sysctl_sched_use_walt_cpu_util,
+\t\t.maxlen\t\t= sizeof(unsigned int),
+\t\t.mode\t\t= 0644,
+\t\t.proc_handler\t= proc_dointvec,
+\t},
+\t{
+\t\t.procname\t= "sched_use_walt_task_util",
+\t\t.data\t\t= &sysctl_sched_use_walt_task_util,
+\t\t.maxlen\t\t= sizeof(unsigned int),
+\t\t.mode\t\t= 0644,
+\t\t.proc_handler\t= proc_dointvec,
+\t},
+\t{
+\t\t.procname\t= "sched_walt_init_task_load_pct",
+\t\t.data\t\t= &sysctl_sched_walt_init_task_load_pct,
+\t\t.maxlen\t\t= sizeof(unsigned int),
+\t\t.mode\t\t= 0644,
+\t\t.proc_handler\t= proc_dointvec,
+\t},
+\t{
+\t\t.procname\t= "sched_walt_cpu_high_irqload",
+\t\t.data\t\t= &sysctl_sched_walt_cpu_high_irqload,
+\t\t.maxlen\t\t= sizeof(unsigned int),
+\t\t.mode\t\t= 0644,
+\t\t.proc_handler\t= proc_dointvec,
+\t},
+#endif
+"""
+marker = "#ifdef CONFIG_PROVE_LOCKING"
+if sysctl_data.count(marker) != 1:
+    raise SystemExit("WALT sysctl insertion marker missing or ambiguous")
+sysctl_data = sysctl_data.replace(marker, walt_table + marker, 1)
+walt_sysctl.write_text(sysctl_data)
 
 # Structural checks prevent a PASS if any critical integration path is absent.
 checks = {
