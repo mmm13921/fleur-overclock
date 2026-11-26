@@ -8,6 +8,8 @@ on:
       - '.github/workflows/build-walt-mt6781.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_walt_mt6781.py'
+      - 'scripts/apply_walt_controls_mt6781.py'
+      - 'scripts/apply_waltgov_mt6781.py'
       - 'docs/walt-proc-sysctl.md'
   workflow_dispatch:
 permissions:
@@ -29,7 +31,7 @@ jobs:
       - name: Check builder syntax
         run: |
           bash -n scripts/build_kernel.sh
-          python3 -m py_compile scripts/apply_walt_mt6781.py
+          python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -66,12 +68,12 @@ jobs:
           cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
           cp README.md docs/walt-proc-sysctl.md "$AK_DIR/"
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
-          cp artifacts/walt-mt6781-audit.txt "$AK_DIR/"
+          cp artifacts/walt-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip" \
               META-INF tools LICENSE README.md walt-proc-sysctl.md \
-              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-mt6781-audit.txt
+              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
@@ -87,13 +89,15 @@ jobs:
           body: |
             Experimental Fleux V12 / Linux 4.19.325 kernel for Redmi Note 11S 4G / fleur / MT6781.
 
-            Includes MT6781-adapted WALT execution-window accounting, fair enqueue/dequeue/runtime hooks, and WALT-aware schedutil utilization. PELT remains active as fallback. This is the first functional accounting stage, not a claim of full Qualcomm WALT/HMP parity: Qualcomm core_ctl/cluster logic and runtime WALT sysctl ABI are not imported. Device boot and runtime behavior require on-device validation.
+            Includes the Fleur-native 20 ms WALT engine adapted to the MT6781 scheduler, task/runqueue demand accounting, wakeup/fork/context-switch/tick/migration/hotplug/IRQ hooks, WALT-aware utilization, and an MTK-policy-aware WALT CPUFreq governor. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; device validation remains required.
           files: |
             artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip
             artifacts/Image.gz-dtb
             artifacts/kernel.config
             artifacts/build-manifest.txt
             artifacts/walt-mt6781-audit.txt
+            artifacts/walt-controls-mt6781-audit.txt
+            artifacts/waltgov-mt6781-audit.txt
             artifacts/WALT-MT6781-SHA256.txt
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
