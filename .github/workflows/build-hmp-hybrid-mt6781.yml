@@ -1,4 +1,5 @@
 name: CONSERVATIVE-BUILD
+# Dedicated Conservative CPUFreq governor test; schedutil stays default.
 run-name: CONSERVATIVE-BUILD50
 on:
   push:
