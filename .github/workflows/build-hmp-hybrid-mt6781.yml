@@ -26,9 +26,10 @@ permissions:
   contents: read
 concurrency:
   group: capacity-freq-conservative-unlimited-sampling-build52-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build-and-package:
+    if: false # Retired incomplete Build52; this no-op run only supersedes the in-flight job.
     name: Build MT6781 HMP Hybrid with Unlimited Conservative/Ondemand Sampling Rate
     runs-on: ubuntu-24.04
     timeout-minutes: 180
