@@ -207,19 +207,19 @@ replace_once(
     '#include "sched.h"\n#ifdef CONFIG_SCHED_HMP\n#include "hmp.h"\n#endif\n',
     "HMP header include",
 )
-replace_once(
+replace_in_function(
     "kernel/sched/fair.c",
-    "\tenqueue_runnable_load_avg(cfs_rq, se);\n",
-    "\tenqueue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_enqueue_entity_load_avg(cfs_rq, se);\n#endif\n",
+    r"static void\s+enqueue_entity\s*\(",
+    "enqueue_runnable_load_avg(cfs_rq, se);",
+    "enqueue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_enqueue_entity_load_avg(cfs_rq, se);\n#endif",
     "HMP enqueue accounting",
-    expected=2,
 )
-replace_once(
+replace_in_function(
     "kernel/sched/fair.c",
-    "\tdequeue_runnable_load_avg(cfs_rq, se);\n",
-    "\tdequeue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_dequeue_entity_load_avg(cfs_rq, se);\n#endif\n",
+    r"static void\s+dequeue_entity\s*\(",
+    "dequeue_runnable_load_avg(cfs_rq, se);",
+    "dequeue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_dequeue_entity_load_avg(cfs_rq, se);\n#endif",
     "HMP dequeue accounting",
-    expected=2,
 )
 
 replace_in_function(
