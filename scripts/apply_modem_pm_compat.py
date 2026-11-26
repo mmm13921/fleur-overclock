@@ -30,8 +30,7 @@ resume_impl = """static void dpmaif_sysresume(void)
 	}
 
 	md_state = ccci_fsm_get_md_state(dpmaif_ctrl->md_id);
-	if (md_state == GATED || md_state == WAITING_TO_STOP ||
-	    md_state == INVALID) {
+	if (md_state != READY && md_state != EXCEPTION) {
 		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
 			"[%s] skip restore for md_state=%d\\n",
 			__func__, md_state);
