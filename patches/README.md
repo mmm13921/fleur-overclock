@@ -10,6 +10,7 @@ This directory keeps the source-level patch applicators used by the experimental
 | 0002 | `apply/0002-f2fs-projectid-metadata-compat.py` | Fleux F2FS kernel | Stores inode Project IDs when EXTRA_ATTR is available without PRJQUOTA; on legacy userdata lacking EXTRA_ATTR or sufficient inode extra space, accepts FSSETXATTR as a no-op so vold setup can continue. It does **not** enable project-quota accounting or enforcement. |
 | 0003 | `apply/0003-fleur-hmp-eas-hybrid-scheduler.py` | Fleux 4.19.325 scheduler | Adds `/proc/sys/kernel/sched_cpu_mode`: 0=HMP-style (default), 1=EAS, 2=Hybrid. This is a PELT/util_est adaptation and **not** a full WALT HMP port. |
 | 0004 | `apply/0004-android13-mediaprovider-fuse-projectid-bridge.py` | Android 13 MediaProvider userspace | Adds a restricted FUSE ioctl bridge for FS_IOC_FSGETXATTR/FS_IOC_FSSETXATTR. This is userspace source work; it is not part of the kernel and is not a flashable kernel patch. |
+| 0005 | `scripts/apply_hmp_mt6781.py` (integrated scheduler patch) | Fleux V12 `kernel/sched/fair.c` | Sets the global `capacity_margin` and MTK `fits_capacity()` margin to 0. This removes the configured capacity headroom; the resulting `task_fits_capacity()` / misfit classification semantics must be treated as experimental and validated on-device. It is applied together with the HMP/EAS/Hybrid scheduler patch, not as an independent patch script. |
 
 ## Supporting build/configuration files
 
@@ -22,7 +23,7 @@ The installer scripts are packaging helpers, not source patches; they do not imp
 
 ## Build-time patch order
 
-The kernel build applies 0001, 0002, then 0003 to the pinned Fleux V11 source. Patch 0004 is applied separately to the pinned AOSP Android 13 MediaProvider source tree.
+The current Fleux V12 HMP/EAS/Hybrid workflow applies the integrated scheduler changes in `scripts/apply_hmp_mt6781.py`, including patch 0005 (both capacity-margin sites set to 0). Patches 0001–0003 describe the archived V11-era source patch series; patch 0004 is applied separately to the pinned AOSP Android 13 MediaProvider source tree. Do not interpret the archive numbering as proof that each entry is an independently invoked build step.
 
 The canonical build entry points and audits remain in `scripts/` and `research/android13-mediaprovider/`. These archived copies are intended to make each applied change easy to inspect and preserve; keep the matching files synchronized when editing either copy.
 
