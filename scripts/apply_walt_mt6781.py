@@ -9,6 +9,7 @@ if len(sys.argv) != 3:
 
 root = Path(sys.argv[1])
 audit = Path(sys.argv[2])
+workspace = Path(__file__).resolve().parents[1]
 changes = []
 
 def replace_once(rel, old, new, label, count=1):
@@ -39,7 +40,7 @@ def replace_region(rel, start, end, old, new, label, count=1):
 # deliberately compiled as no-ops; accounting and scheduler hooks remain live.
 sched_dir = root / "kernel/sched"
 for name in ("walt.c", "walt.h"):
-    source = root / "vendor/walt-fleur-4.14" / name
+    source = workspace / "vendor/walt-fleur-4.14" / name
     if not source.is_file():
         raise SystemExit(f"missing pinned Fleur WALT reference: {source}")
     text = source.read_text()
