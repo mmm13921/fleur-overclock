@@ -87,22 +87,73 @@ if "extern unsigned int sysctl_sched_cpu_mode;" not in hmp_h:
     if anchor not in hmp_h:
         raise SystemExit("HMP mode: sched_smp_initialized declaration missing")
     hmp_h = hmp_h.replace(anchor, anchor + "#ifdef CONFIG_MACH_MT6781\nextern unsigned int sysctl_sched_cpu_mode;\n#endif\n", 1)
-compat_proto = """/* Fleur 4.14 platform hooks adapted for the fixed MT6781 topology. */
-int hmp_arch_get_nr_clusters(void);
-int hmp_arch_get_cluster_id(unsigned int cpu);
-void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster);
-bool hmp_cpu_park(int cpu);
-bool hmp_task_prefer_little(struct task_struct *p);
-bool hmp_task_prefer_big(struct task_struct *p);
+compat_helpers = """/* Fleur 4.14 MT6781 HMP compatibility layer. */
+#ifdef CONFIG_SCHED_HMP
+static DEFINE_SPINLOCK(hmp_force_migration);
+static inline int hmp_arch_get_nr_clusters(void)
+{
+	return 2;
+}
+static inline int hmp_arch_get_cluster_id(unsigned int cpu)
+{
+	return cpu < 6 ? 0 : 1;
+}
+static inline void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster)
+{
+	int cpu;
+
+	cpumask_clear(mask);
+	for_each_possible_cpu(cpu) {
+		if ((cluster == 0 && cpu < 6) ||
+		    (cluster == 1 && cpu >= 6))
+			cpumask_set_cpu(cpu, mask);
+	}
+}
+static inline bool hmp_cpu_park(int cpu)
+{
+	return !cpu_active(cpu) || cpu_isolated(cpu);
+}
+static inline bool hmp_task_prefer_little(struct task_struct *p)
+{
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	return cpu_prefer(p) == SCHED_PREFER_LITTLE;
+#else
+	return false;
+#endif
+}
+static inline bool hmp_task_prefer_big(struct task_struct *p)
+{
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	return cpu_prefer(p) == SCHED_PREFER_BIG;
+#else
+	return false;
+#endif
+}
+#endif
 """
-if "hmp_arch_get_nr_clusters(void);" not in hmp_h:
-    anchor = "extern bool sched_smp_initialized;\n"
-    hmp_h = hmp_h.replace(anchor, anchor + compat_proto, 1)
+if "static inline int hmp_arch_get_nr_clusters(void)" not in hmp_h:
+    anchor = "extern bool sched_smp_initialized;\\n"
+    if anchor not in hmp_h:
+        raise SystemExit("HMP compatibility helper anchor missing")
+    hmp_h = hmp_h.replace(anchor, anchor + compat_helpers, 1)
 if "MIGR_UP_MIGRATE" not in hmp_h:
     anchor = "LIST_HEAD(hmp_domains);\n"
     if anchor not in hmp_h:
         raise SystemExit("HMP migration constants: list anchor missing")
     hmp_h = hmp_h.replace(anchor, "#ifndef MIGR_UP_MIGRATE\n#define MIGR_UP_MIGRATE 4\n#define MIGR_DOWN_MIGRATE 5\n#endif\n\n" + anchor, 1)
+if not hmp_h.startswith("#ifndef _KERNEL_SCHED_HMP_H"):
+    trace_names = [
+        "trace_sched_cluster_stats", "trace_sched_adj_threshold",
+        "trace_sched_hmp_load", "trace_sched_hmp_migrate",
+        "trace_sched_cfs_enqueue_task", "trace_sched_cfs_dequeue_task",
+        "trace_sched_hmp_stats", "trace_sched_dynamic_threshold",
+        "trace_sched_dynamic_threshold_draw",
+    ]
+    trace_fallbacks = "\\n".join(
+        f"#ifndef {name}\\n#define {name}(...) do {{ }} while (0)\\n#endif"
+        for name in trace_names
+    )
+    hmp_h = "#ifndef _KERNEL_SCHED_HMP_H\\n#define _KERNEL_SCHED_HMP_H\\n#include <linux/cpumask.h>\\n#include <linux/spinlock.h>\\n#include <trace/events/sched.h>\\n" + trace_fallbacks + "\\n" + hmp_h.rstrip() + "\\n#endif\\n"
 hmp_h = replace_c_function(
     hmp_h,
     r"static inline bool\s+should_hmp\s*\(\s*int cpu\s*\)",
@@ -126,6 +177,7 @@ hmp_h = replace_c_function(
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
 hmp_c = (root / "kernel/sched/hmp.c").read_text()
+hmp_c = hmp_c.replace('#include <linux/list_sort.h>\\n', '#include <linux/list_sort.h>\\n#include "sched.h"\\n#include "hmp.h"\\n', 1)
 hmp_c = hmp_c.replace("arch_get_nr_clusters()", "hmp_arch_get_nr_clusters()")
 hmp_c = hmp_c.replace("arch_get_cluster_id(", "hmp_arch_get_cluster_id(")
 hmp_c = hmp_c.replace("arch_get_cluster_cpus(", "hmp_arch_get_cluster_cpus(")
@@ -133,6 +185,19 @@ hmp_c = hmp_c.replace("cpu_park(", "hmp_cpu_park(")
 hmp_c = hmp_c.replace("task_prefer_little(", "hmp_task_prefer_little(")
 hmp_c = hmp_c.replace("task_prefer_big(", "hmp_task_prefer_big(")
 hmp_c = hmp_c.replace("target->migrate_task", "target->hmp_migrate_task")
+old_hmp_prototypes = """#ifdef CONFIG_SCHED_HMP_PLUS
+static struct sched_entity *hmp_get_heaviest_task(
+		struct sched_entity *se, int target_cpu);
+static struct sched_entity *hmp_get_lightest_task(
+		struct sched_entity *se, int migrate_down);
+#endif"""
+new_hmp_prototypes = """static struct sched_entity *hmp_get_heaviest_task(
+		struct sched_entity *se, int target_cpu);
+static struct sched_entity *hmp_get_lightest_task(
+		struct sched_entity *se, int migrate_down);"""
+if old_hmp_prototypes not in hmp_c:
+    raise SystemExit("HMP heaviest/lightest task prototypes missing")
+hmp_c = hmp_c.replace(old_hmp_prototypes, new_hmp_prototypes, 1)
 hmp_c = replace_c_function(
     hmp_c,
     r"static int\s+hmp_active_load_balance_cpu_stop\s*\(\s*void \*data\s*\)",
@@ -141,65 +206,6 @@ hmp_c = replace_c_function(
 )
 hmp_c = hmp_c.replace("rq->cfs.runnable_load_avg", "rq->cfs.avg.loadwop_avg")
 hmp_c = hmp_c.replace("cfs_rq->runnable_load_avg", "cfs_rq->avg.loadwop_avg")
-trace_names = [
-    "trace_sched_cluster_stats", "trace_sched_adj_threshold",
-    "trace_sched_hmp_load", "trace_sched_hmp_migrate",
-    "trace_sched_cfs_enqueue_task", "trace_sched_cfs_dequeue_task",
-    "trace_sched_hmp_stats", "trace_sched_dynamic_threshold",
-    "trace_sched_dynamic_threshold_draw",
-]
-trace_fallbacks = "\n".join(
-    f"#ifdef {name}\n#undef {name}\n#endif\n#define {name}(...) do {{ }} while (0)"
-    for name in trace_names
-)
-helpers = r'''
-/* MT6781/Fleux compatibility helpers for the Fleur HMP policy. */
-int hmp_arch_get_nr_clusters(void)
-{
-	return 2;
-}
-int hmp_arch_get_cluster_id(unsigned int cpu)
-{
-	return cpu < 6 ? 0 : 1;
-}
-void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster)
-{
-	int cpu;
-
-	cpumask_clear(mask);
-	for_each_possible_cpu(cpu) {
-		if ((cluster == 0 && cpu < 6) ||
-		    (cluster == 1 && cpu >= 6))
-			cpumask_set_cpu(cpu, mask);
-	}
-}
-bool hmp_cpu_park(int cpu)
-{
-	return !cpu_active(cpu) || cpu_isolated(cpu);
-}
-bool hmp_task_prefer_little(struct task_struct *p)
-{
-#ifdef CONFIG_MTK_SCHED_CPU_PREFER
-	return cpu_prefer(p) == SCHED_PREFER_LITTLE;
-#else
-	return false;
-#endif
-}
-bool hmp_task_prefer_big(struct task_struct *p)
-{
-#ifdef CONFIG_MTK_SCHED_CPU_PREFER
-	return cpu_prefer(p) == SCHED_PREFER_BIG;
-#else
-	return false;
-#endif
-}
-static DEFINE_SPINLOCK(hmp_force_migration);
-'''
-matches = list(re.finditer(r"^#include[^\n]*$", hmp_c, re.M))
-if not matches:
-    raise SystemExit("HMP source has no include block")
-pos = matches[-1].end()
-hmp_c = hmp_c[:pos] + "\n" + trace_fallbacks + "\n" + helpers + hmp_c[pos:]
 (root / "kernel/sched/hmp.c").write_text(hmp_c)
 
 replace_once(
