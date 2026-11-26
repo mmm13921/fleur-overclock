@@ -1,3 +1,4 @@
+# Isolated modem-resume validation build trigger.
 set -Eeuo pipefail
 SOURCE_REF="${1:-v12}"
 BUILD_PROFILE="${2:-meys-v12-android-data-sdcardfs}"
