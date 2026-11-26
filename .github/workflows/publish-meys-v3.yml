@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           gh run download 45896547052 --repo "$GITHUB_REPOSITORY" --name meys-v12-hmp-hybrid-mt6781 --dir build47
-          find build47 -maxdepth 3 -type f -printf '%p %s bytes\\n'
+          find build47 -maxdepth 3 -type f
       - name: Publish MEYS V3 as latest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -27,9 +27,4 @@ jobs:
           ZIP="$(find build47 -type f -iname '*.zip' -print -quit)"
           test -n "$ZIP"
           unzip -t "$ZIP"
-          gh release create meys-v3 "$ZIP" \\
-            --repo "$GITHUB_REPOSITORY" \\
-            --target d64fbd05e9b45b29d5a27df2d11a118985d82e8a \\
-            --title "MEYS V3" \\
-            --latest \\
-            --notes "HMP/Hybrid kernel release for Redmi Note 11S 4G (fleur / MT6781). Built in successful GitHub Actions Build47 and confirmed booted on device. Source commit: d64fbd05e9b45b29d5a27df2d11a118985d82e8a."
+          gh release create meys-v3 "$ZIP" --repo "$GITHUB_REPOSITORY" --target d64fbd05e9b45b29d5a27df2d11a118985d82e8a --title "MEYS V3" --latest --notes "HMP/Hybrid kernel release for Redmi Note 11S 4G (fleur / MT6781). Built in successful GitHub Actions Build47 and confirmed booted on device. Source commit: d64fbd05e9b45b29d5a27df2d11a118985d82e8a."
