@@ -121,13 +121,13 @@ def replace_entry(procname, old_handler, new_handler, low, high):
     if block.count(old) != 1:
         raise SystemExit("handler mismatch for " + procname)
     block = block.replace(old, ".proc_handler\t= " + new_handler + ",")
-    block += "\n\t.extra1\t\t= SYSCTL_ZERO,"
+    block += "\n\t.extra1\t\t= &walt_sysctl_zero,"
     block += "\n\t.extra2\t\t= " + high + ","
     data = data[:start] + block + data[end:]
 
-replace_entry("sched_use_walt_cpu_util", "proc_dointvec", "proc_dointvec_minmax", "one")
-replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_dointvec_minmax", "one")
-replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_dointvec_minmax", "hundred")
+replace_entry("sched_use_walt_cpu_util", "proc_dointvec", "proc_dointvec_minmax", "zero", "&walt_sysctl_one")
+replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_dointvec_minmax", "zero", "&walt_sysctl_one")
+replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_dointvec_minmax", "zero", "&walt_sysctl_hundred")
 
 # Insert remaining native knobs immediately after the bounded IRQ entry.
 irq_end = data.find("\n\t},", data.find('.procname\t= "sched_walt_cpu_high_irqload"'))
@@ -141,7 +141,7 @@ entries = '''
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
-\t\t.extra1\t\t= &one,
+\t\t.extra1\t\t= &walt_sysctl_one,
 \t\t.extra2\t\t= &walt_sysctl_five,
 \t},
 \t{
@@ -150,7 +150,7 @@ entries = '''
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
-\t\t.extra1\t\t= SYSCTL_ZERO,
+\t\t.extra1\t\t= &walt_sysctl_zero,
 \t\t.extra2\t\t= &walt_sysctl_three,
 \t},
 \t{
@@ -159,8 +159,8 @@ entries = '''
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
-\t\t.extra1\t\t= SYSCTL_ZERO,
-\t\t.extra2\t\t= &one,
+\t\t.extra1\t\t= &walt_sysctl_zero,
+\t\t.extra2\t\t= &walt_sysctl_one,
 \t},
 \t{
 \t\t.procname\t= "sched_walt_freq_account_wait_time",
@@ -168,8 +168,8 @@ entries = '''
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
-\t\t.extra1\t\t= SYSCTL_ZERO,
-\t\t.extra2\t\t= &one,
+\t\t.extra1\t\t= &walt_sysctl_zero,
+\t\t.extra2\t\t= &walt_sysctl_one,
 \t},
 \t{
 \t\t.procname\t= "sched_walt_io_is_busy",
@@ -177,8 +177,8 @@ entries = '''
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
-\t\t.extra1\t\t= SYSCTL_ZERO,
-\t\t.extra2\t\t= &one,
+\t\t.extra1\t\t= &walt_sysctl_zero,
+\t\t.extra2\t\t= &walt_sysctl_one,
 \t},
 \t{
 \t\t.procname\t= "sched_walt_ravg_window",
