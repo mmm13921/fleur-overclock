@@ -20,8 +20,8 @@ def edit(rel, old, new, label, count=1):
 # the helper before its definition. Add a CONFIG-guarded prototype.
 edit(
     "kernel/sched/core.c",
-    "static void try_to_wake_up_local(struct task_struct *p)\n{",
-    "#ifdef CONFIG_SCHED_WALT\nstatic inline void walt_try_to_wake_up(struct task_struct *p);\n#endif\n\nstatic void try_to_wake_up_local(struct task_struct *p)\n{",
+    "static void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)\n{",
+    "#ifdef CONFIG_SCHED_WALT\nstatic inline void walt_try_to_wake_up(struct task_struct *p);\n#endif\n\nstatic void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)\n{",
     "WALT wakeup helper forward declaration",
 )
 
