@@ -1,0 +1,35 @@
+name: Publish Meys V2 release
+run-name: Publish Meys V2 from modem resume build
+on:
+  push:
+    branches:
+      - meys-v12-modem-resume-guard
+    paths:
+      - '.github/workflows/publish-meys-v2.yml'
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download verified build 55 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 45827732072 --repo mmm13921/fleur-overclock --name meys-v12-modem-resume-guard --dir dist
+          test -s dist/Meys-V12-Modem-Resume-Guard.zip
+          unzip -t dist/Meys-V12-Modem-Resume-Guard.zip
+          sha256sum dist/Meys-V12-Modem-Resume-Guard.zip
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create meys-v2 dist/Meys-V12-Modem-Resume-Guard.zip \
+            --repo mmm13921/fleur-overclock \
+            --target ff630a656fdd2d5fb39c8c68da3f07b194d49c87 \
+            --title "Meys V2" \
+            --notes "Experimental MT6781 modem resume guard build for Redmi Note 11S (fleur).\n\nBased on Fleux V12 and the stable no-SDCardFS profile. Adds guarded DPMAIF resume handling with modem/DPMAIF state checks and null-safe suspend/resume handling.\n\nBuild 55 completed successfully in GitHub Actions. Device boot and long-sleep signal behavior still require on-device validation. This release is experimental; keep a known-good kernel available for recovery."
