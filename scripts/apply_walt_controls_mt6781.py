@@ -105,7 +105,7 @@ data = data.replace(anchor, extra)
 include_anchor = "#include <linux/sysctl.h>\n"
 if include_anchor not in data:
     raise SystemExit("sysctl include anchor missing")
-data = data.replace(include_anchor, include_anchor + "\nstatic int one = 1;\nstatic int three = 3;\nstatic int five = 5;\nstatic int hundred = 100;\nstatic int nsec_per_sec = 1000000000;\n", 1)
+data = data.replace(include_anchor, include_anchor + "\nstatic int walt_sysctl_zero = 0;\nstatic int walt_sysctl_one = 1;\nstatic int walt_sysctl_three = 3;\nstatic int walt_sysctl_five = 5;\nstatic int walt_sysctl_hundred = 100;\nstatic int walt_sysctl_nsec_per_sec = 1000000000;\n", 1)
 
 # Existing WALT entries are converted to bounded handlers.
 def replace_entry(procname, old_handler, new_handler, low, high):
