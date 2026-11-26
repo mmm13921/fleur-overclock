@@ -207,7 +207,7 @@ replace_region("kernel/sched/fair.c",
 # Provide a WALT utilization floor to schedutil without removing PELT.
 replace_once("kernel/sched/walt.c",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
-    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn 0;\n\tutil = READ_ONCE(rq->prev_runnable_sum);\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn 0;\n\tutil = READ_ONCE(rq->cumulative_runnable_avg);\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
     "WALT schedutil utilization export")
 replace_once("kernel/sched/cpufreq_schedutil.c",
     "unsigned long util_cfs = cpu_util_cfs(rq);",
