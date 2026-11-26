@@ -589,7 +589,7 @@ audit.write_text(
     "mode_control=/proc/sys/kernel/sched_cpu_mode: 0 HMP, 1 EAS, 2 Hybrid\n"
     "eas_capacity_margin=0 (fits_capacity uses no additional EAS headroom)\n"
     "hmp_native_capacity_margin=1280 (preserves Fleur 4.14 migration-capacity safety independently)\n"
-    "hybrid_overutilization=root_domain_flag_or_local_util_at_capacity\\n"
+    "hybrid_overutilization=any_sched_domain_shared_overutilized (native Fleur 4.14 should_hmp semantics)\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
     "related_thread_groups=not present in Fleur MTK 4.14 reference; Qualcomm RTG not imported\n"
     "hmp_plus=enabled; enhanced heaviest/lightest selection and guarded active migration\n"
