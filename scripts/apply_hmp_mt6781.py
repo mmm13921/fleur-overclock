@@ -87,6 +87,17 @@ if "extern unsigned int sysctl_sched_cpu_mode;" not in hmp_h:
     if anchor not in hmp_h:
         raise SystemExit("HMP mode: sched_smp_initialized declaration missing")
     hmp_h = hmp_h.replace(anchor, anchor + "#ifdef CONFIG_MACH_MT6781\nextern unsigned int sysctl_sched_cpu_mode;\n#endif\n", 1)
+compat_proto = """/* Fleur 4.14 platform hooks adapted for the fixed MT6781 topology. */
+int hmp_arch_get_nr_clusters(void);
+int hmp_arch_get_cluster_id(unsigned int cpu);
+void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster);
+bool hmp_cpu_park(int cpu);
+bool hmp_task_prefer_little(struct task_struct *p);
+bool hmp_task_prefer_big(struct task_struct *p);
+"""
+if "hmp_arch_get_nr_clusters(void);" not in hmp_h:
+    anchor = "extern bool sched_smp_initialized;\n"
+    hmp_h = hmp_h.replace(anchor, anchor + compat_proto, 1)
 if "MIGR_UP_MIGRATE" not in hmp_h:
     anchor = "LIST_HEAD(hmp_domains);\n"
     if anchor not in hmp_h:
@@ -119,6 +130,7 @@ hmp_c = hmp_c.replace("arch_get_nr_clusters()", "hmp_arch_get_nr_clusters()")
 hmp_c = hmp_c.replace("arch_get_cluster_id(", "hmp_arch_get_cluster_id(")
 hmp_c = hmp_c.replace("arch_get_cluster_cpus(", "hmp_arch_get_cluster_cpus(")
 hmp_c = hmp_c.replace("cpu_park(", "hmp_cpu_park(")
+hmp_c = hmp_c.replace("cpu_isolated_mask", "&hmp_isolated_mask")
 hmp_c = hmp_c.replace("task_prefer_little(", "hmp_task_prefer_little(")
 hmp_c = hmp_c.replace("task_prefer_big(", "hmp_task_prefer_big(")
 hmp_c = hmp_c.replace("rq->cfs.runnable_load_avg", "rq->cfs.avg.loadwop_avg")
@@ -127,9 +139,11 @@ trace_names = [
     "trace_sched_cluster_stats", "trace_sched_adj_threshold",
     "trace_sched_hmp_load", "trace_sched_hmp_migrate",
     "trace_sched_cfs_enqueue_task", "trace_sched_cfs_dequeue_task",
+    "trace_sched_hmp_stats", "trace_sched_dynamic_threshold",
+    "trace_sched_dynamic_threshold_draw",
 ]
 trace_fallbacks = "\n".join(
-    f"#ifndef {name}\n#define {name}(...) do {{ }} while (0)\n#endif"
+    f"#ifdef {name}\n#undef {name}\n#endif\n#define {name}(...) do {{ }} while (0)"
     for name in trace_names
 )
 helpers = r'''
@@ -166,6 +180,17 @@ static inline bool hmp_task_prefer_big(struct task_struct *p)
 {
 	(void)p;
 	return false;
+}
+static cpumask_t hmp_isolated_mask;
+static inline void hmp_refresh_isolated_mask(void)
+{
+	int cpu;
+
+	cpumask_clear(&hmp_isolated_mask);
+	for_each_possible_cpu(cpu) {
+		if (cpu_isolated(cpu))
+			cpumask_set_cpu(cpu, &hmp_isolated_mask);
+	}
 }
 '''
 matches = list(re.finditer(r"^#include[^\n]*$", hmp_c, re.M))
@@ -248,7 +273,7 @@ replace_in_function(
 \t\tint hmp_cpu = hmp_fork_balance(p, prev_cpu);
 
 \t\tif (hmp_cpu >= 0 && hmp_cpu < nr_cpu_ids)
-\t\t\treturn LB_FORK | hmp_cpu;
+\t\t\treturn LB_EAS | hmp_cpu;
 \t}
 #endif""",
     "HMP fork placement",
@@ -261,7 +286,7 @@ regex_in_function(
 #ifdef CONFIG_SCHED_HMP
 \t\t\t\tif (should_hmp(cpu)) {
 \t\t\t\t\tnew_cpu = hmp_select_task_rq_fair(sd_flag, p, prev_cpu, new_cpu);
-\t\t\t\t\treturn LB_HMP | new_cpu;
+\t\t\t\t\treturn LB_EAS | new_cpu;
 \t\t\t\t}
 #endif
 \t\t\t\treturn LB_EAS | new_cpu;
