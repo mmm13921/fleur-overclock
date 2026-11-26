@@ -50,7 +50,7 @@ The current MT6781 branch deliberately exports `sched_use_walt_cpu_util` and `sc
 
 ## Implementation gates
 
-1. Task/runqueue state, fork initialization, CFS enqueue/dequeue, demand history and window accounting are ported; migration lifetime and lock correctness still require stress testing.
+1. Task/runqueue state, fork initialization, CFS enqueue/dequeue, demand history and window accounting are ported; queued migration accounting now acquires source and destination runqueue locks together before transferring current/previous window sums; waking-task migration retains its paired-lock path. Lock ordering and migration stress testing on-device remain required.
 2. Wakeup, local wakeup, fork, task-start, context-switch, tick, migration, CPU-hotplug and IRQ hooks are integrated; suspend/resume and race behavior need device validation.
 3. WALT task/CPU utilization and an MTK-policy-aware CPUFreq governor are integrated, with PELT fallback controls retained.
 4. WALT demand is fed into scheduler placement and IRQ-heavy EAS candidate filtering; the dedicated governor consumes execution-window busy time. This is not a complete Qualcomm HMP/core_ctl port.
