@@ -201,5 +201,6 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
   sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md"
+  if [[ -f "$ARTIFACT_DIR/conservative-governor-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/conservative-governor-audit.txt"; fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
