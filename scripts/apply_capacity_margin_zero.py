@@ -7,34 +7,60 @@ if len(sys.argv) != 3:
 
 root = pathlib.Path(sys.argv[1]).resolve()
 audit = pathlib.Path(sys.argv[2])
-matches = list(root.rglob("fair.c"))
-matches = [p for p in matches if p.as_posix().endswith("/kernel/sched/fair.c")]
+matches = [p for p in root.rglob("fair.c") if p.as_posix().endswith("/kernel/sched/fair.c")]
 if len(matches) != 1:
     raise SystemExit(f"expected exactly one kernel/sched/fair.c, found {len(matches)}")
 path = matches[0]
-text = path.read_text()
-pattern = re.compile(
-    r"(?m)^(?P<prefix>\s*#define\s+fits_capacity\s*\(\s*cap\s*,\s*max\s*\)\s*"
-    r"\(\(\s*\(cap\)\s*\*\s*)1280"
-    r"(?P<suffix>\s*<\s*\(max\)\s*\*\s*1024\s*\)\s*)$"
+source = path.read_text()
+
+# Fleux V12 uses a tunable capacity_margin variable for task-fit and
+# overutilization decisions, plus a separate MTK helper macro.
+variable_pattern = re.compile(
+    r"(?m)^(?P<prefix>[ \t]*unsigned[ \t]+int[ \t]+capacity_margin[ \t]*=[ \t]*)"
+    r"1280(?P<suffix>[ \t]*;[ \t]*)$"
 )
-updated, count = pattern.subn(lambda m: m.group("prefix") + "0" + m.group("suffix"), text)
-if count != 1:
-    raise SystemExit(f"expected one stock fits_capacity 1280/1024 macro, found {count}; refusing unsafe patch")
-if updated == text:
+macro_pattern = re.compile(
+    r"(?m)^(?P<prefix>[ \t]*#define[ \t]+fits_capacity[ \t]*"
+    r"\\([ \t]*cap[ \t]*,[ \t]*max[ \t]*\\)[ \t]*"
+    r"\\([ \t]*\\([ \t]*cap[ \t]*\\)[ \t]*\\*[ \t]*)"
+    r"1280(?P<suffix>[ \t]*<[ \t]*\\([ \t]*max[ \t]*\\)[ \t]*"
+    r"\\*[ \t]*1024[ \t]*\\)[ \t]*)$"
+)
+
+updated, variable_count = variable_pattern.subn(
+    lambda m: m.group("prefix") + "0" + m.group("suffix"), source
+)
+updated, macro_count = macro_pattern.subn(
+    lambda m: m.group("prefix") + "0" + m.group("suffix"), updated
+)
+if variable_count != 1 or macro_count != 1:
+    raise SystemExit(
+        "expected exactly one Fleux capacity_margin=1280 variable and one "
+        f"MTK fits_capacity 1280/1024 macro; found variable={variable_count}, "
+        f"macro={macro_count}; refusing unsafe patch"
+    )
+if updated == source:
     raise SystemExit("patch produced no change")
+
+if not re.search(r"(?m)^[ \t]*unsigned[ \t]+int[ \t]+capacity_margin[ \t]*=[ \t]*0[ \t]*;[ \t]*$", updated):
+    raise SystemExit("capacity_margin variable post-patch verification failed")
+if not re.search(
+    r"(?m)^[ \t]*#define[ \t]+fits_capacity[ \t]*\\([ \t]*cap[ \t]*,[ \t]*max[ \t]*\\)"
+    r"[ \t]*\\([ \t]*\\([ \t]*cap[ \t]*\\)[ \t]*\\*[ \t]*0[ \t]*"
+    r"<[ \t]*\\([ \t]*max[ \t]*\\)[ \t]*\\*[ \t]*1024[ \t]*\\)[ \t]*$",
+    updated,
+):
+    raise SystemExit("MTK fits_capacity macro post-patch verification failed")
+
 path.write_text(updated)
-check = re.search(r"(?m)^\s*#define\s+fits_capacity\s*\(\s*cap\s*,\s*max\s*\)\s*\(\(\s*\(cap\)\s*\*\s*0\s*<\s*\(max\)\s*\*\s*1024\s*\)\s*$", updated)
-if not check:
-    raise SystemExit("post-patch verification failed")
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(
-    "result=PASS\n"
-    "file=kernel/sched/fair.c\n"
-    "symbol=fits_capacity(cap,max)\n"
-    "original_margin=1280\n"
-    "new_margin=0\n"
-    "capacity_scale=1024\n"
-    "semantics=fit check becomes true for non-negative utilization and positive capacity; misfit detection via this check is disabled\n"
+    "result=PASS\\n"
+    "file=kernel/sched/fair.c\\n"
+    "symbols=capacity_margin;fits_capacity(cap,max)\\n"
+    "original_margin=1280\\n"
+    "new_margin=0\\n"
+    "capacity_scale=1024\\n"
+    "semantics=task-fit and CPU-overutilization comparisons using capacity_margin no longer classify utilization as over capacity; MTK fits_capacity helper also always fits for positive capacity; capacity-based misfit/overutilized thresholds are disabled\\n"
 )
-print(f"Applied capacity_margin=0 in {path}")
+print(f"Applied capacity margin 0 to Fleux scheduler variable and MTK helper in {path}")
