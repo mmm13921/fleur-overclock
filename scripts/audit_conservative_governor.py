@@ -11,9 +11,9 @@ audit = Path(sys.argv[3])
 kconfig = (root / "drivers/cpufreq/Kconfig").read_text()
 makefile = (root / "drivers/cpufreq/Makefile").read_text()
 source_path = root / "drivers/cpufreq/cpufreq_conservative.c"
-if not re.search(r"(?m)^config CPU_FREQ_GOV_CONSERVATIVE\\s*$", kconfig):
+if not re.search(r"(?m)^config CPU_FREQ_GOV_CONSERVATIVE\s*$", kconfig):
     raise SystemExit("Conservative Kconfig entry is missing")
-if not re.search(r"(?m)^\\s*obj-\\$\\(CONFIG_CPU_FREQ_GOV_CONSERVATIVE\\)\\s*\\+=\\s*cpufreq_conservative\\.o\\s*$", makefile):
+if not re.search(r"(?m)^\s*obj-\$\(CONFIG_CPU_FREQ_GOV_CONSERVATIVE\)\s*\+=\s*cpufreq_conservative\.o\s*$", makefile):
     raise SystemExit("Conservative governor Makefile object wiring is missing")
 if not source_path.is_file() or source_path.stat().st_size < 1000:
     raise SystemExit("Native cpufreq_conservative.c source is missing or unexpectedly small")
