@@ -28,6 +28,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-WALT-MT6781"
     ;;
+  "v12:meys-v12-hmp-hybrid-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid"
+    ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
     exit 2
@@ -75,16 +79,12 @@ python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSP
 python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
-if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
-  python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
-  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py"
+  python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
-  python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
-  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
-  python3 "$WORKSPACE/scripts/apply_waltgov_mt6781.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
-  grep -qx "result=PASS" "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
 fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
@@ -95,24 +95,22 @@ export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$LOCALVERSION"
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
-if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_HMP
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable IRQ_TIME_ACCOUNTING
-  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_WALT
-  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --disable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
-  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --disable CPU_FREQ_DEFAULT_GOV_PERFORMANCE
-  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_WALT
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_SCHEDUTIL
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_WALT
 fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
-if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
-  grep -qx "CONFIG_SCHED_HMP=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP did not survive olddefconfig; MTK_SCHED_EXTENSION dependency is missing." >&2; exit 1; }
-  grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for WALT IRQ load accounting." >&2; exit 1; }
-  grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_WALT did not survive olddefconfig." >&2; exit 1; }
-  grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL is required for the EAS governor-change callback." >&2; exit 1; }
-  grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_WALT=y" "$OUT_DIR/.config" || { echo "WALT governor is not selected as the default governor." >&2; exit 1; }
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
+  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "Native Fleur WALT demand accounting is required by HMP and did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_SCHED_HMP=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for native WALT demand accounting." >&2; exit 1; }
+  grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "EAS requires schedutil support." >&2; exit 1; }
+  grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain the default governor; WALT governor is not part of this build." >&2; exit 1; }
 fi
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
@@ -133,7 +131,7 @@ fi
 cp "$IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
 cp "$OUT_DIR/.config" "$ARTIFACT_DIR/kernel.config"
 cp "$OUT_DIR/hyperos-filesystem-audit.txt" "$ARTIFACT_DIR/hyperos-filesystem-audit.txt"
-git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/walt-mt6781-source.patch"
+git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/hmp-hybrid-source.patch"
 SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 CLANG_VERSION="$(clang --version | head -n 1)"
 {
@@ -153,8 +151,8 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   fi
   echo "scheduler_modes=Fleur HMP + existing Fleux EAS hybrid integration; WALT-aware placement active"
   echo "scheduler_mode_default=0"
-  echo "scheduler_hmp_port=Fleur-native MT6781 HMP enabled; WALT demand feeds loadwop; fork/wake placement, active migration, idle pull, periodic migration and CPU hotplug hooks applied"
-  if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
+  echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
     echo "walt=Fleur-native 20ms execution-window accounting, task/runqueue demand, wakeup/context-switch/tick/migration/hotplug/IRQ hooks; queued migrations update source and destination sums while both rq locks are held"
     echo "walt_governor=MTK-aware schedutil-derived 'walt' governor using max(current,previous) WALT execution-window busy-time demand; selected as default for both active CPUFreq policies"
     echo "walt_controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload,sched_walt_ravg_hist_size,sched_walt_window_stats_policy,sched_walt_account_wait_time,sched_walt_freq_account_wait_time,sched_walt_io_is_busy,sched_walt_ravg_window,sched_walt_disabled"
