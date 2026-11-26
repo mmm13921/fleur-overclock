@@ -321,7 +321,7 @@ hmp_c = hmp_c.replace("cfs_rq->runnable_load_avg", "cfs_rq->avg.loadwop_avg")
 replace_once(
     "kernel/Kconfig.preempt",
     'choice\n\tprompt "Preemption Model"',
-    'config SCHED_HMP\n\tbool "Fleur Heterogeneous Multi-Processing scheduler"\n\tdepends on SMP && MACH_MT6781 && MTK_SCHED_EXTENSION && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL\n\tdefault n\n\thelp\n\t  Enable Fleur 4.14 HMP cluster placement, active migration and idle pull.\n\t  MT6781 WALT demand supplies the HMP task-load signal.\n\nchoice\n\tprompt "Preemption Model"',
+    'config SCHED_HMP\n\tbool "Fleur Heterogeneous Multi-Processing scheduler"\n\tdepends on SMP && MACH_MT6781 && MTK_SCHED_EXTENSION && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL\n\tdefault n\n\thelp\n\t  Enable Fleur 4.14 HMP cluster placement, active migration and idle pull.\n\t  MT6781 WALT demand supplies the HMP task-load signal.\n\nconfig SCHED_HMP_PLUS\n\tbool "Fleur HMP enhanced task selection"\n\tdepends on SCHED_HMP\n\tdefault y\n\thelp\n\t  Enable heaviest/lightest runnable-task selection and enhanced HMP\n\t  active migration safeguards from the Fleur 4.14 implementation.\n\nchoice\n\tprompt "Preemption Model"',
     "HMP Kconfig",
 )
 features = root / "kernel/sched/features.h"
@@ -484,6 +484,8 @@ if '#include "hmp.c"' not in fair_text:
 
 for path, needle in [
     ("kernel/sched/hmp.c", "hmp_force_up_migration"),
+    ("kernel/sched/hmp.c", "hmp_get_heaviest_task"),
+    ("kernel/sched/hmp.c", "hmp_get_lightest_task"),
     ("kernel/sched/fair.c", "unsigned int capacity_margin\t\t\t\t= 0;"),
     ("kernel/sched/fair.c", "#define fits_capacity(cap, max) ((cap) * 0 < (max) * 1024)"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_cpus(&cpu_mask, id);"),
@@ -516,6 +518,7 @@ audit.write_text(
     "hybrid_overutilization=root_domain_flag_or_local_util_at_capacity\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
     "related_thread_groups=not present in Fleur MTK 4.14 reference; Qualcomm RTG not imported\n"
+    "hmp_plus=enabled; enhanced heaviest/lightest selection and guarded active migration\n"
     "hardware_validation=not performed by CI\n"
 )
 print(audit.read_text(), end="")
