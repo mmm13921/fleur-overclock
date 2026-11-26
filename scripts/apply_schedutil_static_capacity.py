@@ -60,27 +60,30 @@ source = source[:get_start] + get_body + source[get_end:]
 
 start_pos, start_end = function_region(source, r"static\s+int\s+sugov_start\s*\(", "sugov_start")
 start_body = source[start_pos:start_end]
-init_anchor = "sg_cpu->sg_policy = sg_policy;"
-if start_body.count(init_anchor) != 1:
-    raise SystemExit("sugov_start policy initialization anchor changed")
-init_line = init_anchor + "\n sg_cpu->max = arch_scale_cpu_capacity(NULL, cpu);"
-start_body = start_body.replace(init_anchor, init_line, 1)
+policy_init = re.compile(r"(?m)^(\s*sg_cpu->sg_policy\s*=\s*sg_policy;)(\s*)$")
+matches = list(policy_init.finditer(start_body))
+if len(matches) != 1:
+    raise SystemExit(f"sugov_start per-CPU policy initialization count is {len(matches)}, expected 1")
+match = matches[0]
+indent = re.match(r"\s*", match.group(1)).group(0)
+replacement = match.group(1) + "\n" + indent + "sg_cpu->max = arch_scale_cpu_capacity(NULL, cpu);"
+start_body = start_body[:match.start()] + replacement + start_body[match.end():]
 source = source[:start_pos] + start_body + source[start_end:]
 
 verify_get_start, verify_get_end = function_region(source, r"static\s+unsigned\s+long\s+sugov_get_util\s*\(", "post-patch sugov_get_util")
 verify_get = source[verify_get_start:verify_get_end]
-if "unsigned long max = READ_ONCE(sg_cpu->max);" not in verify_get or "sg_cpu->max =" in verify_get:
+if "unsigned long max = READ_ONCE(sg_cpu->max);" not in verify_get or re.search(r"sg_cpu->max\s*=", verify_get):
     raise SystemExit("schedutil runtime capacity refresh was not removed")
 verify_start, verify_end = function_region(source, r"static\s+int\s+sugov_start\s*\(", "post-patch sugov_start")
 if "sg_cpu->max = arch_scale_cpu_capacity(NULL, cpu);" not in source[verify_start:verify_end]:
-    raise SystemExit("schedutil capacity reference is not initialized at policy start")
+    raise SystemExit("schedutil capacity reference is not initialized per CPU at policy start")
 
 path.write_text(source)
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(
     "result=PASS\n"
     "file=kernel/sched/cpufreq_schedutil.c\n"
-    "change=per-CPU schedutil capacity reference initialized at sugov_start\n"
+    "change=per-CPU schedutil capacity reference initialized during sugov_start\n"
     "runtime_capacity_refresh=disabled\n"
     "utilization=PELT/RT/DL/IRQ and iowait calculations retained\n"
     "frequency_mapping=unchanged\n"
