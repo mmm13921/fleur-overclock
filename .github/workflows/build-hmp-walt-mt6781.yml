@@ -5,7 +5,7 @@ on:
     branches:
       - meys-v12-hmp-walt-governors
     paths:
-      - '.github/workflows/build-hmp-hybrid-mt6781.yml'
+      - '.github/workflows/build-hmp-walt-mt6781.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_scheduler_modes.py'
       - 'scripts/apply_hmp_mt6781.py'
@@ -36,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/build_kernel.sh
-          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_walt_mt6781.py
+          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -71,8 +71,8 @@ jobs:
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-WALT-AnyKernel3.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt walt-controls-audit.txt
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" | tee artifacts/HMP-HYBRID-SHA256.txt
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-WALT-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" | tee artifacts/HMP-WALT-SHA256.txt
       - name: Upload build and audit artifacts
         uses: actions/upload-artifact@v4
         with:
