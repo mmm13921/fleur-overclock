@@ -11,15 +11,13 @@ on:
       - 'scripts/apply_hmp_mt6781.py'
       - 'vendor/hmp-fleur-4.14/**'
       - 'scripts/apply_scheduler_modes.py'
-      - ''
-      - ''
       - 'docs/scheduler-modes-port.md'
       - 'vendor/walt-fleur-4.14/**'
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: meys-v12-walt-full-${{ github.ref }}
+  group: meys-v12-hmp-hybrid-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
@@ -35,7 +33,7 @@ jobs:
       - name: Check builder syntax
         run: |
           bash -n scripts/build_kernel.sh
-          python3 -m py_compile scripts/apply_walt_mt6781.py   scripts/apply_hmp_mt6781.py scripts/apply_scheduler_modes.py
+          python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_hmp_mt6781.py scripts/apply_scheduler_modes.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -72,21 +70,21 @@ jobs:
           cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
           cp README.md docs/scheduler-modes-port.md "$AK_DIR/"
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
-          cp artifacts/walt-demand-engine-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/artifacts/"$AK_DIR/"
+          cp artifacts/walt-demand-engine-audit.txt artifacts/hmp-mt6781-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" \
               META-INF tools LICENSE README.md scheduler-modes-port.md \
-              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-demand-engine-audit.txt hmp-mt6781-audit.txt waltgov-mt6781-audit.txt
+              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-demand-engine-audit.txt hmp-mt6781-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" | tee artifacts/HMP-HYBRID-SHA256.txt
-      - name: Publish experimental WALT prerelease
+      - name: Publish experimental HMP Hybrid prerelease
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: meys-v12-hmp-hybrid-mt6781-${{ github.run_number }}
-          name: Meys V12 WALT MT6781 — build ${{ github.run_number }}
+          name: Meys V12 HMP + EAS + Hybrid — build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
@@ -102,8 +100,6 @@ jobs:
             artifacts/build-manifest.txt
             artifacts/walt-demand-engine-audit.txt
             artifacts/hmp-mt6781-audit.txt
-            artifacts/walt-controls-mt6781-audit.txt
-            artifacts/waltgov-mt6781-audit.txt
             artifacts/HMP-HYBRID-SHA256.txt
       - name: Upload build artifacts
         if: always()
