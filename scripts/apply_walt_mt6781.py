@@ -65,9 +65,9 @@ for name in ("walt.c", "walt.h"):
             "extern unsigned int sysctl_sched_use_walt_cpu_util;\n"
             "extern unsigned int sysctl_sched_use_walt_task_util;\n"
             "#ifdef CONFIG_SCHED_WALT\n"
-            "extern unsigned long walt_cpu_util(struct rq *rq);\nextern unsigned long walt_cpu_freq_util(struct rq *rq);\n"
+            "extern unsigned long walt_cpu_freq_util(struct rq *rq);\n"
             "#else\n"
-            "static inline unsigned long walt_cpu_util(struct rq *rq) { return 0; }\nstatic inline unsigned long walt_cpu_freq_util(struct rq *rq) { return 0; }\n"
+            "static inline unsigned long walt_cpu_freq_util(struct rq *rq) { return 0; }\n"
             "#endif\n"
             + marker, 1)
     (sched_dir / name).write_text(text)
@@ -312,7 +312,7 @@ audit.write_text(
     "accounting=per-task ravg history, demand, current/previous window busy time\n"
     "runqueue=cumulative runnable demand, window rollover, IRQ load, migration fixup\n"
     "hooks=wakeup, local wakeup, fork, task start, context switch, scheduler tick, migration, CPU hotplug\n"
-    "utilization=WALT task/CPU util for placement and WALT floor for schedutil; PELT fallback retained\n"
+    "utilization=WALT cumulative task demand for placement with candidate subtraction; dedicated WALT governor consumes current/previous execution-window sums; PELT fallback retained\n"
     "controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload\n"
     "tracepoints=optional Fleur-only WALT tracepoints compiled as no-op on Fleux\n"
     "not_included=Qualcomm related-thread groups/core_ctl cluster-frequency ABI; native MTK HMP active migration is a separate integration layer\n"
