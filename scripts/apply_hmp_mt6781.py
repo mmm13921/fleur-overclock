@@ -167,7 +167,7 @@ hmp_h = replace_c_function(
 \tif (READ_ONCE(sysctl_sched_cpu_mode) == 2) {
 \t\tstruct rq *rq = cpu_rq(cpu);
 
-\t\treturn rq->rd && READ_ONCE(rq->rd->overutilized);
+\t\treturn rq->rd && (READ_ONCE(rq->rd->overutilized) ||\n\t\t\tcpu_util(cpu) >= capacity_of(cpu));
 \t}
 #endif
 \treturn true;
