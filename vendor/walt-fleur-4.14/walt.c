@@ -224,7 +224,6 @@ update_window_start(struct rq *rq, u64 wallclock)
 	rq->cum_window_demand = rq->cumulative_runnable_avg;
 }
 
-extern unsigned long capacity_curr_of(int cpu);
 /*
  * Translate absolute delta time accounted on a CPU
  * to a scale where 1024 is the capacity of the most
@@ -232,7 +231,7 @@ extern unsigned long capacity_curr_of(int cpu);
  */
 static u64 scale_exec_time(u64 delta, struct rq *rq)
 {
-	unsigned long capcurr = capacity_curr_of(cpu_of(rq));
+	unsigned long capcurr = capacity_of(cpu_of(rq));
 
 	return (delta * capcurr) >> SCHED_CAPACITY_SHIFT;
 }
