@@ -3,18 +3,18 @@
 ## Source and destination
 
 - Reference: Xiaomi official Fleur kernel, MiCode-mirror/xiaomi_kernel_opensource, ref fleur-s-oss, Linux 4.14.186.
-- Target: daliboss/fleux, ref lineage-24.0, Linux 4.19.325.
+- Target: daliboss/fleux, ref v12, Linux 4.19.325.
 - The reference mode decision is the official should_hmp() logic in kernel/sched/hmp.h, together with the SELECT_TASK_RQ_FAIR() HMP path in the official kernel/sched/fair.c.
 
 ## Runtime selector
 
 Path: /proc/sys/kernel/sched_cpu_mode
 
-- 0: HMP — disable EAS and use the target's PELT/util_est capacity-based HMP-style placement.
+- 0: HMP — disable EAS placement and run the Fleur MTK HMP cluster policy.
 - 1: EAS — retain Fleux's existing Energy Aware Scheduling path.
-- 2: Hybrid — use EAS while the root domain is not overutilized; switch wake/fork/exec placement to HMP-style policy when it is overutilized.
+- 2: Hybrid — use EAS while the root domain is not overutilized; switch to the Fleur HMP policy when it is overutilized.
 
-Default: 0 (HMP-style). HMP-style placement is active from boot; EAS and Hybrid remain selectable explicitly at runtime.
+Default: 0 (HMP). HMP is active from boot; EAS and Hybrid remain selectable explicitly at runtime.
 
 Examples as root:
 
@@ -27,7 +27,7 @@ Writing the legacy /proc/sys/kernel/sched_energy_aware knob remains supported: 0
 
 ## Port boundary
 
-The official 4.14 HMP implementation depends on WALT (loadwop_avg), HMP domains, dynamic up/down migration thresholds, active migration, periodic migration, idle pull and group-specific accounting. Fleux 4.19 does not carry that HMP/WALT implementation, so copying hmp.c directly would not be a valid 4.19 backport.
+The official 4.14 HMP implementation depends on WALT (loadwop_avg), HMP domains, dynamic up/down migration thresholds, active migration, periodic migration and idle pull. Fleux 4.19 does not carry that HMP/WALT implementation, so copying hmp.c directly is not a valid 4.19 backport.
 
 The full Fleur 4.14 MTK HMP engine is being adapted as a dedicated scheduler component: HMP cluster domains, fork/wake placement, dynamic up/down migration, periodic forced up-migration, idle pull, and CPU hotplug integration. The original MTK HMP implementation consumes WALT loadwop_avg; therefore native Fleur WALT execution-window accounting is retained strictly as an internal HMP load source. The WALT CPUFreq governor and standalone WALT tuning interface are not part of this build. Qualcomm RTG and Qualcomm-specific core_ctl are not imported.
 
