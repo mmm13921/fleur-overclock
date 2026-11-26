@@ -43,8 +43,8 @@ endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE"""
 k = replace_once(k, default_anchor, default_block, "WALT default governor choice")
-gov_anchor = 'comment "CPU frequency scaling drivers"'
-gov_block = """config CPU_FREQ_GOV_WALT
+comment "CPU frequency scaling drivers"'''
+gov_block = '''config CPU_FREQ_GOV_WALT
 \tbool "'walt' cpufreq policy governor"
 \tdepends on CPU_FREQ && SMP && SCHED_WALT
 \tselect CPU_FREQ_GOV_ATTR_SET
