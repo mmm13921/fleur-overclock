@@ -1,5 +1,5 @@
-name: hmp-build
-run-name: hmp-build${{ github.run_number }}
+name: HMP-BUILD-CANCEL
+run-name: HMP-BUILD-CANCEL${{ github.run_number }}
 on:
   push:
     branches:
@@ -18,9 +18,10 @@ permissions:
   contents: read
 concurrency:
   group: hmp-build-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build-and-package:
+    if: github.ref != 'refs/heads/hmp-build48'
     name: Build MT6781 HMP EAS Hybrid and AnyKernel3
     runs-on: ubuntu-24.04
     timeout-minutes: 180
