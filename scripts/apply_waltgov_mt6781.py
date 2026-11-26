@@ -33,7 +33,6 @@ default_block = """config CPU_FREQ_DEFAULT_GOV_WALT
 \tbool "walt"
 \tdepends on SMP && SCHED_WALT
 \tselect CPU_FREQ_GOV_WALT
-\tselect CPU_FREQ_GOV_PERFORMANCE
 \thelp
 \t  Use the MT6781 WALT-window based CPUFreq governor by default.
 \t  This governor consumes the native Fleur WALT runqueue utilization
@@ -95,12 +94,12 @@ for old, new in replacements:
 su = replace_once(
     su,
     "unsigned long util_cfs = cpu_util_cfs(rq);",
-    "unsigned long util_cfs = walt_cpu_util(rq);",
+    "unsigned long util_cfs = walt_cpu_freq_util(rq);",
     "WALT governor utilization source"
 )
 if "cpu_util_cfs(rq)" in su:
     raise SystemExit("WALT governor still contains a PELT CFS utilization source")
-if "walt_cpu_util(rq)" not in su or '.name\t\t\t= "walt"' not in su:
+if "walt_cpu_freq_util(rq)" not in su or '.name\t\t\t= "walt"' not in su:
     raise SystemExit("WALT governor post-transform audit failed")
 if "sched_cpufreq_governor_change" in su:
     raise SystemExit("duplicate schedutil energy-model governor callback was not removed")
