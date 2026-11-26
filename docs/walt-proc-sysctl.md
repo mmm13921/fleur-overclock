@@ -3,6 +3,17 @@
 Target source: `daliboss/fleux:v12`, Linux 4.19.325, commit `6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9`.
 Reference: Qualcomm `android-msm-bramble-4.19-android11-d1`.
 
+## Device-native 4.14 reference
+
+A second, device-native reference has now been pinned from the official Xiaomi Fleur source:
+- Repository: `MiCode/Xiaomi_Kernel_OpenSource`
+- Branch: `fleur-s-oss`
+- Commit: `32022887f842ec64e317fc22745fedf35e982837`
+- Kernel: Linux 4.14.186
+- Files vendored under `vendor/walt-fleur-4.14/`: `walt.c`, `walt.h`, and `hmp.h`.
+
+This source is more relevant to MT6781 than a Qualcomm-only implementation: it contains Fleur's WALT accounting and MTK HMP helper (`should_hmp()`). It is still a reference snapshot. It has not yet been adapted to the 4.19.325 scheduler, and must not be described as an active backport until task/rq state, core/fair hooks, WALT-aware util selection, CPUFreq reporting, sysctl registration, and HMP placement have been ported and compiled.
+ 
 ## Audit findings
 
 The target `kernel/sched/Makefile` currently builds `core.o`, `fair.o`, `pelt.o`, `cpufreq_schedutil.o`, etc., but has no `walt.o` entry. Target `kernel/sched/sched.h` has no WALT task/runqueue data structures, and `fleur_defconfig` does not enable `CONFIG_SCHED_WALT`.
