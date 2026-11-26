@@ -12,11 +12,11 @@ A second, device-native reference has now been pinned from the official Xiaomi F
 - Kernel: Linux 4.14.186
 - Files vendored under `vendor/walt-fleur-4.14/`: `walt.c`, `walt.h`, and `hmp.h`.
 
-This source is more relevant to MT6781 than a Qualcomm-only implementation: it contains Fleur's WALT accounting and MTK HMP helper (`should_hmp()`). It is still a reference snapshot. It has not yet been adapted to the 4.19.325 scheduler, and must not be described as an active backport until task/rq state, core/fair hooks, WALT-aware util selection, CPUFreq reporting, sysctl registration, and HMP placement have been ported and compiled.
+This source is more relevant to MT6781 than a Qualcomm-only implementation: it contains Fleur's WALT accounting and MTK HMP helper (`should_hmp()`). The current branch now ports the WALT accounting engine into the pinned 4.19.325 target and adds MT6781-specific integration. The implementation status and remaining validation gates are documented below.
  
 ## Audit findings
 
-The target `kernel/sched/Makefile` currently builds `core.o`, `fair.o`, `pelt.o`, `cpufreq_schedutil.o`, etc., but has no `walt.o` entry. Target `kernel/sched/sched.h` has no WALT task/runqueue data structures, and `fleur_defconfig` does not enable `CONFIG_SCHED_WALT`.
+The unmodified target baseline did not build `walt.o`, had no WALT task/runqueue data structures, and did not enable `CONFIG_SCHED_WALT`. The build patch adds these pieces conditionally; the WALT profile checks that the option survives `olddefconfig`.
 
 The Qualcomm implementation is not a drop-in file copy. Its `walt.h` and `walt.c` depend on additional scheduler state and helpers including per-task ravg history, per-rq window sums and load subtraction tables, cluster topology, WALT stats, migration accounting, frequency reporting, IRQ accounting, and several Qualcomm-only facilities. The reference header includes `linux/sched/core_ctl.h`; that dependency must not be copied blindly to MT6781.
 
@@ -38,7 +38,7 @@ The following names were checked against the reference `kernel/sysctl.c` and/or 
 - `sched_freq_reporting_policy` — CPUFreq reporting selection; confirm the exact table registration in the pinned source.
 - `sched_disable_window_stats` — internal accounting gate; do not expose unless runtime toggling is made race-safe.
 
-Do not add invented names such as `sched_freq_aggregate`, `sched_use_walt_cpu_util`, or `sched_use_walt_task_util` unless a corresponding implementation and ABI are deliberately added. Do not assume `sched_ravg_hist_size` or `sched_io_is_busy` are exported sysctls merely because they are internal WALT variables.
+The current MT6781 branch deliberately exports `sched_use_walt_cpu_util` and `sched_use_walt_task_util` because each is wired to a live utilization-selection path. Native Fleur internal tunables are exported under the `sched_walt_` prefix only after adding backing variables, bounds and sysctl handlers; the full list is in the control table below.
 
 ## MT6781 adaptation constraints
 
@@ -50,13 +50,13 @@ Do not add invented names such as `sched_freq_aggregate`, `sched_use_walt_cpu_ut
 
 ## Implementation gates
 
-1. Port task and runqueue state with correct initialization, fork/exit and migration lifetime.
-2. Port the WALT window accounting engine and all scheduler event hooks.
-3. Port demand history/prediction and task/CPU utilization.
-4. Port CPU selection and active migration only after accounting is correct.
-5. Adapt frequency reporting to MTK schedutil/CPUFreq.
-6. Register the complete verified proc/sysctl ABI with correct bounds, permissions, locking and runtime update behavior.
-7. Build, inspect symbols/config/sysctl table, then device boot and runtime validation.
+1. Task/runqueue state, fork initialization, CFS enqueue/dequeue, demand history and window accounting are ported; migration lifetime and lock correctness still require stress testing.
+2. Wakeup, local wakeup, fork, task-start, context-switch, tick, migration, CPU-hotplug and IRQ hooks are integrated; suspend/resume and race behavior need device validation.
+3. WALT task/CPU utilization and an MTK-policy-aware CPUFreq governor are integrated, with PELT fallback controls retained.
+4. WALT demand is fed into existing scheduler utilization paths and IRQ-heavy EAS candidate filtering; this is not a complete Qualcomm HMP/core_ctl port.
+5. WALT governor uses the native MTK CPUFreq policy masks; frequency tables and thermal protections remain native.
+6. Fleur-native tuning variables and MT6781 utilization switches are exposed with bounds; the window and disabled state are read-only.
+7. CI compile, ZIP integrity and static audits must pass; device boot and live sysctl behavior remain unverified until tested on fleur.
 
 A sysctl is considered implemented only when writing it changes a live WALT code path safely. Merely registering a proc entry is not completion.
 
