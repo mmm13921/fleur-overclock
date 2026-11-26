@@ -72,7 +72,7 @@ jobs:
             zip -r9 "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-HMP-Hybrid-AnyKernel3.zip" | tee "artifacts/${BUILD_LABEL}-SHA256.txt"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip" | tee "artifacts/${BUILD_LABEL}-SHA256.txt"
       - name: Upload build and audit artifacts
         uses: actions/upload-artifact@v4
         with:
