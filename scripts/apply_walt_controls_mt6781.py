@@ -193,7 +193,7 @@ entries = '''
 \t\t.maxlen\t\t= sizeof(bool),
 \t\t.mode\t\t= 0444,
 \t\t.proc_handler\t= proc_dobool,
-'''
+\t},\n'''
 data = data[:irq_end] + entries + data[irq_end + len("\n\t},"):]
 sysctl.write_text(data)
 
