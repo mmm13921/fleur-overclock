@@ -103,9 +103,9 @@ fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config"
+  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_SCHED_HMP=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP did not survive olddefconfig." >&2; exit 1; }
-  grep -qx "CONFIG_MTK_SCHED_EXTENSION=y" "$OUT_DIR/.config" || { echo "CONFIG_MTK_SCHED_EXTENSION did not survive olddefconfig." >&2; exit 1; } || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_MTK_SCHED_EXTENSION=y" "$OUT_DIR/.config" || { echo "CONFIG_MTK_SCHED_EXTENSION did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for WALT IRQ load accounting." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_WALT did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL is required for the EAS governor-change callback." >&2; exit 1; }
