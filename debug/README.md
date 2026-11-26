@@ -61,3 +61,34 @@ This file is the persistent issue register. It must be carried into every subseq
 - Build success, image audit and ZIP integrity are separate from physical-device acceptance.
 - Report every issue as one of: FIXED (with test evidence), MITIGATED (with limitation), UNRESOLVED, REGRESSION, or NOT DEVICE-TESTED.
 - Before a release, include a concise regression checklist for all applicable issues above.
+
+## 9. Fleur HMP / EAS / Hybrid port — Fleux V12
+
+- Reference: official Fleur 4.14.186 source at `32022887f842ec64e317fc22745fedf35e982837`; target: Fleux V12 4.19.325, MT6781.
+- Work branch: `meys-v12-hmp-hybrid-full-port`; current implementation candidate commit: `e1c61936659d30591c7041c5fcc2d000e1be5dc6`.
+- Implemented source paths: HMP cluster-domain initialization for MT6781's 6+2 topology; fork/wake placement; WALT `loadwop_avg` demand input; dynamic up/down migration thresholds; periodic migration; idle pull; CPU online/offline hooks; HMP Plus heaviest/lightest task selection adapted to the Fleux EEVDF rb-tree.
+- Active-migration adaptation: Fleux 4.19 MTK uses `per_cpu(migrate_task)` in `detach_one_task()`. HMP's selected running task is now passed through that native MTK stopper path; the normal `can_migrate_task()` path rejects running tasks and is not sufficient for HMP active migration.
+- Hybrid adaptation: the Fleur 4.14 reference checks per-domain overutilization; Fleux 4.19 updates `rq->rd->overutilized`. The current candidate uses the Fleux root-domain state when mode 2 is active.
+- Capacity semantics: EAS global `capacity_margin=0` and `fits_capacity()` with no extra headroom are retained. HMP's native migration guard is separated as `HMP_CAPACITY_MARGIN=1280`; setting that shared guard to zero would make big CPUs always appear to have spare capacity and would break HMP down-migration decisions.
+- Runtime selector: `/proc/sys/kernel/sched_cpu_mode`: 0=HMP, 1=EAS, 2=Hybrid. `CONFIG_SCHED_HMP_PLUS=y` is explicitly enforced by the build script.
+- Scope exclusions: no Qualcomm RTG or Qualcomm core_ctl port; existing MTK core_ctl path remains. Standalone WALT governor and standalone WALT control sysctls remain outside this HMP-first branch.
+
+### HMP build ledger
+
+| Build | Run ID | Result | Device status |
+|---|---:|---|---|
+| 34 | 45888990368 | Success | User confirmed booted; baseline implementation |
+| 35 | 45890913920 | Success | No later boot confirmation recorded |
+| 36 | 45890919212 | Success | Adds and validates `CONFIG_SCHED_HMP_PLUS=y`; no boot confirmation recorded |
+| 37 | 45893730651 | Failed | C compile error: attempted initializer inside `struct cluster_info`; fixed in later patcher |
+| 38 | 45893974483 | Failed | Same `cpu_perf` struct-member initializer error |
+| 39 | 45894158768 | Cancelled | Superseded |
+| 40 | 45894199617 | Cancelled | Superseded |
+| 41 | 45894375802 | Cancelled | Superseded |
+| 42 | 45894398137 | Cancelled | Superseded |
+| 43 | 45894500476 | In progress at archive update | Tests the MTK active-migration stopper adaptation; uses an intermediate Hybrid overutilization check |
+| 44 | 45894653987 | Cancelled | Superseded |
+| 45 | 45894672799 | Pending at archive update | Current candidate with Fleux root-domain Hybrid adaptation |
+
+- Current status: **SOURCE IMPLEMENTATION COMMITTED; FINAL CANDIDATE BUILD NOT YET VALIDATED**. Do not label the latest port buildable, flashable, or device-verified until Build45 completes successfully and its AnyKernel3 ZIP is checked.
+- Required device acceptance: clean boot; confirm `sched_cpu_mode` values 0/1/2; inspect CPU placement for fork/wake and sustained load; verify up- and down-migration in both directions; verify idle pull and hotplug; test COD Mobile frametime, app switching, thermals and idle stability. CI success alone does not establish runtime correctness.
