@@ -133,7 +133,7 @@ hmp_c = hmp_c.replace("cpu_park(", "hmp_cpu_park(")
 hmp_c = hmp_c.replace("cpu_isolated_mask", "&hmp_isolated_mask")
 hmp_c = hmp_c.replace("task_prefer_little(", "hmp_task_prefer_little(")
 hmp_c = hmp_c.replace("task_prefer_big(", "hmp_task_prefer_big(")
-hmp_c = hmp_c.replaceAll("target->migrate_task", "target->hmp_migrate_task")
+hmp_c = hmp_c.replace("target->migrate_task", "target->hmp_migrate_task")
 hmp_c = replace_c_function(
     hmp_c,
     r"static int\s+hmp_active_load_balance_cpu_stop\s*\(\s*void \*data\s*\)",
