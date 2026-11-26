@@ -84,7 +84,7 @@ The controls below are sourced from the pinned Fleur 4.14 implementation or are 
 | `sched_use_walt_cpu_util` | 1 | 0–1, RW | Select WALT CPU utilization for scheduler placement; 0 falls back to PELT. |
 | `sched_use_walt_task_util` | 1 | 0–1, RW | Select WALT task demand for task utilization; 0 falls back to PELT/util_est. |
 | `sched_walt_init_task_load_pct` | 15 | 0–100, RW | Initial demand assigned to a newly forked task. |
-| `sched_walt_cpu_high_irqload` | 10,000,000 ns | 0–1,000,000,000, RW | IRQ-load threshold used by the WALT high-IRQ CPU filter. |
+| `sched_walt_cpu_high_irqload` | 10,000,000 ns | 1–1,000,000,000, RW | IRQ-load threshold used by the WALT high-IRQ CPU filter. |
 | `sched_walt_ravg_hist_size` | 5 | 1–5, RW | Number of task-demand history samples used by the history policy. |
 | `sched_walt_window_stats_policy` | 2 | 0–3, RW | 0=recent, 1=max, 2=max(recent, average), 3=average. |
 | `sched_walt_account_wait_time` | 1 | 0–1, RW | Include wait-time accounting in task demand for wake/schedule transitions. |
