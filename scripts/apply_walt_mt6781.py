@@ -296,7 +296,7 @@ replace_once("kernel/sched/walt.c",
 # Export WALT execution-window utilization for the dedicated CPUFreq governor.
 replace_once("kernel/sched/walt.c",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
-    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn cpu_util_cfs(rq);\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn READ_ONCE(rq->cfs.avg.util_avg);\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
     "WALT execution-window CPUFreq utilization export")
 replace_once("kernel/sched/core.c",
     "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n\tset_task_cpu(p, new_cpu);",
