@@ -293,11 +293,12 @@ replace_once("kernel/sched/walt.c",
     "\tp->ravg.demand = init_load_windows;\n#ifdef CONFIG_SCHED_HMP\n\tif (walt_ravg_window > (1ULL << SCHED_CAPACITY_SHIFT)) {\n\t\tunsigned long hmp_load = div64_u64(init_load_windows,\n\t\t\twalt_ravg_window >> SCHED_CAPACITY_SHIFT);\n\t\tp->se.avg.loadwop_avg = min_t(unsigned long, hmp_load,\n\t\t\tSCHED_CAPACITY_SCALE);\n\t\tp->se.avg.loadwop_sum = p->se.avg.loadwop_avg;\n\t}\n#endif\n",
     "Initialize HMP loadwop from WALT fork demand")
 
-# Export WALT execution-window utilization for the dedicated CPUFreq governor.
+# Keep CPUFreq integration out of this backport; schedutil remains the governor.
 replace_once("kernel/sched/walt.c",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
-    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn READ_ONCE(rq->cfs.avg.util_avg);\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
-    "WALT execution-window CPUFreq utilization export")
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
+    "WALT IRQ load threshold export")
+
 replace_once("kernel/sched/core.c",
     "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n\tset_task_cpu(p, new_cpu);",
     "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n#ifdef CONFIG_SCHED_WALT\n\t{\n\t\tstruct rq *dst_rq = cpu_rq(new_cpu);\n\t\tunsigned long flags;\n\t\trq_unlock(rq, rf);\n\t\tlocal_irq_save(flags);\n\t\tdouble_rq_lock(rq, dst_rq);\n\t\twalt_fixup_busy_time(p, new_cpu);\n\t\tdouble_rq_unlock(rq, dst_rq);\n\t\tlocal_irq_restore(flags);\n\t\trq_lock(rq, rf);\n\t}\n#endif\n\tset_task_cpu(p, new_cpu);",
@@ -514,7 +515,7 @@ walt_sysctl.write_text(sysctl_data)
 
 # Structural checks prevent a PASS if any critical integration path is absent.
 checks = {
-    "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime", "capacity_curr_of(cpu_of(rq))", "walt_cpu_freq_util(struct rq *rq)", "lockdep_assert_held(&src_rq->lock)", "lockdep_assert_held(&dest_rq->lock)"],
+    "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime", "capacity_curr_of(cpu_of(rq))", "lockdep_assert_held(&src_rq->lock)", "lockdep_assert_held(&dest_rq->lock)"],
     "include/trace/events/sched.h": ["TRACE_EVENT(walt_update_task_ravg", "TRACE_EVENT(walt_update_history", "TRACE_EVENT(walt_migration_update_sum"],
     "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_fixup_busy_time(p, cpu);", "double_rq_lock(rq, dst_rq);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
     "kernel/sched/fair.c": ["walt_inc_cumulative_runnable_avg(rq, p);", "walt_dec_cumulative_runnable_avg(rq, p);", "walt_cpu_high_irqload(cpu)", "cumulative_runnable_avg", "p->ravg.demand"],
