@@ -97,9 +97,9 @@ if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT --enable SCHED_HMP --enable MTK_SCHED_EXTENSION
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable IRQ_TIME_ACCOUNTING
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_WALT
-  "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
-  "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_PERFORMANCE
-  "$SRC_DIR/scripts/config" --enable CPU_FREQ_DEFAULT_GOV_WALT
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --disable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --disable CPU_FREQ_DEFAULT_GOV_PERFORMANCE
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_WALT
 fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
