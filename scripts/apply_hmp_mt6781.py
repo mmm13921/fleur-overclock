@@ -162,7 +162,7 @@ hmp_c = hmp_c[:pos] + "\n" + trace_fallbacks + "\n" + helpers + hmp_c[pos:]
 replace_once(
     "kernel/Kconfig.preempt",
     'choice\n\tprompt "Preemption Model"',
-    'config SCHED_HMP\n\tbool "Fleur Heterogeneous Multi-Processing scheduler"\n\tdepends on SMP && MTK_SCHED_EXTENSION\n\tdefault n\n\thelp\n\t  Enable Fleur 4.14 HMP cluster placement, active migration and idle pull.\n\t  MT6781 WALT demand supplies the HMP task-load signal.\n\nchoice\n\tprompt "Preemption Model"',
+    'config SCHED_HMP\n\tbool "Fleur Heterogeneous Multi-Processing scheduler"\n\tdepends on SMP && MACH_MT6781\n\tdefault n\n\thelp\n\t  Enable Fleur 4.14 HMP cluster placement, active migration and idle pull.\n\t  MT6781 WALT demand supplies the HMP task-load signal.\n\nchoice\n\tprompt "Preemption Model"',
     "HMP Kconfig",
 )
 features = root / "kernel/sched/features.h"
@@ -322,6 +322,8 @@ for path, needle in [
     ("kernel/sched/fair.c", "hmp_idle_pull(this_cpu)"),
     ("kernel/sched/fair.c", "hmp_enqueue_entity_load_avg(cfs_rq, se);"),
     ("kernel/sched/core.c", "init_hmp_domains();"),
+    ("kernel/sched/walt.c", "p->se.avg.loadwop_avg = min_t(unsigned long, hmp_load,"),
+    ("kernel/sched/walt.c", "max(READ_ONCE(rq->curr_runnable_sum),"),
     ("include/linux/sched.h", "loadwop_avg"),
     ("include/linux/sched/sched.h", "struct hmp_domain"),
 ]:
