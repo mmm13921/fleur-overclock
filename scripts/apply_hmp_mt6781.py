@@ -155,15 +155,15 @@ trace_fallbacks = "\n".join(
 )
 helpers = r'''
 /* MT6781/Fleux compatibility helpers for the Fleur HMP policy. */
-static inline int hmp_arch_get_nr_clusters(void)
+int hmp_arch_get_nr_clusters(void)
 {
 	return 2;
 }
-static inline int hmp_arch_get_cluster_id(unsigned int cpu)
+int hmp_arch_get_cluster_id(unsigned int cpu)
 {
 	return cpu < 6 ? 0 : 1;
 }
-static inline void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster)
+void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster)
 {
 	int cpu;
 
@@ -174,16 +174,16 @@ static inline void hmp_arch_get_cluster_cpus(struct cpumask *mask, int cluster)
 			cpumask_set_cpu(cpu, mask);
 	}
 }
-static inline bool hmp_cpu_park(int cpu)
+bool hmp_cpu_park(int cpu)
 {
 	return !cpu_active(cpu) || cpu_isolated(cpu);
 }
-static inline bool hmp_task_prefer_little(struct task_struct *p)
+bool hmp_task_prefer_little(struct task_struct *p)
 {
 	(void)p;
 	return false;
 }
-static inline bool hmp_task_prefer_big(struct task_struct *p)
+bool hmp_task_prefer_big(struct task_struct *p)
 {
 	(void)p;
 	return false;
