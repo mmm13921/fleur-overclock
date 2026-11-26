@@ -1,5 +1,5 @@
 name: HMP-BUILD
-run-name: HMP-BUILD${{ github.run_number }}
+run-name: HMP-BUILD49
 on:
   push:
     branches:
@@ -27,7 +27,7 @@ jobs:
     env:
       SOURCE_REF: v12
       BUILD_PROFILE: meys-v12-hmp-hybrid-mt6781
-      BUILD_LABEL: HMP-BUILD${{ github.run_number }}
+      BUILD_LABEL: HMP-BUILD49
     steps:
       - name: Checkout builder
         uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
       - name: Upload build and audit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HMP-BUILD${{ github.run_number }}
+          name: HMP-BUILD49
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
