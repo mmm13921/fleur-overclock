@@ -234,7 +234,7 @@ replace_in_function(
 
 replace_in_function(
     "kernel/sched/hmp.c",
-    r"static unsigned int hmp_up_migration\s*\(",
+    r"static unsigned int\s+hmp_up_migration\s*\([^;]*\)\s*(?=\{)",
     "struct task_struct *p = task_of(se);",
     "hmp_refresh_isolated_mask();\n\tstruct task_struct *p = task_of(se);",
     "HMP up migration isolation refresh",
@@ -242,7 +242,7 @@ replace_in_function(
 
 replace_in_function(
     "kernel/sched/hmp.c",
-    r"static unsigned int hmp_down_migration\s*\(",
+    r"static unsigned int\s+hmp_down_migration\s*\([^;]*\)\s*(?=\{)",
     "struct task_struct *p = task_of(se);",
     "hmp_refresh_isolated_mask();\n\tstruct task_struct *p = task_of(se);",
     "HMP down migration isolation refresh",
