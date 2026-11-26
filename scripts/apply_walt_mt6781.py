@@ -24,7 +24,7 @@ edit("kernel/sched/Makefile",
      "obj-y += core.o loadavg.o clock.o cputime.o\nobj-$(CONFIG_SCHED_WALT) += walt.o",
      "scheduler Makefile")
 edit("include/linux/sched.h",
-     "\tu64\t\t\tlast_enqueued_ts;\n",
+     "\tu64\t\t\t\tlast_enqueued_ts;\n",
      "\tu64\t\t\tlast_enqueued_ts;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\twalt_window_start;\n\tu64\t\t\twalt_curr_window;\n\tu64\t\t\twalt_prev_window;\n\tu32\t\t\twalt_demand;\n\tbool\t\t\twalt_on_rq;\n#endif\n",
      "task_struct WALT state")
 edit("kernel/sched/sched.h",
@@ -60,8 +60,8 @@ changes.append("scheduler WALT API")
 
 # Forked tasks must not inherit the parent's window state or rq membership.
 edit("kernel/sched/core.c",
-     "\t__sched_fork(p);",
-     "\t__sched_fork(p);\n#ifdef CONFIG_SCHED_WALT\n\tp->walt_window_start = 0;\n\tp->walt_curr_window = 0;\n\tp->walt_prev_window = 0;\n\tp->walt_demand = 0;\n\tp->walt_on_rq = false;\n#endif",
+     "\t__sched_fork(clone_flags, p);",
+     "\t__sched_fork(clone_flags, p);\n#ifdef CONFIG_SCHED_WALT\n\tp->walt_window_start = 0;\n\tp->walt_curr_window = 0;\n\tp->walt_prev_window = 0;\n\tp->walt_demand = 0;\n\tp->walt_on_rq = false;\n#endif",
      "fork-state initialization")
 
 # Account CFS execution time in the active WALT window.
