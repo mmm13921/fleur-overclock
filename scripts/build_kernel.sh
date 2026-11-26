@@ -39,7 +39,7 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     ;;
 esac
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" && -n "$BUILD_LABEL" ]]; then
-  [[ "$BUILD_LABEL" =~ ^hmp-build[0-9]+$ ]] || { echo "Invalid HMP build label: $BUILD_LABEL" >&2; exit 2; }
+  [[ "$BUILD_LABEL" =~ ^HMP-BUILD[0-9]+$ ]] || { echo "Invalid HMP build label: $BUILD_LABEL" >&2; exit 2; }
   LOCALVERSION="-$BUILD_LABEL"
 fi
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
