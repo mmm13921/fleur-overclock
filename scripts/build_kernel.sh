@@ -105,6 +105,7 @@ if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
   grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for WALT IRQ load accounting." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_WALT did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL is required for the EAS governor-change callback." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_WALT=y" "$OUT_DIR/.config" || { echo "WALT governor is not selected as the default governor." >&2; exit 1; }
 fi
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
