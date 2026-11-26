@@ -111,14 +111,14 @@ makefile.write_text(mk)
 
 # Preserve EAS domain rebuilds when the dedicated WALT governor is selected.
 base = source.read_text()
-extern_anchor = "extern bool sched_energy_update;\\n"
+extern_anchor = "extern bool sched_energy_update;\n"
 if base.count(extern_anchor) != 1:
     raise SystemExit("schedutil EAS extern anchor missing or duplicated")
 base = base.replace(extern_anchor,
-                    extern_anchor + "extern struct cpufreq_governor waltgov_gov;\\n", 1)
+                    extern_anchor + "extern struct cpufreq_governor waltgov_gov;\n", 1)
 callback_anchor = "if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov) {"
-callback_replacement = ("if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov ||\\n"
-                        "\\t    old_gov == &waltgov_gov || policy->governor == &waltgov_gov) {")
+callback_replacement = ("if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov ||\n"
+                        "\t    old_gov == &waltgov_gov || policy->governor == &waltgov_gov) {")
 if base.count(callback_anchor) != 1:
     raise SystemExit("schedutil EAS callback condition missing or duplicated")
 base = base.replace(callback_anchor, callback_replacement, 1)
