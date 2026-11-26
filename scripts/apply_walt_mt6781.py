@@ -183,7 +183,7 @@ replace_once("kernel/sched/fair.c",
 replace_region("kernel/sched/fair.c",
     "static unsigned long cpu_util_without(", "unsigned long capacity_curr_of(",
     "\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
-    "#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util && walt_ravg_window))\n\t\t{\n\t\t\tunsigned long walt_util = cpu_util(cpu);\n\t\t\tif (task_cpu(p) == cpu && p->on_rq) {\n\t\t\t\tunsigned long task = task_util(p);\n\t\t\t\twalt_util = walt_util > task ? walt_util - task : 0;\n\t\t\t}\n\t\t\treturn walt_util;\n\t\t}\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
+    "#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util && walt_ravg_window))\n\t\t{\n\t\t\tunsigned long walt_util = cpu_util(cpu);\n\t\t\tif (task_cpu(p) == cpu && p->on_rq) {\n\t\t\t\tunsigned long task = p->ravg.demand / (walt_ravg_window >> SCHED_CAPACITY_SHIFT);\n\t\t\t\twalt_util = walt_util > task ? walt_util - task : 0;\n\t\t\t}\n\t\t\treturn walt_util;\n\t\t}\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
     "WALT cpu_util_without")
 replace_region("kernel/sched/fair.c",
     "enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)", "static void set_next_buddy(",
