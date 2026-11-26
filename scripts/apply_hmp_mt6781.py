@@ -7,13 +7,13 @@ audit = pathlib.Path(sys.argv[2])
 repo_root = pathlib.Path(__file__).resolve().parents[1]
 vendor = repo_root / "vendor" / "hmp-fleur-4.14"
 
-def replace_once(path, old, new, label):
+def replace_once(path, old, new, label, expected=1):
     p = root / path
     s = p.read_text()
     n = s.count(old)
-    if n != 1:
-        raise SystemExit(f"{label}: expected one anchor, found {n} in {path}")
-    p.write_text(s.replace(old, new, 1))
+    if n != expected:
+        raise SystemExit(f"{label}: expected {expected} anchor(s), found {n} in {path}")
+    p.write_text(s.replace(old, new))
 
 def function_region(source, pattern, label):
     m = re.search(pattern, source, re.M)
@@ -212,12 +212,14 @@ replace_once(
     "\tenqueue_runnable_load_avg(cfs_rq, se);\n",
     "\tenqueue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_enqueue_entity_load_avg(cfs_rq, se);\n#endif\n",
     "HMP enqueue accounting",
+    expected=2,
 )
 replace_once(
     "kernel/sched/fair.c",
     "\tdequeue_runnable_load_avg(cfs_rq, se);\n",
     "\tdequeue_runnable_load_avg(cfs_rq, se);\n#ifdef CONFIG_SCHED_HMP\n\thmp_dequeue_entity_load_avg(cfs_rq, se);\n#endif\n",
     "HMP dequeue accounting",
+    expected=2,
 )
 
 replace_in_function(
