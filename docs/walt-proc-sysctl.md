@@ -73,3 +73,28 @@ This is a real accounting/schedutil integration stage, not full Qualcomm WALT/HM
 
 Do not flash until the CI build succeeds and the resulting config/audit are inspected. A successful CI compile does not prove bootability or correct runtime accounting; device testing is still required.
 - The actual target is Fleux V12 commit `6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9`; the user's GitHub repository is the patch/build harness, not a mirror of the full kernel source.
+
+
+## Fleur-native WALT controls — MT6781 adaptation
+
+The controls below are sourced from the pinned Fleur 4.14 implementation or are explicit MT6781 integration switches. They are exposed only after a real backing variable and code path exist. Writable integer controls use bounded sysctl handlers; read-only values cannot be changed at runtime.
+
+| Path under `/proc/sys/kernel/` | Default | Range / access | Effect |
+|---|---:|---|---|
+| `sched_use_walt_cpu_util` | 1 | 0–1, RW | Select WALT CPU utilization for scheduler placement; 0 falls back to PELT. |
+| `sched_use_walt_task_util` | 1 | 0–1, RW | Select WALT task demand for task utilization; 0 falls back to PELT/util_est. |
+| `sched_walt_init_task_load_pct` | 15 | 0–100, RW | Initial demand assigned to a newly forked task. |
+| `sched_walt_cpu_high_irqload` | 10,000,000 ns | 0–1,000,000,000, RW | IRQ-load threshold used by the WALT high-IRQ CPU filter. |
+| `sched_walt_ravg_hist_size` | 5 | 1–5, RW | Number of task-demand history samples used by the history policy. |
+| `sched_walt_window_stats_policy` | 2 | 0–3, RW | 0=recent, 1=max, 2=max(recent, average), 3=average. |
+| `sched_walt_account_wait_time` | 1 | 0–1, RW | Include wait-time accounting in task demand for wake/schedule transitions. |
+| `sched_walt_freq_account_wait_time` | 0 | 0–1, RW | Include wait time in the frequency-accounting path. |
+| `sched_walt_io_is_busy` | 0 | 0–1, RW | Treat I/O-wait time as busy for idle CPU accounting. |
+| `sched_walt_ravg_window` | 20 ms | RO | Effective tick-adjusted WALT window; set at boot with `walt_ravg_window=`. |
+| `sched_walt_disabled` | 0 | RO | Reports whether invalid boot-time window configuration disabled WALT. |
+
+The five native internal Fleur tuning variables (history size, history policy, wait-time accounting, frequency wait-time accounting and I/O-busy accounting) are now exported with explicit bounds. The effective window is intentionally read-only: changing it live would invalidate task histories and per-runqueue window sums. The disabled flag is also read-only; exposing a writable global enable switch without synchronously resetting all task/runqueue accounting would be unsafe.
+
+Qualcomm-only names such as related-thread-group controls, user hints, core_ctl thresholds and Qualcomm cluster-frequency controls are not presented as supported MT6781 parameters. They require separate MTK implementations and are not part of this ABI.
+
+A successful compile verifies only that the code links. Validate each sysctl on-device by reading its initial value, testing the documented bounds, writing a valid alternate value, confirming the corresponding WALT code path changes, and restoring the default. Also verify WALT accounting consistency across fork/exit, migration, suspend/resume, CPU hotplug and both MTK CPUFreq policies.
