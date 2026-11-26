@@ -51,6 +51,7 @@ for name in ("walt.c", "walt.h"):
             raise SystemExit("native WALT source include anchor missing")
         text = text.replace(marker, marker +
             "\n/* Fleux V12 does not carry the optional Fleur WALT trace events. */\n"
+            "#define trace_walt_update_history(...) do { } while (0)\n"
             "#define trace_walt_update_task_ravg(...) do { } while (0)\n"
             "#define trace_walt_migration_update_sum(...) do { } while (0)\n", 1)
     else:
