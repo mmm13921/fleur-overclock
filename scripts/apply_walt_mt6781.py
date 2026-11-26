@@ -1,213 +1,311 @@
-import pathlib
+#!/usr/bin/env python3
+"""Port the device-native Fleur 4.14 WALT engine into Fleux V12 / 4.19.325."""
+from pathlib import Path
+import re
 import sys
 
-root = pathlib.Path(sys.argv[1])
-audit = pathlib.Path(sys.argv[2])
+if len(sys.argv) != 3:
+    raise SystemExit("usage: apply_walt_mt6781.py SOURCE_DIR AUDIT_FILE")
+
+root = Path(sys.argv[1])
+audit = Path(sys.argv[2])
 changes = []
 
-def edit(path, old, new, label, count=1):
-    p = root / path
-    s = p.read_text()
-    n = s.count(old)
-    if n != count:
-        raise SystemExit(f"{label}: expected {count} anchor(s), found {n} in {path}")
-    p.write_text(s.replace(old, new, count))
+def replace_once(rel, old, new, label, count=1):
+    path = root / rel
+    source = path.read_text()
+    found = source.count(old)
+    if found != count:
+        raise SystemExit(f"{label}: expected {count} anchor(s), found {found} in {rel}")
+    path.write_text(source.replace(old, new))
     changes.append(label)
 
-# Kconfig: opt-in, with no Qualcomm-only dependencies.
-edit("kernel/Kconfig.preempt",
-     'choice\n\tprompt "Preemption Model"',
-     'config SCHED_WALT\n\tbool "Window Assisted Load Tracking (WALT)"\n\tdepends on SMP\n\tdefault n\n\thelp\n\t  Enable MT6781-adapted WALT execution-window accounting and WALT-aware\n\t  schedutil utilization. PELT remains active as a fallback.\n\nchoice\n\tprompt "Preemption Model"',
-     "Kconfig option")
-edit("kernel/sched/Makefile",
-     "obj-y += core.o loadavg.o clock.o cputime.o",
-     "obj-y += core.o loadavg.o clock.o cputime.o\nobj-$(CONFIG_SCHED_WALT) += walt.o",
-     "scheduler Makefile")
-edit("include/linux/sched.h",
-     "\tu64\t\t\t\tlast_enqueued_ts;\n",
-     "\tu64\t\t\t\tlast_enqueued_ts;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\twalt_window_start;\n\tu64\t\t\twalt_curr_window;\n\tu64\t\t\twalt_prev_window;\n\tu32\t\t\twalt_demand;\n\tbool\t\t\twalt_on_rq;\n#endif\n",
-     "task_struct WALT state")
-edit("kernel/sched/sched.h",
-     "\tstruct cfs_rq\t\tcfs;\n",
-     "\tstruct cfs_rq\t\tcfs;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\twalt_runnable_sum;\n#endif\n",
-     "rq WALT runnable sum")
-# Internal API and disabled-config stubs.
-p = root / "kernel/sched/sched.h"
-s = p.read_text()
-marker = "#endif /* _KERNEL_SCHED_SCHED_H */"
-api = """
-#ifdef CONFIG_SCHED_WALT
-void walt_enqueue_task(struct rq *rq, struct task_struct *p);
-void walt_dequeue_task(struct rq *rq, struct task_struct *p);
-void walt_account_runtime(struct rq *rq, struct task_struct *p, u64 delta);
-unsigned long walt_cpu_util(struct rq *rq);
+def replace_region(rel, start, end, old, new, label, count=1):
+    path = root / rel
+    source = path.read_text()
+    a = source.find(start)
+    b = source.find(end, a + len(start))
+    if a < 0 or b < 0:
+        raise SystemExit(f"{label}: region boundary missing in {rel}")
+    region = source[a:b]
+    found = region.count(old)
+    if found != count:
+        raise SystemExit(f"{label}: expected {count} anchor(s) in region, found {found} in {rel}")
+    path.write_text(source[:a] + region.replace(old, new) + source[b:])
+    changes.append(label)
+
+# Install the full device-native WALT accounting implementation, not the
+# earlier experimental accounting stub. Tracepoints absent from Fleux are
+# deliberately compiled as no-ops; accounting and scheduler hooks remain live.
+sched_dir = root / "kernel/sched"
+for name in ("walt.c", "walt.h"):
+    source = root / "vendor/walt-fleur-4.14" / name
+    if not source.is_file():
+        raise SystemExit(f"missing pinned Fleur WALT reference: {source}")
+    text = source.read_text()
+    text = "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
+    if name == "walt.c":
+        marker = '#include "walt.h"\n'
+        if marker not in text:
+            raise SystemExit("native WALT source include anchor missing")
+        text = text.replace(marker, marker +
+            "\n/* Fleux V12 does not carry the optional Fleur WALT trace events. */\n"
+            "#define trace_walt_update_task_ravg(...) do { } while (0)\n"
+            "#define trace_walt_migration_update_sum(...) do { } while (0)\n", 1)
+    else:
+        marker = "extern bool walt_disabled;\n"
+        if marker not in text:
+            raise SystemExit("native WALT header declaration anchor missing")
+        text = text.replace(marker,
+            "extern unsigned int walt_ravg_window;\n"
+            "extern unsigned int sysctl_sched_walt_init_task_load_pct;\n"
+            "extern unsigned int sysctl_sched_walt_cpu_high_irqload;\n"
+            "extern unsigned int sysctl_sched_use_walt_cpu_util;\n"
+            "extern unsigned int sysctl_sched_use_walt_task_util;\n"
+            "extern unsigned long walt_cpu_util(struct rq *rq);\n"
+            + marker, 1)
+    (sched_dir / name).write_text(text)
+changes += ["full Fleur 4.14 WALT engine", "WALT API header"]
+
+# Kconfig and object wiring.
+replace_once("kernel/Kconfig.preempt",
+    "endchoice\n\nconfig PREEMPT_COUNT",
+    "endchoice\n\nconfig SCHED_WALT\n\tbool \"Window Assisted Load Tracking (WALT)\"\n\tdepends on SMP\n\tdefault n\n\thelp\n\t  Enable the device-native Fleur WALT execution-window accounting,\n\t  runnable-demand tracking, IRQ accounting and WALT-aware CPUFreq input.\n\nconfig PREEMPT_COUNT",
+    "WALT Kconfig")
+replace_once("kernel/sched/Makefile",
+    "obj-y += core.o loadavg.o clock.o cputime.o\n",
+    "obj-y += core.o loadavg.o clock.o cputime.o\nobj-$(CONFIG_SCHED_WALT) += walt.o\n",
+    "WALT scheduler object")
+
+# Public task state and WALT event ABI used by the native implementation.
+replace_once("include/linux/sched.h",
+    "#define TASK_COMM_LEN\t\t\t16\n",
+    "#define TASK_COMM_LEN\t\t\t16\n\n#ifdef CONFIG_SCHED_WALT\nenum task_event {\n\tPUT_PREV_TASK = 0,\n\tPICK_NEXT_TASK = 1,\n\tTASK_WAKE = 2,\n\tTASK_MIGRATE = 3,\n\tTASK_UPDATE = 4,\n\tIRQ_UPDATE = 5,\n};\n#endif\n",
+    "WALT task event definitions")
+replace_once("include/linux/sched.h",
+    "struct sched_rt_entity {",
+    "#ifdef CONFIG_SCHED_WALT\n#define RAVG_HIST_SIZE_MAX 5\nstruct ravg {\n\tu64 mark_start;\n\tu32 sum;\n\tu32 demand;\n\tu32 sum_history[RAVG_HIST_SIZE_MAX];\n\tu32 curr_window;\n\tu32 prev_window;\n\tu16 active_windows;\n};\n#endif\n\nstruct sched_rt_entity {",
+    "per-task WALT ravg structure")
+replace_once("include/linux/sched.h",
+    "\tu64\t\t\t\tlast_sleep_ts;\n",
+    "\tu64\t\t\t\tlast_sleep_ts;\n#ifdef CONFIG_SCHED_WALT\n\tstruct ravg\t\t\travg;\n\tu32\t\t\t\tinit_load_pct;\n#endif\n",
+    "task_struct WALT fields")
+
+# Runqueue and CFS hierarchy accounting state.
+replace_once("kernel/sched/sched.h",
+    "\t\t\t\t\t\t\t\t\t",
+    "\t\t\t\t\t\t\t\t\t",
+    "scheduler layout sentinel", count=1) if False else None
+replace_once("kernel/sched/sched.h",
+    "\tstruct list_head\tthrottled_list;\n#endif /* CONFIG_CFS_BANDWIDTH */",
+    "\tstruct list_head\tthrottled_list;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\tcumulative_runnable_avg;\n#endif\n#endif /* CONFIG_CFS_BANDWIDTH */",
+    "CFS WALT cumulative runnable accounting")
+replace_once("kernel/sched/sched.h",
+    "\tu64\t\t\tavg_idle;\n",
+    "\tu64\t\t\tavg_idle;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\tcumulative_runnable_avg;\n\tu64\t\t\twindow_start;\n\tu64\t\t\tcurr_runnable_sum;\n\tu64\t\t\tprev_runnable_sum;\n\tu64\t\t\tnt_curr_runnable_sum;\n\tu64\t\t\tnt_prev_runnable_sum;\n\tu64\t\t\tcur_irqload;\n\tu64\t\t\tavg_irqload;\n\tu64\t\t\tirqload_ts;\n\tu64\t\t\tcum_window_demand;\n#endif\n",
+    "runqueue WALT accounting fields")
+replace_once("kernel/sched/sched.h",
+    "\tvoid (*update_curr)(struct rq *rq);\n",
+    "\tvoid (*update_curr)(struct rq *rq);\n#ifdef CONFIG_SCHED_WALT\n\tvoid (*fixup_cumulative_runnable_avg)(struct rq *rq,\n\t\t\tstruct task_struct *p, u64 new_task_load);\n#endif\n",
+    "scheduler class WALT fixup callback")
+replace_once("kernel/sched/sched.h",
+    '#include "sched_plus.h"',
+    '#ifdef CONFIG_SCHED_WALT\nstatic inline bool\nwalt_task_in_cum_window_demand(struct rq *rq, struct task_struct *p)\n{\n\treturn cpu_of(rq) == task_cpu(p) &&\n\t       (p->on_rq || p->last_sleep_ts >= rq->window_start);\n}\n#endif\n\n#include "walt.h"\n#include "sched_plus.h"',
+    "scheduler WALT API inclusion")
+
+# WALT-aware task and CPU utilization. PELT/util_est remain the fallback.
+replace_once("kernel/sched/fair.c",
+    "const_debug unsigned int sysctl_sched_migration_cost\t= 500000UL;\n",
+    "const_debug unsigned int sysctl_sched_migration_cost\t= 500000UL;\n\n#ifdef CONFIG_SCHED_WALT\nunsigned int sysctl_sched_use_walt_cpu_util = 1;\nunsigned int sysctl_sched_use_walt_task_util = 1;\n__read_mostly unsigned int sysctl_sched_walt_cpu_high_irqload = 10 * NSEC_PER_MSEC;\n#endif\n",
+    "WALT scheduler tunables")
+replace_once("kernel/sched/fair.c",
+    "static inline unsigned long task_util(struct task_struct *p)\n{\n\treturn READ_ONCE(p->se.avg.util_avg);\n}",
+    "static inline unsigned long task_util(struct task_struct *p)\n{\n#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_task_util))\n\t\treturn p->ravg.demand / (walt_ravg_window >> SCHED_CAPACITY_SHIFT);\n#endif\n\treturn READ_ONCE(p->se.avg.util_avg);\n}",
+    "WALT task utilization")
+replace_once("kernel/sched/fair.c",
+    "static inline unsigned long cpu_util(int cpu)\n{\n\tstruct cfs_rq *cfs_rq;\n\tunsigned int util;\n\n\tcfs_rq = &cpu_rq(cpu)->cfs;",
+    "static inline unsigned long cpu_util(int cpu)\n{\n\tstruct cfs_rq *cfs_rq;\n\tunsigned int util;\n\n#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {\n\t\tu64 walt_util = READ_ONCE(cpu_rq(cpu)->cumulative_runnable_avg);\n\t\twalt_util <<= SCHED_CAPACITY_SHIFT;\n\t\tdo_div(walt_util, walt_ravg_window);\n\t\treturn min_t(unsigned long, walt_util, capacity_orig_of(cpu));\n\t}\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;",
+    "WALT CPU utilization")
+replace_once("kernel/sched/fair.c",
+    "\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
+    "\t#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {\n\t\tu64 walt_util = READ_ONCE(cpu_rq(cpu)->cumulative_runnable_avg);\n\t\twalt_util <<= SCHED_CAPACITY_SHIFT;\n\t\tdo_div(walt_util, walt_ravg_window);\n\t\tif (walt_task_in_cum_window_demand(cpu_rq(cpu), p))\n\t\t\twalt_util -= min_t(u64, walt_util, task_util(p));\n\t\treturn min_t(unsigned long, walt_util, capacity_orig_of(cpu));\n\t}\n\t#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
+    "WALT cpu_util_without")
+replace_region("kernel/sched/fair.c",
+    "static void enqueue_task_fair(", "static void set_next_buddy(",
+    "\t\tcfs_rq->h_nr_running++;\n",
+    "\t\tcfs_rq->h_nr_running++;\n\t\twalt_inc_cfs_cumulative_runnable_avg(cfs_rq, p);\n",
+    "CFS hierarchy enqueue WALT accounting", count=2)
+replace_region("kernel/sched/fair.c",
+    "static void dequeue_task_fair(", "#ifdef CONFIG_SMP",
+    "\t\tcfs_rq->h_nr_running--;\n",
+    "\t\tcfs_rq->h_nr_running--;\n\t\twalt_dec_cfs_cumulative_runnable_avg(cfs_rq, p);\n",
+    "CFS hierarchy dequeue WALT accounting", count=2)
+replace_region("kernel/sched/fair.c",
+    "static void enqueue_task_fair(", "static void set_next_buddy(",
+    "\t\tadd_nr_running(rq, 1);\n",
+    "\t\tadd_nr_running(rq, 1);\n\t\twalt_inc_cumulative_runnable_avg(rq, p);\n",
+    "runqueue enqueue WALT accounting")
+replace_region("kernel/sched/fair.c",
+    "static void dequeue_task_fair(", "#ifdef CONFIG_SMP",
+    "\t\tsub_nr_running(rq, 1);\n",
+    "\t\tsub_nr_running(rq, 1);\n\t\twalt_dec_cumulative_runnable_avg(rq, p);\n",
+    "runqueue dequeue WALT accounting")
+
+# Demand changes must be reflected in both hierarchical and root runqueue sums.
+helper = """#ifdef CONFIG_SCHED_WALT
+static void walt_fixup_cumulative_runnable_avg_fair(struct rq *rq,
+\t\t\t\t\t\t    struct task_struct *p,
+\t\t\t\t\t\t    u64 new_task_load)
+{
+#ifdef CONFIG_CFS_BANDWIDTH
+\tstruct cfs_rq *cfs_rq;
+\tstruct sched_entity *se = &p->se;
+\ts64 delta = (s64)new_task_load - p->ravg.demand;
+
+\tfor_each_sched_entity(se) {
+\t\tcfs_rq = cfs_rq_of(se);
+\t\tcfs_rq->cumulative_runnable_avg += delta;
+\t\tif (cfs_rq_throttled(cfs_rq))
+\t\t\tbreak;
+\t}
+\tif (!se)
+\t\twalt_fixup_cumulative_runnable_avg(rq, p, new_task_load);
 #else
-static inline void walt_enqueue_task(struct rq *rq, struct task_struct *p) { }
-static inline void walt_dequeue_task(struct rq *rq, struct task_struct *p) { }
-static inline void walt_account_runtime(struct rq *rq, struct task_struct *p, u64 delta) { }
-static inline unsigned long walt_cpu_util(struct rq *rq) { return 0; }
+\twalt_fixup_cumulative_runnable_avg(rq, p, new_task_load);
+#endif
+}
 #endif
 
 """
-if "void walt_enqueue_task(" in s:
-    raise SystemExit("WALT API already present; refusing duplicate patch")
-if marker in s:
-    s = s.replace(marker, api + marker)
-else:
-    s = s.rstrip() + "\n" + api.strip("\n") + "\n"
-p.write_text(s)
-changes.append("scheduler WALT API")
+replace_once("kernel/sched/fair.c",
+    "const struct sched_class fair_sched_class = {",
+    helper + "const struct sched_class fair_sched_class = {",
+    "WALT fair-class demand fixup")
+replace_once("kernel/sched/fair.c",
+    "\t.update_curr\t\t= update_curr_fair,\n",
+    "\t.update_curr\t\t= update_curr_fair,\n#ifdef CONFIG_SCHED_WALT\n\t.fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg_fair,\n#endif\n",
+    "WALT fair-class callback")
 
-# Forked tasks must not inherit the parent's window state or rq membership.
-edit("kernel/sched/core.c",
-     "\t__sched_fork(clone_flags, p);",
-     "\t__sched_fork(clone_flags, p);\n#ifdef CONFIG_SCHED_WALT\n\tp->walt_window_start = 0;\n\tp->walt_curr_window = 0;\n\tp->walt_prev_window = 0;\n\tp->walt_demand = 0;\n\tp->walt_on_rq = false;\n#endif",
-     "fork-state initialization")
+# Reject CPUs carrying a high IRQ burden during EAS candidate selection.
+replace_region("kernel/sched/fair.c",
+    "static void select_cpu_candidates(", "static DEFINE_PER_CPU(cpumask_t, energy_cpus);",
+    "\t\t\tif (cpu_isolated(cpu))\n\t\t\t\tcontinue;\n",
+    "\t\t\tif (cpu_isolated(cpu))\n\t\t\t\tcontinue;\n#ifdef CONFIG_SCHED_WALT\n\t\t\tif (walt_cpu_high_irqload(cpu))\n\t\t\t\tcontinue;\n#endif\n",
+    "WALT IRQ-aware CPU selection")
 
-# Account CFS execution time in the active WALT window.
-edit("kernel/sched/fair.c",
-     "\t\tstruct task_struct *curtask = task_of(curr);\n",
-     "\t\tstruct task_struct *curtask = task_of(curr);\n\t\twalt_account_runtime(rq_of(cfs_rq), curtask, delta_exec);\n",
-     "CFS runtime accounting")
-edit("kernel/sched/fair.c",
-     "\tutil_est_enqueue(&rq->cfs, p);",
-     "\twalt_enqueue_task(rq, p);\n\tutil_est_enqueue(&rq->cfs, p);",
-     "fair enqueue accounting")
-edit("kernel/sched/fair.c",
-     "\tschedtune_dequeue_task(p, cpu_of(rq));",
-     "\twalt_dequeue_task(rq, p);\n\tschedtune_dequeue_task(p, cpu_of(rq));",
-     "fair dequeue accounting")
+# Provide a WALT utilization floor to schedutil without removing PELT.
+replace_once("kernel/sched/walt.c",
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn 0;\n\tutil = READ_ONCE(rq->cumulative_runnable_avg);\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
+    "WALT schedutil utilization export")
+replace_once("kernel/sched/cpufreq_schedutil.c",
+    "unsigned long util_cfs = cpu_util_cfs(rq);",
+    "unsigned long util_cfs = max_t(unsigned long, cpu_util_cfs(rq),\n\t\t\t\t\t       walt_cpu_util(rq));",
+    "schedutil WALT utilization floor")
 
-# WALT is used as a conservative floor for schedutil CFS utilization.
-edit("kernel/sched/cpufreq_schedutil.c",
-     "\tunsigned long util_cfs = cpu_util_cfs(rq);",
-     "\tunsigned long util_cfs = max_t(unsigned long, cpu_util_cfs(rq),\n\t\t\t\t\t       walt_cpu_util(rq));",
-     "schedutil WALT utilization")
+# Core scheduler event hooks: wakeup, fork, switch, tick, migration and hotplug.
+replace_once("kernel/sched/core.c",
+    "static void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)\n",
+    "#ifdef CONFIG_SCHED_WALT\nstatic inline void walt_try_to_wake_up(struct task_struct *p)\n{\n\tstruct rq *rq = cpu_rq(task_cpu(p));\n\tstruct rq_flags rf;\n\tu64 wallclock;\n\n\trq_lock_irqsave(rq, &rf);\n\twallclock = walt_ktime_clock();\n\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);\n\twalt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);\n\trq_unlock_irqrestore(rq, &rf);\n}\n#else\n#define walt_try_to_wake_up(p) do { } while (0)\n#endif\n\nstatic void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)\n",
+    "WALT wakeup helper")
+replace_region("kernel/sched/core.c",
+    "static void try_to_wake_up_local(", "/**\n * wake_up_process",
+    "\tif (!task_on_rq_queued(p)) {\n",
+    "\tif (!task_on_rq_queued(p)) {\n#ifdef CONFIG_SCHED_WALT\n\t\tu64 wallclock = walt_ktime_clock();\n\t\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);\n\t\twalt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);\n#endif\n",
+    "local wakeup WALT accounting")
+replace_once("kernel/sched/core.c",
+    "\tsmp_cond_load_acquire(&p->on_cpu, !VAL);\n",
+    "\tsmp_cond_load_acquire(&p->on_cpu, !VAL);\n\twalt_try_to_wake_up(p);\n",
+    "remote wakeup WALT accounting")
+replace_once("kernel/sched/core.c",
+    "\tp->se.nr_migrations\t\t= 0;\n",
+    "\tp->se.nr_migrations\t\t= 0;\n#ifdef CONFIG_SCHED_WALT\n\tp->last_sleep_ts\t\t= 0;\n\twalt_init_new_task_load(p);\n#endif\n",
+    "WALT fork initialization")
+replace_once("kernel/sched/core.c",
+    "\tactivate_task(rq, p, ENQUEUE_NOCLOCK);\n\tp->on_rq = TASK_ON_RQ_QUEUED;",
+    "\tactivate_task(rq, p, ENQUEUE_NOCLOCK);\n\twalt_mark_task_starting(p);\n\tp->on_rq = TASK_ON_RQ_QUEUED;",
+    "WALT new-task activation")
+replace_once("kernel/sched/core.c",
+    "\trq_lock(rq, &rf);\n\n\tupdate_rq_clock(rq);\n\tcurr->sched_class->task_tick(rq, curr, 0);",
+    "\trq_lock(rq, &rf);\n#ifdef CONFIG_SCHED_WALT\n\twalt_set_window_start(rq, &rf);\n\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, walt_ktime_clock(), 0);\n#endif\n\tupdate_rq_clock(rq);\n\tcurr->sched_class->task_tick(rq, curr, 0);",
+    "WALT scheduler tick accounting")
+replace_once("kernel/sched/core.c",
+    "static void __sched notrace __schedule(bool preempt)\n{\n\tstruct task_struct *prev, *next;\n\tunsigned long *switch_count;\n\tstruct rq_flags rf;",
+    "static void __sched notrace __schedule(bool preempt)\n{\n\tstruct task_struct *prev, *next;\n\tunsigned long *switch_count;\n\tstruct rq_flags rf;\n#ifdef CONFIG_SCHED_WALT\n\tu64 wallclock;\n#endif",
+    "WALT context-switch clock")
+replace_once("kernel/sched/core.c",
+    "\tnext = pick_next_task(rq, prev, &rf);\n\tclear_tsk_need_resched(prev);",
+    "\tnext = pick_next_task(rq, prev, &rf);\n#ifdef CONFIG_SCHED_WALT\n\twallclock = walt_ktime_clock();\n\twalt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);\n\twalt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);\n#endif\n\tclear_tsk_need_resched(prev);",
+    "WALT context-switch accounting")
+replace_once("kernel/sched/core.c",
+    "\tif (likely(prev != next)) {\n\t\trq->nr_switches++;",
+    "\tif (likely(prev != next)) {\n#ifdef CONFIG_SCHED_WALT\n\t\tif (!prev->on_rq)\n\t\t\tprev->last_sleep_ts = wallclock;\n#endif\n\t\trq->nr_switches++;",
+    "WALT task sleep timestamp")
+replace_once("kernel/sched/core.c",
+    "\t\tperf_event_task_migrate(p);\n\t}\n\n\t__set_task_cpu(p, new_cpu);",
+    "\t\tperf_event_task_migrate(p);\n#ifdef CONFIG_SCHED_WALT\n\t\twalt_fixup_busy_time(p, new_cpu);\n#endif\n\t}\n\n\t__set_task_cpu(p, new_cpu);",
+    "WALT task migration fixup")
+replace_once("kernel/sched/core.c",
+    "\trq_lock_irqsave(rq, &rf);\n\tif (rq->rd) {",
+    "\trq_lock_irqsave(rq, &rf);\n#ifdef CONFIG_SCHED_WALT\n\twalt_migrate_sync_cpu(cpu);\n#endif\n\tif (rq->rd) {",
+    "WALT sync CPU hotplug handoff")
 
-walt = r'''// SPDX-License-Identifier: GPL-2.0
-/*
- * MT6781 WALT execution-window accounting.
- *
- * This implementation deliberately ports the WALT accounting primitive and
- * schedutil demand path without importing Qualcomm cluster/core_ctl machinery.
- * PELT remains enabled and is the fallback/lower bound for untracked classes.
- */
-#include <linux/kernel.h>
-#include <linux/math64.h>
-#include <linux/ktime.h>
-#include "sched.h"
+# Account IRQ time in WALT's idle/IRQ bucket, using the same scheduler clock.
+replace_once("kernel/sched/cputime.c",
+    "\ts64 delta;\n\tint cpu;\n\n\tif (!sched_clock_irqtime)",
+    "\ts64 delta;\n\tint cpu;\n#ifdef CONFIG_SCHED_WALT\n\tu64 wallclock;\n#endif\n\n\tif (!sched_clock_irqtime)",
+    "WALT IRQ clock state")
+replace_once("kernel/sched/cputime.c",
+    "\tcpu = smp_processor_id();\n\tdelta = sched_clock_cpu(cpu) - irqtime->irq_start_time;\n\tirqtime->irq_start_time += delta;",
+    "\tcpu = smp_processor_id();\n#ifdef CONFIG_SCHED_WALT\n\twallclock = irqtime->irq_start_time;\n#endif\n\tdelta = sched_clock_cpu(cpu) - irqtime->irq_start_time;\n\tirqtime->irq_start_time += delta;",
+    "WALT IRQ wallclock capture")
+replace_once("kernel/sched/cputime.c",
+    "\telse if (in_serving_softirq() && curr != this_cpu_ksoftirqd())\n\t\tirqtime_account_delta(irqtime, delta, CPUTIME_SOFTIRQ);\n}",
+    "\telse if (in_serving_softirq() && curr != this_cpu_ksoftirqd())\n\t\tirqtime_account_delta(irqtime, delta, CPUTIME_SOFTIRQ);\n#ifdef CONFIG_SCHED_WALT\n\telse\n\t\twalt_account_irqtime(cpu, curr, delta, wallclock);\n#endif\n}",
+    "WALT IRQ load accounting")
 
-#define WALT_WINDOW_NS 20000000ULL
-#define WALT_CAPACITY 1024U
+# Runtime controls, matching the Fleur reference ABI.
+replace_once("include/linux/sched.h",
+    "u64\t\t\t\tlast_enqueued_ts;\n",
+    "u64\t\t\t\tlast_enqueued_ts;\n",
+    "task timestamp ABI check")
+replace_once("include/linux/sched.h",
+    "#define TASK_COMM_LEN\t\t\t16\n",
+    "#define TASK_COMM_LEN\t\t\t16\n#ifdef CONFIG_SCHED_WALT\nextern unsigned int sysctl_sched_use_walt_cpu_util;\nextern unsigned int sysctl_sched_use_walt_task_util;\nextern unsigned int sysctl_sched_walt_init_task_load_pct;\nextern unsigned int sysctl_sched_walt_cpu_high_irqload;\n#endif\n",
+    "WALT sysctl declarations")
+replace_once("kernel/sysctl.c",
+    "#endif\n#ifdef CONFIG_PROVE_LOCKING",
+    "#endif\n#ifdef CONFIG_SCHED_WALT\n\t{\n\t\t.procname\t= \"sched_use_walt_cpu_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_cpu_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_use_walt_task_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_task_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_init_task_load_pct\",\n\t\t.data\t\t= &sysctl_sched_walt_init_task_load_pct,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_cpu_high_irqload\",\n\t\t.data\t\t= &sysctl_sched_walt_cpu_high_irqload,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n#endif\n#ifdef CONFIG_PROVE_LOCKING",
+    "WALT sysctl ABI")
 
-static void walt_refresh_task(struct task_struct *p, u64 now, u64 delta)
-{
-	u64 start, windows, old_demand, sample;
-
-	old_demand = p->walt_demand;
-	if (!p->walt_window_start) {
-		p->walt_window_start = div64_u64(now, WALT_WINDOW_NS) *
-				       WALT_WINDOW_NS;
-		p->walt_curr_window = 0;
-		p->walt_prev_window = 0;
-	}
-	start = p->walt_window_start;
-	if (now >= start + WALT_WINDOW_NS) {
-		windows = div64_u64(now - start, WALT_WINDOW_NS);
-		p->walt_prev_window = windows == 1 ?
-				      p->walt_curr_window : 0;
-		p->walt_curr_window = 0;
-		p->walt_window_start = start + windows * WALT_WINDOW_NS;
-	}
-	sample = p->walt_curr_window + delta;
-	p->walt_curr_window = min_t(u64, sample, WALT_WINDOW_NS);
-	p->walt_demand = (u32)min_t(u64,
-		div64_u64(max(p->walt_curr_window, p->walt_prev_window) *
-			  WALT_CAPACITY, WALT_WINDOW_NS),
-		WALT_CAPACITY);
+# Structural checks prevent a PASS if any critical integration path is absent.
+checks = {
+    "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime"],
+    "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
+    "kernel/sched/fair.c": ["walt_inc_cumulative_runnable_avg(rq, p);", "walt_dec_cumulative_runnable_avg(rq, p);", "walt_cpu_high_irqload(cpu)"],
+    "kernel/sched/cpufreq_schedutil.c": ["walt_cpu_util(rq)"],
+    "kernel/sysctl.c": ['"sched_use_walt_cpu_util"', '"sched_use_walt_task_util"', '"sched_walt_cpu_high_irqload"'],
 }
+for rel, needles in checks.items():
+    source = (root / rel).read_text()
+    for needle in needles:
+        if needle not in source:
+            raise SystemExit(f"post-patch audit failed: {rel} lacks {needle}")
 
-static void walt_update_rq_sum(struct rq *rq, u32 old, u32 new)
-{
-	if (new >= old)
-		rq->walt_runnable_sum += new - old;
-	else if (rq->walt_runnable_sum >= old - new)
-		rq->walt_runnable_sum -= old - new;
-	else
-		rq->walt_runnable_sum = 0;
-}
-
-void walt_enqueue_task(struct rq *rq, struct task_struct *p)
-{
-	u32 old;
-
-	if (p->walt_on_rq)
-		return;
-	old = p->walt_demand;
-	walt_refresh_task(p, ktime_get_ns(), 0);
-	p->walt_on_rq = true;
-	rq->walt_runnable_sum += p->walt_demand;
-	(void)old;
-}
-
-void walt_dequeue_task(struct rq *rq, struct task_struct *p)
-{
-	if (!p->walt_on_rq)
-		return;
-	if (rq->walt_runnable_sum >= p->walt_demand)
-		rq->walt_runnable_sum -= p->walt_demand;
-	else
-		rq->walt_runnable_sum = 0;
-	p->walt_on_rq = false;
-}
-
-void walt_account_runtime(struct rq *rq, struct task_struct *p, u64 delta)
-{
-	u32 old;
-
-	if (!p->walt_on_rq || !delta)
-		return;
-	old = p->walt_demand;
-	walt_refresh_task(p, ktime_get_ns(), delta);
-	walt_update_rq_sum(rq, old, p->walt_demand);
-}
-
-unsigned long walt_cpu_util(struct rq *rq)
-{
-	unsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);
-
-	if (!capacity)
-		capacity = SCHED_CAPACITY_SCALE;
-	return min_t(u64,
-		div64_u64(rq->walt_runnable_sum * capacity,
-			  SCHED_CAPACITY_SCALE),
-		capacity);
-}
-'''
-(root / "kernel/sched/walt.c").write_text(walt)
-changes.append("MT6781 WALT engine")
-
-# Ensure the patch has all expected integration points before returning PASS.
-required = [
-    ("kernel/sched/walt.c", "walt_account_runtime"),
-    ("kernel/sched/fair.c", "walt_enqueue_task(rq, p);"),
-    ("kernel/sched/cpufreq_schedutil.c", "walt_cpu_util(rq)"),
-    ("include/linux/sched.h", "walt_window_start"),
-    ("kernel/sched/sched.h", "walt_runnable_sum"),
-]
-for path, needle in required:
-    if needle not in (root / path).read_text():
-        raise SystemExit(f"post-patch audit failed: {path} lacks {needle}")
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(
     "result=PASS\n"
-    "implementation=MT6781 WALT execution-window accounting plus schedutil utilization floor\n"
-    "window_ns=20000000\n"
-    "task_state=per-task current/previous window and demand\n"
-    "runqueue_state=aggregate runnable WALT demand\n"
-    "integration=fair enqueue/dequeue/update_curr and schedutil\n"
-    "fallback=PELT retained; RT/DL placement and Qualcomm HMP/core_ctl are not imported\n"
-    "status=first functional WALT accounting stage; full HMP placement and runtime sysctl ABI remain follow-up work\n"
-    + "".join("patched=" + x + "\n" for x in changes)
+    "implementation=Fleur-native WALT accounting engine ported to Fleux V12\n"
+    "reference=MiCode/Xiaomi_Kernel_OpenSource fleur-s-oss Linux 4.14.186\n"
+    "target=daliboss/fleux v12 Linux 4.19.325 MT6781\n"
+    "window=20ms tick-adjusted native WALT window\n"
+    "accounting=per-task ravg history, demand, current/previous window busy time\n"
+    "runqueue=cumulative runnable demand, window rollover, IRQ load, migration fixup\n"
+    "hooks=wakeup, local wakeup, fork, task start, context switch, scheduler tick, migration, CPU hotplug\n"
+    "utilization=WALT task/CPU util for placement and WALT floor for schedutil; PELT fallback retained\n"
+    "controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload\n"
+    "tracepoints=optional Fleur-only WALT tracepoints compiled as no-op on Fleux\n"
+    "not_included=Qualcomm related-thread groups/core_ctl cluster-frequency ABI; native MTK HMP active migration is a separate integration layer\n"
+    + "".join("patched=" + item + "\n" for item in changes)
 )
 print(audit.read_text(), end="")
