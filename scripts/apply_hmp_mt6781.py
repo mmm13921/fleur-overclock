@@ -178,7 +178,7 @@ hmp_h = replace_c_function(
 )
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
-# Preserve the target kernel's native EAS capacity margin default (1280).
+# Build 47: preserve Fleux V12 native EAS capacity margin default (1280).
 # Do not rewrite fits_capacity() or capacity_margin; both remain at upstream defaults.
 hmp_c = (root / "kernel/sched/hmp.c").read_text()
 hmp_c = hmp_c.replace('#include <linux/list_sort.h>\n', '#include <linux/list_sort.h>\n#include "hmp.h"\n', 1)
