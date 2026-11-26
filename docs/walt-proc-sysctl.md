@@ -1,57 +1,50 @@
 # WALT backport — MT6781 / Fleux V12
 
-Status: implementation started; this file is an interface contract, not a claim that WALT is already ported.
+Target source: `daliboss/fleux:v12`, Linux 4.19.325, commit `6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9`.
+Reference: Qualcomm `android-msm-bramble-4.19-android11-d1`.
 
-Target:
-- Fleux V12, Linux 4.19.325
-- Redmi Note 11S (fleur), MT6781
-- CPU topology: LITTLE 0-5 (Cortex-A55), big 6-7 (Cortex-A76)
+## Audit findings
 
-Reference:
-- Qualcomm Android 4.19, android-msm-bramble-4.19-android11-d1
-- WALT default window: 20,000,000 ns (20 ms); maximum window: 1,000,000,000 ns.
-- Qualcomm WALT has direct scheduler accounting hooks and per-task/per-runqueue window state. It is not a PELT threshold shim.
+The target `kernel/sched/Makefile` currently builds `core.o`, `fair.o`, `pelt.o`, `cpufreq_schedutil.o`, etc., but has no `walt.o` entry. Target `kernel/sched/sched.h` has no WALT task/runqueue data structures, and `fleur_defconfig` does not enable `CONFIG_SCHED_WALT`.
 
-## Proc interface contract
+The Qualcomm implementation is not a drop-in file copy. Its `walt.h` and `walt.c` depend on additional scheduler state and helpers including per-task ravg history, per-rq window sums and load subtraction tables, cluster topology, WALT stats, migration accounting, frequency reporting, IRQ accounting, and several Qualcomm-only facilities. The reference header includes `linux/sched/core_ctl.h`; that dependency must not be copied blindly to MT6781.
 
-All runtime controls belong below `/proc/sys/kernel/` (sysctl table), with kernel-side implementation and bounds. Do not expose placeholder files or tunables that do not affect the scheduler.
+Qualcomm reference WALT has a 20 ms default window and a 1 s maximum. The reference implementation also has policy and accounting controls which must be wired to real code, not exposed as placeholder sysctls.
 
-The following names are the initial compatibility inventory from Qualcomm WALT variants. Each entry must be checked against the exact selected reference revision and implemented semantics before being registered:
+## Verified Qualcomm /proc/sys/kernel ABI candidates
 
-| Planned sysctl | Meaning / constraints |
-|---|---|
-| `sched_ravg_window` | Window length in ns; default 20,000,000; bounded 20,000,000..1,000,000,000; runtime changes require synchronized window rollover. |
-| `sched_ravg_hist_size` | Number of demand-history windows; reference default commonly 5; enforce implementation-specific safe bounds. |
-| `sched_window_stats_policy` | Window demand aggregation policy: 0 recent, 1 max, 2 max/recent average, 3 average. |
-| `sched_freq_reporting_policy` | WALT busy-time reporting policy to CPUFreq; valid values are reference-defined enum values only. |
-| `sched_cpu_high_irqload` | IRQ-load threshold in ns; reference default commonly 10,000,000 ns. |
-| `sched_init_task_load_pct` | Initial load assigned to newly created tasks; reference default commonly 15 percent. |
-| `sched_io_is_busy` | Whether I/O-wait time contributes to busy accounting. |
-| `sched_group_upmigrate` | Group up-migration threshold; must use the exact reference scale and group logic. |
-| `sched_group_downmigrate` | Group down-migration threshold; must use the exact reference scale and group logic. |
-| `sched_freq_aggregate` | Enable/disable WALT frequency aggregation only after MTK CPUFreq integration exists. |
-| `sched_disable_window_stats` | Diagnostic control for window-stat accounting; must not leave task/rq accounting unbalanced. |
-| `sched_walt_rotate_big_tasks` | Big-task rotation control; expose only if rotation implementation is ported. |
-| `sched_use_walt_cpu_util` | Select WALT CPU utilization for scheduler/CPUFreq consumers; expose only after all consumers are wired. |
-| `sched_use_walt_task_util` | Select WALT task utilization for placement; expose only after placement is wired. |
-| `sched_walt_cpu_high_irqload` | High IRQ-load threshold for WALT CPU-util path in revisions that define it; avoid duplicate aliasing with `sched_cpu_high_irqload`. |
+The following names were checked against the reference `kernel/sysctl.c` and/or `walt.c`. Exact availability and dependencies must be verified against the pinned reference revision during implementation.
 
-The final ABI will be derived from the pinned Qualcomm source revision, not by blindly combining names from unrelated WALT generations. Where the reference has two names for the same concept, only the exact target-revision name will be exported.
+- `sched_window_stats_policy` — window demand policy; reference values 0..3.
+- `sched_cpu_high_irqload` — IRQ-load threshold.
+- `sched_group_upmigrate` — related-task-group up-migration percentage.
+- `sched_group_downmigrate` — related-task-group down-migration percentage.
+- `sched_ravg_window_nr_ticks` — window length expressed in scheduler ticks; reference uses a dedicated handler.
+- `sched_dynamic_ravg_window_enable` — dynamic window adjustment toggle.
+- `sched_user_hint` — Qualcomm user-hint mechanism; only expose if a deliberate MTK equivalent is implemented.
+- `sched_ravg_window` — boot-time early parameter in the reference, not necessarily a runtime sysctl.
+- `sched_init_task_load_pct` — initial task load percentage in WALT implementation; confirm whether this revision exports it through sysctl before registering.
+- `sched_freq_reporting_policy` — CPUFreq reporting selection; confirm the exact table registration in the pinned source.
+- `sched_disable_window_stats` — internal accounting gate; do not expose unless runtime toggling is made race-safe.
 
-## Implementation order
+Do not add invented names such as `sched_freq_aggregate`, `sched_use_walt_cpu_util`, or `sched_use_walt_task_util` unless a corresponding implementation and ABI are deliberately added. Do not assume `sched_ravg_hist_size` or `sched_io_is_busy` are exported sysctls merely because they are internal WALT variables.
 
-1. Import and adapt WALT task/runqueue data structures and window accounting.
-2. Wire all scheduler lifecycle hooks (enqueue/dequeue, pick/put, wakeup, fork, migration, tick and IRQ accounting).
-3. Add WALT-aware task/CPU utilization and placement, preserving PELT as a fallback.
-4. Integrate schedutil through the MTK CPUFreq path; do not import Qualcomm core_ctl or schedfreq assumptions.
-5. Register the complete verified sysctl ABI under `/proc/sys/kernel/`, with bounds, permissions, handlers and safe runtime update semantics.
-6. Add tracepoints/debug counters and build-time structural checks.
-7. Build and inspect the resulting config and sysctl table; device boot and runtime validation remain separate gates.
+## MT6781 adaptation constraints
 
-## Safety rules
+- CPU topology: CPUs 0–5 LITTLE (Cortex-A55), CPUs 6–7 big (Cortex-A76).
+- Derive CPUFreq policy/frequency domains from the live MTK policy masks; do not copy Qualcomm cluster IDs or frequency domains.
+- Keep PELT available as fallback until WALT accounting, placement, and schedutil integration are all validated.
+- Do not import Qualcomm `core_ctl`, related-thread-group, user-hint, cycle-counter, or schedfreq dependencies without a deliberate MTK replacement.
+- Preserve the existing scheduler-mode patch until WALT is buildable and passes device testing.
 
-- Keep the existing EAS/HMP mode selector intact until WALT accounting and placement pass build and device tests.
-- Do not claim WALT is active merely because `CONFIG_SCHED_WALT` is enabled or sysctl names exist.
-- Do not expose a control unless it changes a live implementation path.
-- Do not import Qualcomm-only dependencies (core_ctl, related thread groups, schedfreq) without a deliberate MT6781 replacement.
-- The 20 ms window is the initial reference default, not a performance-tuned value.
+## Implementation gates
+
+1. Port task and runqueue state with correct initialization, fork/exit and migration lifetime.
+2. Port the WALT window accounting engine and all scheduler event hooks.
+3. Port demand history/prediction and task/CPU utilization.
+4. Port CPU selection and active migration only after accounting is correct.
+5. Adapt frequency reporting to MTK schedutil/CPUFreq.
+6. Register the complete verified proc/sysctl ABI with correct bounds, permissions, locking and runtime update behavior.
+7. Build, inspect symbols/config/sysctl table, then device boot and runtime validation.
+
+A sysctl is considered implemented only when writing it changes a live WALT code path safely. Merely registering a proc entry is not completion.
