@@ -142,14 +142,14 @@ replace_once("kernel/sched/deadline.c",
     "\tsub_nr_running(rq_of_dl_rq(dl_rq), 1);\n\twalt_dec_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));\n",
     "WALT deadline dequeue demand")
 replace_region("kernel/sched/stop_task.c",
-    "static void\\nenqueue_task_stop(", "static void\\ndequeue_task_stop(",
-    "\\tadd_nr_running(rq, 1);",
-    "\\tadd_nr_running(rq, 1);\\n\\twalt_inc_cumulative_runnable_avg(rq, p);",
+    "static void\nenqueue_task_stop(", "static void\ndequeue_task_stop(",
+    "\tadd_nr_running(rq, 1);",
+    "\tadd_nr_running(rq, 1);\n\twalt_inc_cumulative_runnable_avg(rq, p);",
     "WALT stop enqueue demand")
 replace_region("kernel/sched/stop_task.c",
-    "static void\\ndequeue_task_stop(", "static void yield_task_stop(",
-    "\\tsub_nr_running(rq, 1);",
-    "\\tsub_nr_running(rq, 1);\\n\\twalt_dec_cumulative_runnable_avg(rq, p);",
+    "static void\ndequeue_task_stop(", "static void yield_task_stop(",
+    "\tsub_nr_running(rq, 1);",
+    "\tsub_nr_running(rq, 1);\n\twalt_dec_cumulative_runnable_avg(rq, p);",
     "WALT stop dequeue demand")
 
 # All non-fair scheduling classes must provide the callback because WALT
