@@ -20,6 +20,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-Stability-NoSDCardFS"
     ;;
+  "v12:meys-v12-capacity-margin-0")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V2-CapacityMargin0"
+    ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
     exit 2
@@ -42,6 +46,10 @@ if [[ "$ACTUAL_SOURCE_COMMIT" != "$EXPECTED_SOURCE_COMMIT" ]]; then
   echo "Upstream ref $SOURCE_REF resolved to unexpected commit: $ACTUAL_SOURCE_COMMIT" >&2
   echo "Expected pinned commit: $EXPECTED_SOURCE_COMMIT" >&2
   exit 2
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
+  python3 "$WORKSPACE/scripts/apply_capacity_margin_zero.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
 fi
 python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
 python3 -m py_compile "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py"
@@ -101,6 +109,9 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "fuse_passthrough=Android FUSE writeback/cache-coherency backport for Linux 4.19"
   echo "eevdf=Linux 6.18 semantic backport layer 1; DELAY_DEQUEUE and DELAY_ZERO not implemented"
   echo "kernel_version=4.19.325${LOCALVERSION}"
+  if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
+    echo "capacity_margin=0 in fits_capacity(); capacity-based fit/misfit threshold disabled"
+  fi
   echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
