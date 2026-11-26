@@ -96,7 +96,7 @@ extra = '''\t{
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
 \t\t.extra1\t\t= &walt_sysctl_zero,
-\t\t.extra2\t\t= &walt_sysctl_one,
+\t\t.extra2\t\t= &walt_sysctl_nsec_per_sec,
 \t},'''
 if data.count(anchor) != 1:
     raise SystemExit("WALT IRQ threshold sysctl anchor missing or duplicated")
