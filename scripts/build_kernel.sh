@@ -83,6 +83,9 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_controls_mt6781.py"
+  python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/walt-controls-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-audit.txt"
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
 fi
@@ -158,10 +161,10 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
   if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
     echo "hmp_load_source=Fleur-native WALT runnable-demand accounting retained internally because the 4.14 MTK HMP engine consumes loadwop_avg"
-    echo "walt_governor=not enabled; schedutil remains default for EAS"
-    echo "walt_standalone_controls=not included; WALT accounting is an internal HMP dependency only"
+    echo "walt_governor=omitted by design; schedutil remains default for EAS"
+    echo "walt_standalone_controls=Fleur-native bounded sysctls enabled; WALT accounting also feeds HMP and scheduler placement"
     echo "walt_irq_accounting=CONFIG_IRQ_TIME_ACCOUNTING=y; native HMP demand accounting requires IRQ tracking"
-    echo "hmp_audit=hmp-mt6781-audit.txt;walt-demand-engine-audit.txt"
+    echo "hmp_audit=hmp-mt6781-audit.txt;walt-demand-engine-audit.txt;walt-controls-audit.txt"
     echo "hmp_limitations=MTK HMP policies are adapted to Fleux 4.19 APIs; runtime mode and migration behavior require device validation"
   fi
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
