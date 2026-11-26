@@ -215,8 +215,8 @@ replace_once("kernel/sched/cpufreq_schedutil.c",
 
 # Core scheduler event hooks: wakeup, fork, switch, tick, migration and hotplug.
 replace_once("kernel/sched/core.c",
-    "static void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)\n",
-    "#ifdef CONFIG_SCHED_WALT\nstatic inline void walt_try_to_wake_up(struct task_struct *p)\n{\n\tstruct rq *rq = cpu_rq(task_cpu(p));\n\tstruct rq_flags rf;\n\tu64 wallclock;\n\n\trq_lock_irqsave(rq, &rf);\n\twallclock = walt_ktime_clock();\n\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);\n\twalt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);\n\trq_unlock_irqrestore(rq, &rf);\n}\n#else\n#define walt_try_to_wake_up(p) do { } while (0)\n#endif\n\nstatic void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)\n",
+    "static int\ntry_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,\n\t       int sibling_count_hint)\n{",
+    "#ifdef CONFIG_SCHED_WALT\nstatic inline void walt_try_to_wake_up(struct task_struct *p)\n{\n\tstruct rq *rq = cpu_rq(task_cpu(p));\n\tstruct rq_flags rf;\n\tu64 wallclock;\n\n\trq_lock_irqsave(rq, &rf);\n\twallclock = walt_ktime_clock();\n\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);\n\twalt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);\n\trq_unlock_irqrestore(rq, &rf);\n}\n#else\n#define walt_try_to_wake_up(p) do { } while (0)\n#endif\n\nstatic int\ntry_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,\n\t       int sibling_count_hint)\n{",
     "WALT wakeup helper")
 replace_region("kernel/sched/core.c",
     "static void try_to_wake_up_local(", "/**\n * wake_up_process",
