@@ -27,4 +27,4 @@ jobs:
           ZIP="$(find build47 -type f -iname '*.zip' -print -quit)"
           test -n "$ZIP"
           unzip -t "$ZIP"
-          gh release create meys-v3 "$ZIP" --repo "$GITHUB_REPOSITORY" --target d64fbd05e9b45b29d5a27df2d11a118985d82e8a --title "MEYS V3" --latest --notes "HMP/Hybrid kernel release for Redmi Note 11S 4G (fleur / MT6781). Built in successful GitHub Actions Build47 and confirmed booted on device. Source commit: d64fbd05e9b45b29d5a27df2d11a118985d82e8a."
+          gh release edit meys-v3 --repo "$GITHUB_REPOSITORY" --title "MEYS V3" --latest --notes "MEYS V3 — HMP/Hybrid kernel release for Redmi Note 11S 4G (fleur / MT6781). Built from successful HMP Build47 and confirmed booted on device.\n\nCredits: Based on Fleux V12 kernel source by Dali Boss (Daliboss). Original project: https://gitlab.com/daliboss/fleux\n\nBuild source commit: d64fbd05e9b45b29d5a27df2d11a118985d82e8a. The MEYS HMP/Hybrid integration and build modifications are maintained in this repository."
