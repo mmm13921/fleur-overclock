@@ -33,6 +33,7 @@ default_block = """config CPU_FREQ_DEFAULT_GOV_WALT
 \tbool "walt"
 \tdepends on SMP && SCHED_WALT
 \tselect CPU_FREQ_GOV_WALT
+\tselect CPU_FREQ_GOV_SCHEDUTIL
 \thelp
 \t  Use the MT6781 WALT-window based CPUFreq governor by default.
 \t  This governor consumes the native Fleur WALT runqueue utilization
@@ -107,6 +108,21 @@ if "sched_cpufreq_governor_change" in su:
 kconfig.write_text(k)
 makefile.write_text(mk)
 (sched_dir / "cpufreq_walt.c").write_text(su)
+
+# Preserve EAS domain rebuilds when the dedicated WALT governor is selected.
+base = source.read_text()
+extern_anchor = "extern bool sched_energy_update;\\n"
+if base.count(extern_anchor) != 1:
+    raise SystemExit("schedutil EAS extern anchor missing or duplicated")
+base = base.replace(extern_anchor,
+                    extern_anchor + "extern struct cpufreq_governor waltgov_gov;\\n", 1)
+callback_anchor = "if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov) {"
+callback_replacement = ("if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov ||\\n"
+                        "\\t    old_gov == &waltgov_gov || policy->governor == &waltgov_gov) {")
+if base.count(callback_anchor) != 1:
+    raise SystemExit("schedutil EAS callback condition missing or duplicated")
+base = base.replace(callback_anchor, callback_replacement, 1)
+source.write_text(base)
 print(
     "result=PASS\n"
     "governor=walt\n"
