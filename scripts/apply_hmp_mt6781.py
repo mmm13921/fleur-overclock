@@ -181,7 +181,8 @@ hmp_h = replace_c_function(
 	}
 #endif
 	return true;
-}""",icy",
+}""",
+    "HMP mode policy",
 )
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
