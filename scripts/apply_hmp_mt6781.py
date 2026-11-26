@@ -157,24 +157,31 @@ if not hmp_h.startswith("#ifndef _KERNEL_SCHED_HMP_H"):
 hmp_h = replace_c_function(
     hmp_h,
     r"static inline bool\s+should_hmp\s*\(\s*int cpu\s*\)",
-    """static inline unsigned long cpu_util(int cpu);
-static unsigned long capacity_of(int cpu);
-static inline bool should_hmp(int cpu)
+    """static inline bool should_hmp(int cpu)
 {
-\tif (!sched_smp_initialized || !sched_feat(SCHED_HMP))
-\t\treturn false;
+	if (!sched_smp_initialized || !sched_feat(SCHED_HMP))
+		return false;
 #ifdef CONFIG_MACH_MT6781
-\tif (READ_ONCE(sysctl_sched_cpu_mode) == 1)
-\t\treturn false;
-\tif (READ_ONCE(sysctl_sched_cpu_mode) == 2) {
-\t\tstruct rq *rq = cpu_rq(cpu);
+	if (READ_ONCE(sysctl_sched_cpu_mode) == 1)
+		return false;
+	if (READ_ONCE(sysctl_sched_cpu_mode) == 2 &&
+	    READ_ONCE(sysctl_sched_energy_aware)) {
+		struct sched_domain *sd;
+		bool overutilized = false;
 
-\t\treturn rq->rd && (READ_ONCE(rq->rd->overutilized) ||\n\t\t\tcpu_util(cpu) >= capacity_of(cpu));
-\t}
+		rcu_read_lock();
+		for_each_domain(cpu, sd) {
+			if (READ_ONCE(sd->shared->overutilized)) {
+				overutilized = true;
+				break;
+			}
+		}
+		rcu_read_unlock();
+		return overutilized;
+	}
 #endif
-\treturn true;
-}""",
-    "HMP mode policy",
+	return true;
+}""",icy",
 )
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
