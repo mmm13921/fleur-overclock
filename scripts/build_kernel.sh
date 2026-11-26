@@ -146,7 +146,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
   if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-    echo "walt=Fleur-native 20ms execution-window accounting, task/runqueue demand, wakeup/context-switch/tick/migration/hotplug/IRQ hooks"
+    echo "walt=Fleur-native 20ms execution-window accounting, task/runqueue demand, wakeup/context-switch/tick/migration/hotplug/IRQ hooks; queued migrations update source and destination sums while both rq locks are held"
     echo "walt_governor=MTK-aware schedutil-derived 'walt' governor using max(current,previous) WALT execution-window busy-time demand; selected as default for both active CPUFreq policies"
     echo "walt_controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload,sched_walt_ravg_hist_size,sched_walt_window_stats_policy,sched_walt_account_wait_time,sched_walt_freq_account_wait_time,sched_walt_io_is_busy,sched_walt_ravg_window,sched_walt_disabled"
     echo "walt_governor_tunables=/sys/devices/system/cpu/cpufreq/policy*/walt/{up_rate_limit_us,down_rate_limit_us}"
