@@ -136,7 +136,7 @@ hmp_c = hmp_c.replace("task_prefer_big(", "hmp_task_prefer_big(")
 hmp_c = hmp_c.replaceAll("target->migrate_task", "target->hmp_migrate_task")
 hmp_c = replace_c_function(
     hmp_c,
-    r"static int\\s+hmp_active_load_balance_cpu_stop\\s*\\(\\s*void \\*data\\s*\\)",
+    r"static int\s+hmp_active_load_balance_cpu_stop\s*\\(\s*void \\*data\s*\\)",
     "static int hmp_active_load_balance_cpu_stop(void *data)\n{\n\tstruct rq *src_rq = data;\n\tstruct rq *dst_rq = NULL;\n\tstruct task_struct *p = NULL;\n\tstruct sched_domain *sd;\n\tstruct rq_flags rf;\n\tint src_cpu = cpu_of(src_rq);\n\tint dst_cpu;\n\tbool detached = false;\n\n\trq_lock_irq(src_rq, &rf);\n\tdst_cpu = src_rq->push_cpu;\n\tp = src_rq->hmp_migrate_task;\n\tif (!p || dst_cpu < 0 || dst_cpu >= nr_cpu_ids ||\n\t    !cpu_active(src_cpu) || !cpu_active(dst_cpu) ||\n\t    !cpu_online(src_cpu) || !cpu_online(dst_cpu) ||\n\t    task_cpu(p) != src_cpu || !task_on_rq_queued(p) ||\n\t    !cpumask_test_cpu(dst_cpu, &p->cpus_allowed))\n\t\tgoto out_unlock;\n\n\tdst_rq = cpu_rq(dst_cpu);\n\trcu_read_lock();\n\tfor_each_domain(dst_cpu, sd) {\n\t\tif ((sd->flags & SD_LOAD_BALANCE) &&\n\t\t    cpumask_test_cpu(src_cpu, sched_domain_span(sd)))\n\t\t\tbreak;\n\t}\n\tif (sd) {\n\t\tstruct lb_env env = {\n\t\t\t.sd = sd,\n\t\t\t.dst_cpu = dst_cpu,\n\t\t\t.dst_rq = dst_rq,\n\t\t\t.src_cpu = src_cpu,\n\t\t\t.src_rq = src_rq,\n\t\t\t.idle = CPU_IDLE,\n\t\t\t.flags = LBF_DST_PINNED,\n\t\t};\n\n\t\tupdate_rq_clock(src_rq);\n\t\tif (can_migrate_task(p, &env)) {\n\t\t\tdetach_task(p, &env);\n\t\t\tdetached = true;\n\t\t}\n\t}\n\trcu_read_unlock();\n\nout_unlock:\n\tsrc_rq->hmp_migrate_task = NULL;\n\tsrc_rq->active_balance = 0;\n\trq_unlock(src_rq, &rf);\n\tif (detached)\n\t\tattach_one_task(dst_rq, p);\n\tif (p)\n\t\tput_task_struct(p);\n\tlocal_irq_enable();\n\treturn detached;\n}",
     "HMP active migration callback",
 )
@@ -210,7 +210,7 @@ hmp_c = hmp_c[:pos] + "\n" + trace_fallbacks + "\n" + helpers + hmp_c[pos:]
 
 replace_in_function(
     "kernel/sched/hmp.c",
-    r"static inline unsigned int\\s+hmp_select_faster_cpu\\s*\\(",
+    r"static inline unsigned int\s+hmp_select_faster_cpu\s*\\(",
     "int lowest_cpu = num_possible_cpus();",
     "hmp_refresh_isolated_mask();\n\tint lowest_cpu = num_possible_cpus();",
     "HMP faster CPU isolation refresh",
@@ -218,7 +218,7 @@ replace_in_function(
 
 replace_in_function(
     "kernel/sched/hmp.c",
-    r"static unsigned int hmp_select_cpu\\s*\\(",
+    r"static unsigned int hmp_select_cpu\s*\\(",
     "int curr = 0;",
     "hmp_refresh_isolated_mask();\n\tint curr = 0;",
     "HMP select CPU isolation refresh",
@@ -226,7 +226,7 @@ replace_in_function(
 
 replace_in_function(
     "kernel/sched/hmp.c",
-    r"static int hmp_select_task_rq_fair\\s*\\(",
+    r"static int hmp_select_task_rq_fair\s*\\(",
     "struct list_head *pos;",
     "hmp_refresh_isolated_mask();\n\tstruct list_head *pos;",
     "HMP wake placement isolation refresh",
@@ -234,7 +234,7 @@ replace_in_function(
 
 replace_in_function(
     "kernel/sched/hmp.c",
-    r"static unsigned int hmp_up_migration\\s*\\(",
+    r"static unsigned int hmp_up_migration\s*\\(",
     "struct task_struct *p = task_of(se);",
     "hmp_refresh_isolated_mask();\n\tstruct task_struct *p = task_of(se);",
     "HMP up migration isolation refresh",
@@ -242,7 +242,7 @@ replace_in_function(
 
 replace_in_function(
     "kernel/sched/hmp.c",
-    r"static unsigned int hmp_down_migration\\s*\\(",
+    r"static unsigned int hmp_down_migration\s*\\(",
     "struct task_struct *p = task_of(se);",
     "hmp_refresh_isolated_mask();\n\tstruct task_struct *p = task_of(se);",
     "HMP down migration isolation refresh",
