@@ -200,7 +200,7 @@ if old_hmp_prototypes not in hmp_c:
 hmp_c = hmp_c.replace(old_hmp_prototypes, new_hmp_prototypes, 1)
 hmp_c = replace_c_function(
     hmp_c,
-    r"static struct sched_entity \\*hmp_get_heaviest_task\\s*\\(",
+    r"static struct sched_entity \*hmp_get_heaviest_task\s*\(",
     """static struct sched_entity *hmp_get_heaviest_task(
         struct sched_entity *se, int target_cpu)
 {
@@ -249,7 +249,7 @@ hmp_c = replace_c_function(
 )
 hmp_c = replace_c_function(
     hmp_c,
-    r"static struct sched_entity \\*hmp_get_lightest_task\\s*\\(",
+    r"static struct sched_entity \*hmp_get_lightest_task\s*\(",
     """static struct sched_entity *hmp_get_lightest_task(
         struct sched_entity *se, int migrate_down)
 {
