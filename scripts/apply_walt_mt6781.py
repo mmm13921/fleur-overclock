@@ -114,8 +114,8 @@ replace_once("kernel/sched/sched.h",
     "\tvoid (*update_curr)(struct rq *rq);\n#ifdef CONFIG_SCHED_WALT\n\tvoid (*fixup_cumulative_runnable_avg)(struct rq *rq,\n\t\t\tstruct task_struct *p, u64 new_task_load);\n#endif\n",
     "scheduler class WALT fixup callback")
 replace_once("kernel/sched/sched.h",
-    '#include "sched_plus.h"',
-    '#ifdef CONFIG_SCHED_WALT\nstatic inline bool\nwalt_task_in_cum_window_demand(struct rq *rq, struct task_struct *p)\n{\n\treturn cpu_of(rq) == task_cpu(p) &&\n\t       (p->on_rq || p->last_sleep_ts >= rq->window_start);\n}\n#endif\n\n#include "walt.h"\n#include "sched_plus.h"',
+    '#include "extension/eas_plus.h"',
+    '#ifdef CONFIG_SCHED_WALT\nstatic inline bool\nwalt_task_in_cum_window_demand(struct rq *rq, struct task_struct *p)\n{\n\treturn cpu_of(rq) == task_cpu(p) &&\n\t       (p->on_rq || p->last_sleep_ts >= rq->window_start);\n}\n#endif\n\n#include "walt.h"\n#include "extension/eas_plus.h"',
     "scheduler WALT API inclusion")
 
 # WALT-aware task and CPU utilization. PELT/util_est remain the fallback.
