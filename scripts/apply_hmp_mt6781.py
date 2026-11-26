@@ -334,6 +334,8 @@ if '#include "hmp.c"' not in fair_text:
 
 for path, needle in [
     ("kernel/sched/hmp.c", "hmp_force_up_migration"),
+    ("kernel/sched/hmp.c", "hmp_arch_get_cluster_cpus(&cpu_mask, id);"),
+    ("kernel/sched/hmp.c", "hmp_arch_get_cluster_id(cpu)"),
     ("kernel/sched/hmp.h", "should_hmp"),
     ("kernel/sched/fair.c", "hmp_idle_pull(this_cpu)"),
     ("kernel/sched/fair.c", "hmp_enqueue_entity_load_avg(cfs_rq, se);"),
