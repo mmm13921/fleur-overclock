@@ -1,4 +1,4 @@
-# Fleur 4.14 CPU modes backport to Fleux 4.19
+# Fleur 4.14 HMP engine and HMP/EAS/Hybrid backport to Fleux V12 / 4.19
 
 ## Source and destination
 
@@ -29,10 +29,13 @@ Writing the legacy /proc/sys/kernel/sched_energy_aware knob remains supported: 0
 
 The official 4.14 HMP implementation depends on WALT (loadwop_avg), HMP domains, dynamic up/down migration thresholds, active migration, periodic migration, idle pull and group-specific accounting. Fleux 4.19 does not carry that HMP/WALT implementation, so copying hmp.c directly would not be a valid 4.19 backport.
 
-This port transfers the CPU mode semantics and the initial task-placement policy only. The HMP-style placement is adapted to Fleux's PELT, util_est, uclamp and CPU-capacity APIs. A non-kernel fork prefers the fastest allowed capacity domain, following the official 4.14 HMP fork-placement intent. The value 650 is only an initial PELT/util_est heuristic; it is not numerically equivalent to the official WALT loadwop_avg >= 650 threshold.
-
-This is not a full legacy HMP engine. Full WALT accounting, active up/down migration, periodic forced migration, idle pull and thread-group migration are not included. Existing Fleux CFS load balancing continues to handle ordinary balancing.
+The full Fleur 4.14 MTK HMP engine is being adapted as a dedicated scheduler component: HMP cluster domains, fork/wake placement, dynamic up/down migration, periodic forced up-migration, idle pull, and CPU hotplug integration. The original MTK HMP implementation consumes WALT loadwop_avg; therefore native Fleur WALT execution-window accounting is retained strictly as an internal HMP load source. The WALT CPUFreq governor and standalone WALT tuning interface are not part of this build. Qualcomm RTG and Qualcomm-specific core_ctl are not imported.
 
 ## Validation
 
 CI validates patch anchors, config requirements, compilation and package integrity. It cannot validate device boot, runtime mode transitions, touch latency, frame pacing, thermals or game performance. The previous test image failed to reach Android on the device; do not treat a successful new compile as proof of a successful boot. Keep a known-good boot image and recovery path.
+
+
+## Build scope
+
+WALT is not being developed as a standalone governor/build target in this branch. Its native Fleur 4.14 runnable-demand accounting remains enabled only because the original MTK HMP migration policy reads `loadwop_avg`. EAS continues to use the existing Fleux energy model and schedutil path. Runtime modes remain 0=HMP, 1=EAS, 2=Hybrid.
