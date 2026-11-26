@@ -123,13 +123,15 @@ if base.count(callback_anchor) != 1:
     raise SystemExit("schedutil EAS callback condition missing or duplicated")
 base = base.replace(callback_anchor, callback_replacement, 1)
 source.write_text(base)
+if "old_gov == &waltgov_gov" not in base or "policy->governor == &waltgov_gov" not in base:
+    raise SystemExit("WALT governor EAS callback audit failed")
 print(
     "result=PASS\n"
     "governor=walt\n"
     "source=Fleux V12 MTK-aware schedutil control loop\n"
-    "utilization=Fleur WALT runqueue utilization plus RT/DL/IRQ/uclamp accounting\n"
+    "utilization=current/previous WALT execution-window busy time plus RT/DL/IRQ/uclamp accounting\n"
     "policies=dynamic cpufreq policy masks; LITTLE and big policies handled independently\n"
     "frequency_tables=unchanged; existing MTK cpufreq driver and OPP tables retained\n"
-    "tunables=up_rate_limit_us,down_rate_limit_us\n"
+    "tunables=up_rate_limit_us,down_rate_limit_us\n"\n    "eas_callback=base schedutil callback recognizes WALT governor changes\n"
     "fallback=schedutil remains available\n"
 )
