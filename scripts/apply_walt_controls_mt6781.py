@@ -84,6 +84,12 @@ edit(
     "int __read_mostly walt_disabled = 0;",
     "WALT disabled state 4.19 sysctl compatibility",
 )
+edit(
+    "kernel/sched/walt.h",
+    "extern bool walt_disabled;",
+    "extern int walt_disabled;",
+    "WALT disabled declaration consistency",
+)
 
 
 # Add explicit bounds for writable controls and read-only introspection for
