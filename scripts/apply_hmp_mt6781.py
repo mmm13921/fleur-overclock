@@ -311,7 +311,36 @@ hmp_c = replace_c_function(
 hmp_c = replace_c_function(
     hmp_c,
     r"static int\s+hmp_active_load_balance_cpu_stop\s*\(\s*void \*data\s*\)",
-"static int hmp_active_load_balance_cpu_stop(void *data)\n{\n\tstruct rq *src_rq = data;\n\tstruct rq *dst_rq = NULL;\n\tstruct task_struct *p = NULL;\n\tstruct sched_domain *sd;\n\tstruct rq_flags rf;\n\tint src_cpu = cpu_of(src_rq);\n\tint dst_cpu;\n\tbool detached = false;\n\n\trq_lock_irq(src_rq, &rf);\n\tdst_cpu = src_rq->push_cpu;\n\tp = src_rq->hmp_migrate_task;\n\tif (!p || dst_cpu < 0 || dst_cpu >= nr_cpu_ids ||\n\t    src_cpu != smp_processor_id() || !src_rq->active_balance ||\n\t    src_rq->nr_running <= 1 ||\n\t    !cpu_active(src_cpu) || !cpu_active(dst_cpu) ||\n\t    !cpu_online(src_cpu) || !cpu_online(dst_cpu) ||\n\t    cpu_isolated(src_cpu) || cpu_isolated(dst_cpu) ||\n\t    task_cpu(p) != src_cpu || !task_on_rq_queued(p) ||\n\t    !cpumask_test_cpu(dst_cpu, &p->cpus_allowed))\n\t\tgoto out_unlock;\n\n\tdst_rq = cpu_rq(dst_cpu);\n\tBUG_ON(src_rq == dst_rq);\n\trcu_read_lock();\n\tfor_each_domain(dst_cpu, sd) {\n\t\tif ((sd->flags & SD_LOAD_BALANCE) &&\n\t\t    cpumask_test_cpu(src_cpu, sched_domain_span(sd)))\n\t\t\tbreak;\n\t}\n\tif (sd) {\n\t\tstruct lb_env env = {\n\t\t\t.sd = sd,\n\t\t\t.dst_cpu = dst_cpu,\n\t\t\t.dst_rq = dst_rq,\n\t\t\t.src_cpu = src_cpu,\n\t\t\t.src_rq = src_rq,\n\t\t\t.idle = CPU_IDLE,\n\t\t\t.flags = LBF_DST_PINNED,\n\t\t};\n\n\t\tschedstat_inc(sd->alb_count);\n\t\tupdate_rq_clock(src_rq);\n\t\tif (can_migrate_task(p, &env)) {\n\t\t\tdetach_task(p, &env);\n\t\t\tdetached = true;\n\t\t\tschedstat_inc(sd->alb_pushed);\n\t\t\tsd->nr_balance_failed = 0;\n\t\t} else {\n\t\t\tschedstat_inc(sd->alb_failed);\n\t\t}\n\t}\n\trcu_read_unlock();\n\nout_unlock:\n\tsrc_rq->hmp_migrate_task = NULL;\n\tsrc_rq->active_balance = 0;\n\trq_unlock(src_rq, &rf);\n\tif (detached)\n\t\tattach_one_task(dst_rq, p);\n\tif (p)\n\t\tput_task_struct(p);\n\tlocal_irq_enable();\n\treturn 0;\n}",
+    """static int hmp_active_load_balance_cpu_stop(void *data)
+{
+	struct rq *src_rq = data;
+	struct rq_flags rf;
+	struct task_struct *p;
+	int cpu = cpu_of(src_rq);
+	int ret;
+
+	/*
+	 * Fleux 4.19 MTK active balancing uses per-CPU migrate_task.
+	 * Populate it so detach_one_task() can detach the selected running
+	 * HMP task without the normal can_migrate_task() running-task reject.
+	 */
+	rq_lock_irq(src_rq, &rf);
+	p = src_rq->hmp_migrate_task;
+	src_rq->hmp_migrate_task = NULL;
+	if (p)
+		per_cpu(migrate_task, cpu) = p;
+	rq_unlock_irq(src_rq, &rf);
+
+	if (!p) {
+		local_irq_enable();
+		return 0;
+	}
+
+	ret = active_load_balance_cpu_stop(data);
+	per_cpu(migrate_task, cpu) = NULL;
+	put_task_struct(p);
+	return ret;
+}""",
     "HMP active migration callback",
 )
 hmp_c = hmp_c.replace("rq->cfs.runnable_load_avg", "rq->cfs.avg.loadwop_avg")
@@ -501,6 +530,8 @@ for path, needle in [
     ("kernel/sched/hmp.c", "hmp_force_up_migration"),
     ("kernel/sched/hmp.c", "hmp_force_down_migration"),
     ("kernel/sched/hmp.c", "hmp_active_load_balance_cpu_stop"),
+    ("kernel/sched/hmp.c", "active_load_balance_cpu_stop(data)"),
+    ("kernel/sched/hmp.c", "per_cpu(migrate_task, cpu) = p;"),
     ("kernel/sched/hmp.c", "hmp_select_task_migration"),
     ("kernel/sched/hmp.c", "hmp_up_migration"),
     ("kernel/sched/hmp.c", "hmp_down_migration"),
@@ -541,8 +572,8 @@ audit.write_text(
     "integration=CFS enqueue/dequeue, fork/wake placement, idle pull, periodic up migration, CPU hotplug\n"
     "clusters=2; topology=MT6781 arch_cpu_cluster_id and arch_get_cluster_cpus\n"
     "mode_control=/proc/sys/kernel/sched_cpu_mode: 0 HMP, 1 EAS, 2 Hybrid\n"
-    "eas_capacity_margin=0 (fits_capacity uses no additional EAS headroom)\\n"
-    "hmp_native_capacity_margin=1280 (preserves Fleur 4.14 migration-capacity safety independently)\\n"
+    "eas_capacity_margin=0 (fits_capacity uses no additional EAS headroom)\n"
+    "hmp_native_capacity_margin=1280 (preserves Fleur 4.14 migration-capacity safety independently)\n"
     "hybrid_overutilization=root_domain_flag_or_local_util_at_capacity\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
     "related_thread_groups=not present in Fleur MTK 4.14 reference; Qualcomm RTG not imported\n"
