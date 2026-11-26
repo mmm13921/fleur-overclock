@@ -503,6 +503,8 @@ audit.write_text(
     "integration=CFS enqueue/dequeue, fork/wake placement, idle pull, periodic up migration, CPU hotplug\n"
     "clusters=2; topology=MT6781 arch_cpu_cluster_id and arch_get_cluster_cpus\n"
     "mode_control=/proc/sys/kernel/sched_cpu_mode: 0 HMP, 1 EAS, 2 Hybrid\n"
+    "eas_capacity_margin=0\\n"
+    "hybrid_overutilization=root_domain_flag_or_local_util_at_capacity\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
     "related_thread_groups=not present in Fleur MTK 4.14 reference; Qualcomm RTG not imported\n"
     "hardware_validation=not performed by CI\n"
