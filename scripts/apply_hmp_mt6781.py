@@ -205,7 +205,7 @@ hmp_c = hmp_c[:pos] + "\n" + trace_fallbacks + "\n" + helpers + hmp_c[pos:]
 replace_once(
     "kernel/Kconfig.preempt",
     'choice\n\tprompt "Preemption Model"',
-    'config SCHED_HMP\n\tbool "Fleur Heterogeneous Multi-Processing scheduler"\n\tdepends on SMP && MACH_MT6781\n\tdefault n\n\thelp\n\t  Enable Fleur 4.14 HMP cluster placement, active migration and idle pull.\n\t  MT6781 WALT demand supplies the HMP task-load signal.\n\nchoice\n\tprompt "Preemption Model"',
+    'config SCHED_HMP\n\tbool "Fleur Heterogeneous Multi-Processing scheduler"\n\tdepends on SMP && MACH_MT6781 && MTK_SCHED_EXTENSION && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL\n\tdefault n\n\thelp\n\t  Enable Fleur 4.14 HMP cluster placement, active migration and idle pull.\n\t  MT6781 WALT demand supplies the HMP task-load signal.\n\nchoice\n\tprompt "Preemption Model"',
     "HMP Kconfig",
 )
 features = root / "kernel/sched/features.h"
