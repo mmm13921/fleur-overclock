@@ -1,6 +1,6 @@
 name: Fleux V12 HMP Capacity Frequency Conservative
 run-name: CAPACITY-FREQ-CONSERVATIVE-BUILD51
-# Rebuild after validating the schedutil patch against the pinned Fleux V12 source.
+# Combined HMP/EAS/Hybrid, schedutil capacity isolation, and built-in Conservative test.
 on:
   push:
     branches:
