@@ -476,6 +476,7 @@ replace_once("kernel/sysctl.c",
 # Structural checks prevent a PASS if any critical integration path is absent.
 checks = {
     "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime", "capacity_curr_of(cpu_of(rq))", "walt_cpu_freq_util(struct rq *rq)", "lockdep_assert_held(&src_rq->lock)", "lockdep_assert_held(&dest_rq->lock)"],
+    "include/trace/events/sched.h": ["TRACE_EVENT(walt_update_task_ravg", "TRACE_EVENT(walt_update_history", "TRACE_EVENT(walt_migration_update_sum"],
     "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_fixup_busy_time(p, cpu);", "double_rq_lock(rq, dst_rq);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
     "kernel/sched/fair.c": ["walt_inc_cumulative_runnable_avg(rq, p);", "walt_dec_cumulative_runnable_avg(rq, p);", "walt_cpu_high_irqload(cpu)", "cumulative_runnable_avg", "p->ravg.demand"],
     "kernel/sched/rt.c": ["fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg", "walt_inc_cumulative_runnable_avg(rq, p)", "walt_dec_cumulative_runnable_avg(rq, p)"],
