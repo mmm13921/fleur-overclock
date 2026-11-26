@@ -145,9 +145,7 @@ replace_once(
     "\t\t.proc_handler\t= sched_energy_aware_handler,\n"
     "\t\t.extra1\t\t= &zero,\n"
     "\t\t.extra2\t\t= &one,\n"
-    "\t},\n"
-    "#endif\n"
-    "#ifdef CONFIG_PROVE_LOCKING",
+    "\t},",
     "\t\t.procname\t= \"sched_energy_aware\",\n"
     "\t\t.data\t\t= &sysctl_sched_energy_aware,\n"
     "\t\t.maxlen\t\t= sizeof(unsigned int),\n"
@@ -166,9 +164,7 @@ replace_once(
     "\t\t.extra1\t\t= &zero,\n"
     "\t\t.extra2\t\t= &two,\n"
     "\t},\n"
-    "#endif\n"
-    "#endif\n"
-    "#ifdef CONFIG_PROVE_LOCKING",
+    "#endif",
     "CPU-mode sysctl table entry",
 )
 
