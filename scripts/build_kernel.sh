@@ -64,16 +64,8 @@ python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTI
 python3 -m py_compile "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py"
 python3 "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py" "$SRC_DIR" "$ARTIFACT_DIR/projectid-compatibility-audit.txt"
 python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
-if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  cat > "$ARTIFACT_DIR/scheduler-modes-audit.txt" <<'EOF'
-result=PASS
-scheduler_mode=existing Fleux EAS retained
-walt_integration=cpu_util/task_util and schedutil consume WALT demand
-hmp_selector=not applied in this WALT build profile
-EOF
-else
-  python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
-fi
+python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
 python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" > "$ARTIFACT_DIR/modem-pm-audit.txt"
 grep -q "Applied MT6781 DPMAIF syscore PM safety patch." "$ARTIFACT_DIR/modem-pm-audit.txt"
 python3 -m py_compile "$WORKSPACE/scripts/apply_fuse_passthrough_coherency.py"
