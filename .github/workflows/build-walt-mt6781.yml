@@ -1,0 +1,104 @@
+name: Fleux V12 MT6781 WALT build
+run-name: Meys V12 WALT MT6781 build ${{ github.run_number }}
+on:
+  push:
+    branches:
+      - meys-v12-walt-full-port
+    paths:
+      - '.github/workflows/build-walt-mt6781.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/apply_walt_mt6781.py'
+      - 'docs/walt-proc-sysctl.md'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: meys-v12-walt-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build-and-package:
+    name: Build MT6781 WALT kernel and AnyKernel3 ZIP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: v12
+      BUILD_PROFILE: meys-v12-walt-mt6781
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+      - name: Check builder syntax
+        run: |
+          bash -n scripts/build_kernel.sh
+          python3 -m py_compile scripts/apply_walt_mt6781.py
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Build Fleux V12 with MT6781 WALT accounting
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
+      - name: Package AnyKernel3 test ZIP
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
+          cp README.md docs/walt-proc-sysctl.md "$AK_DIR/"
+          cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
+          cp artifacts/walt-mt6781-audit.txt "$AK_DIR/"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip" \
+              META-INF tools LICENSE README.md walt-proc-sysctl.md \
+              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-mt6781-audit.txt
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
+      - name: Publish experimental WALT prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: meys-v12-walt-mt6781-${{ github.run_number }}
+          name: Meys V12 WALT MT6781 — build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Experimental Fleux V12 / Linux 4.19.325 kernel for Redmi Note 11S 4G / fleur / MT6781.
+
+            Includes MT6781-adapted WALT execution-window accounting, fair enqueue/dequeue/runtime hooks, and WALT-aware schedutil utilization. PELT remains active as fallback. This is the first functional accounting stage, not a claim of full Qualcomm WALT/HMP parity: Qualcomm core_ctl/cluster logic and runtime WALT sysctl ABI are not imported. Device boot and runtime behavior require on-device validation.
+          files: |
+            artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip
+            artifacts/Image.gz-dtb
+            artifacts/kernel.config
+            artifacts/build-manifest.txt
+            artifacts/walt-mt6781-audit.txt
+            artifacts/WALT-MT6781-SHA256.txt
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-v12-walt-mt6781
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
