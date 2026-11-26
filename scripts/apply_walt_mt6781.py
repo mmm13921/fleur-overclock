@@ -65,9 +65,9 @@ for name in ("walt.c", "walt.h"):
             "extern unsigned int sysctl_sched_use_walt_cpu_util;\n"
             "extern unsigned int sysctl_sched_use_walt_task_util;\n"
             "#ifdef CONFIG_SCHED_WALT\n"
-            "extern unsigned long walt_cpu_util(struct rq *rq);\n"
+            "extern unsigned long walt_cpu_util(struct rq *rq);\nextern unsigned long walt_cpu_freq_util(struct rq *rq);\n"
             "#else\n"
-            "static inline unsigned long walt_cpu_util(struct rq *rq) { return 0; }\n"
+            "static inline unsigned long walt_cpu_util(struct rq *rq) { return 0; }\nstatic inline unsigned long walt_cpu_freq_util(struct rq *rq) { return 0; }\n"
             "#endif\n"
             + marker, 1)
     (sched_dir / name).write_text(text)
@@ -139,7 +139,7 @@ replace_once("kernel/sched/fair.c",
 replace_region("kernel/sched/fair.c",
     "static unsigned long cpu_util_without(", "unsigned long capacity_curr_of(",
     "\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
-    "#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util))\n\t\treturn cpu_util(cpu);\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
+    "#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util))\n\t\tu64 walt_util = READ_ONCE(cpu_rq(cpu)->cumulative_runnable_avg);\n\t\tif (task_on_rq_queued(p) && task_cpu(p) == cpu) {\n\t\t\tif (walt_util > p->ravg.demand)\n\t\t\t\twalt_util -= p->ravg.demand;\n\t\t\telse\n\t\t\t\twalt_util = 0;\n\t\t}\n\t\twalt_util <<= SCHED_CAPACITY_SHIFT;\n\t\tdo_div(walt_util, walt_ravg_window);\n\t\treturn min_t(unsigned long, walt_util, capacity_orig_of(cpu));\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
     "WALT cpu_util_without")
 replace_region("kernel/sched/fair.c",
     "enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)", "static void set_next_buddy(",
@@ -207,13 +207,8 @@ replace_region("kernel/sched/fair.c",
 # Provide a WALT utilization floor to schedutil without removing PELT.
 replace_once("kernel/sched/walt.c",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
-    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn 0;\n\tutil = READ_ONCE(rq->cumulative_runnable_avg);\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn 0;\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
     "WALT schedutil utilization export")
-replace_once("kernel/sched/cpufreq_schedutil.c",
-    "unsigned long util_cfs = cpu_util_cfs(rq);",
-    "unsigned long util_cfs = max_t(unsigned long, cpu_util_cfs(rq),\n\t\t\t\t\t       walt_cpu_util(rq));",
-    "schedutil WALT utilization floor")
-
 # Core scheduler event hooks: wakeup, fork, switch, tick, migration and hotplug.
 replace_once("kernel/sched/core.c",
     "static int\ntry_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,\n\t       int sibling_count_hint)\n{",
@@ -272,11 +267,11 @@ replace_once("kernel/sched/cputime.c",
     "WALT IRQ clock state")
 replace_once("kernel/sched/cputime.c",
     "\tcpu = smp_processor_id();\n\tdelta = sched_clock_cpu(cpu) - irqtime->irq_start_time;\n\tirqtime->irq_start_time += delta;",
-    "\tcpu = smp_processor_id();\n#ifdef CONFIG_SCHED_WALT\n\twallclock = irqtime->irq_start_time;\n#endif\n\tdelta = sched_clock_cpu(cpu) - irqtime->irq_start_time;\n\tirqtime->irq_start_time += delta;",
+    "\tcpu = smp_processor_id();\n#ifdef CONFIG_SCHED_WALT\n\twallclock = sched_clock_cpu(cpu);\n#endif\n\tdelta = sched_clock_cpu(cpu) - irqtime->irq_start_time;\n\tirqtime->irq_start_time += delta;",
     "WALT IRQ wallclock capture")
 replace_once("kernel/sched/cputime.c",
     "\telse if (in_serving_softirq() && curr != this_cpu_ksoftirqd())\n\t\tirqtime_account_delta(irqtime, delta, CPUTIME_SOFTIRQ);\n}",
-    "\telse if (in_serving_softirq() && curr != this_cpu_ksoftirqd())\n\t\tirqtime_account_delta(irqtime, delta, CPUTIME_SOFTIRQ);\n#ifdef CONFIG_SCHED_WALT\n\telse\n\t\twalt_account_irqtime(cpu, curr, delta, wallclock);\n#endif\n}",
+    "\telse if (in_serving_softirq() && curr != this_cpu_ksoftirqd())\n\t\tirqtime_account_delta(irqtime, delta, CPUTIME_SOFTIRQ);\n#ifdef CONFIG_SCHED_WALT\n\twalt_account_irqtime(cpu, curr, delta, wallclock);\n#endif\n}",
     "WALT IRQ load accounting")
 
 # Runtime controls, matching the Fleur reference ABI.
@@ -298,7 +293,7 @@ checks = {
     "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime"],
     "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
     "kernel/sched/fair.c": ["walt_inc_cumulative_runnable_avg(rq, p);", "walt_dec_cumulative_runnable_avg(rq, p);", "walt_cpu_high_irqload(cpu)"],
-    "kernel/sched/cpufreq_schedutil.c": ["walt_cpu_util(rq)"],
+    "kernel/sched/walt.c": ["walt_cpu_freq_util(struct rq *rq)"],\n    "kernel/sched/fair.c": ["walt_cpu_util(rq)"],
     "kernel/sysctl.c": ['"sched_use_walt_cpu_util"', '"sched_use_walt_task_util"', '"sched_walt_cpu_high_irqload"'],
 }
 for rel, needles in checks.items():
