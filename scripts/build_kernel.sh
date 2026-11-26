@@ -33,6 +33,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid"
     ;;
+  "v12:meys-v12-hmp-hybrid-conservative-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid-Conservative"
+    ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
     exit 2
@@ -40,6 +44,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
 esac
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" && -n "$BUILD_LABEL" ]]; then
   [[ "$BUILD_LABEL" =~ ^HMP-BUILD[0-9]+$ ]] || { echo "Invalid HMP build label: $BUILD_LABEL" >&2; exit 2; }
+  LOCALVERSION="-$BUILD_LABEL"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" && -n "$BUILD_LABEL" ]]; then
+  [[ "$BUILD_LABEL" =~ ^CONSERVATIVE-BUILD[0-9]+$ ]] || { echo "Invalid Conservative build label: $BUILD_LABEL" >&2; exit 2; }
   LOCALVERSION="-$BUILD_LABEL"
 fi
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
@@ -84,7 +92,7 @@ python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSP
 python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
@@ -100,7 +108,7 @@ export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$LOCALVERSION"
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_EXTENSION
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_CPU_PREFER
@@ -111,9 +119,12 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
   "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_WALT
 fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" ]]; then
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_CONSERVATIVE
+fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" ]]; then
   grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "Native Fleur WALT demand accounting is required by HMP and did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_MTK_SCHED_EXTENSION=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_EXTENSION is required for native CPU isolation masks." >&2; exit 1; }
   grep -qx "CONFIG_MTK_SCHED_CPU_PREFER=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_CPU_PREFER is required to preserve MTK task preference hints." >&2; exit 1; }
@@ -122,6 +133,10 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
   grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for native WALT demand accounting." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "EAS requires schedutil support." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain the default governor; WALT governor is not part of this build." >&2; exit 1; }
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" ]]; then
+  python3 "$WORKSPACE/scripts/audit_conservative_governor.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/conservative-governor-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/conservative-governor-audit.txt"
 fi
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
@@ -164,13 +179,17 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_modes=Fleur 4.14 native HMP + existing Fleux EAS; runtime selector supports HMP/EAS/Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
-  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" ]]; then
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" ]]; then
     echo "hmp_load_source=Fleur-native WALT runnable-demand accounting retained internally because the 4.14 MTK HMP engine consumes loadwop_avg"
     echo "walt_governor=not enabled; schedutil remains default for EAS"
     echo "walt_standalone_controls=not included; WALT accounting is an internal HMP dependency only"
     echo "walt_irq_accounting=CONFIG_IRQ_TIME_ACCOUNTING=y; native HMP demand accounting requires IRQ tracking"
     echo "hmp_audit=hmp-mt6781-audit.txt;walt-demand-engine-audit.txt"
     echo "hmp_limitations=MTK HMP policies are adapted to Fleux 4.19 APIs; runtime mode and migration behavior require device validation"
+  fi
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-conservative-mt6781" ]]; then
+    echo "cpufreq_conservative=Linux 4.19 native conservative governor enabled as built-in; schedutil remains the default"
+    echo "conservative_audit=conservative-governor-audit.txt"
   fi
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
   echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
