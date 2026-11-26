@@ -231,7 +231,7 @@ hmp_c = replace_c_function(
     if (hmp_cpu_is_fastest(cpu_of(cfs_rq->rq)))
         return max_se;
 
-    if (!task_prefer_little(task_of(se))) {
+    if (!hmp_task_prefer_little(task_of(se))) {
         max_se = se;
         max_ratio = se->avg.loadwop_avg;
     }
@@ -287,7 +287,7 @@ hmp_c = replace_c_function(
         hmp_target_mask = &hmp->cpus;
     }
 
-    if (!task_prefer_big(task_of(se))) {
+    if (!hmp_task_prefer_big(task_of(se))) {
         min_se = se;
         min_ratio = se->avg.loadwop_avg;
     }
