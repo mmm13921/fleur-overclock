@@ -246,7 +246,7 @@ replace_once(
 )
 replace_once(
     "kernel/sched/sched.h",
-    "\tstruct cpu_stop_work active_balance_work;\n",
+    "\tstruct cpu_stop_work\tactive_balance_work;\n",
     "\tstruct cpu_stop_work active_balance_work;\n#ifdef CONFIG_SCHED_HMP\n\tstruct task_struct *hmp_migrate_task;\n#endif\n",
     "HMP active migration task pointer",
 )
