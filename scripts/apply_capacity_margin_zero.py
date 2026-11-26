@@ -13,18 +13,17 @@ if len(matches) != 1:
 path = matches[0]
 source = path.read_text()
 
-# Fleux V12 uses a tunable capacity_margin variable for task-fit and
-# overutilization decisions, plus a separate MTK helper macro.
+# Fleux V12 uses a tunable capacity_margin variable and a separate MTK helper.
 variable_pattern = re.compile(
     r"(?m)^(?P<prefix>[ \t]*unsigned[ \t]+int[ \t]+capacity_margin[ \t]*=[ \t]*)"
     r"1280(?P<suffix>[ \t]*;[ \t]*)$"
 )
 macro_pattern = re.compile(
     r"(?m)^(?P<prefix>[ \t]*#define[ \t]+fits_capacity[ \t]*"
-    r"\\([ \t]*cap[ \t]*,[ \t]*max[ \t]*\\)[ \t]*"
-    r"\\([ \t]*\\([ \t]*cap[ \t]*\\)[ \t]*\\*[ \t]*)"
-    r"1280(?P<suffix>[ \t]*<[ \t]*\\([ \t]*max[ \t]*\\)[ \t]*"
-    r"\\*[ \t]*1024[ \t]*\\)[ \t]*)$"
+    r"\([ \t]*cap[ \t]*,[ \t]*max[ \t]*\)[ \t]*"
+    r"\([ \t]*\([ \t]*cap[ \t]*\)[ \t]*\*[ \t]*)"
+    r"1280(?P<suffix>[ \t]*<[ \t]*\([ \t]*max[ \t]*\)[ \t]*"
+    r"\*[ \t]*1024[ \t]*\)[ \t]*)$"
 )
 
 updated, variable_count = variable_pattern.subn(
@@ -45,9 +44,9 @@ if updated == source:
 if not re.search(r"(?m)^[ \t]*unsigned[ \t]+int[ \t]+capacity_margin[ \t]*=[ \t]*0[ \t]*;[ \t]*$", updated):
     raise SystemExit("capacity_margin variable post-patch verification failed")
 if not re.search(
-    r"(?m)^[ \t]*#define[ \t]+fits_capacity[ \t]*\\([ \t]*cap[ \t]*,[ \t]*max[ \t]*\\)"
-    r"[ \t]*\\([ \t]*\\([ \t]*cap[ \t]*\\)[ \t]*\\*[ \t]*0[ \t]*"
-    r"<[ \t]*\\([ \t]*max[ \t]*\\)[ \t]*\\*[ \t]*1024[ \t]*\\)[ \t]*$",
+    r"(?m)^[ \t]*#define[ \t]+fits_capacity[ \t]*\([ \t]*cap[ \t]*,[ \t]*max[ \t]*\)"
+    r"[ \t]*\([ \t]*\([ \t]*cap[ \t]*\)[ \t]*\*[ \t]*0[ \t]*"
+    r"<[ \t]*\([ \t]*max[ \t]*\)[ \t]*\*[ \t]*1024[ \t]*\)[ \t]*$",
     updated,
 ):
     raise SystemExit("MTK fits_capacity macro post-patch verification failed")
@@ -55,12 +54,12 @@ if not re.search(
 path.write_text(updated)
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(
-    "result=PASS\\n"
-    "file=kernel/sched/fair.c\\n"
-    "symbols=capacity_margin;fits_capacity(cap,max)\\n"
-    "original_margin=1280\\n"
-    "new_margin=0\\n"
-    "capacity_scale=1024\\n"
-    "semantics=task-fit and CPU-overutilization comparisons using capacity_margin no longer classify utilization as over capacity; MTK fits_capacity helper also always fits for positive capacity; capacity-based misfit/overutilized thresholds are disabled\\n"
+    "result=PASS\n"
+    "file=kernel/sched/fair.c\n"
+    "symbols=capacity_margin;fits_capacity(cap,max)\n"
+    "original_margin=1280\n"
+    "new_margin=0\n"
+    "capacity_scale=1024\n"
+    "semantics=task-fit and CPU-overutilization comparisons using capacity_margin no longer classify utilization as over capacity; MTK fits_capacity helper also always fits for positive capacity; capacity-based misfit/overutilized thresholds are disabled\n"
 )
 print(f"Applied capacity margin 0 to Fleux scheduler variable and MTK helper in {path}")
