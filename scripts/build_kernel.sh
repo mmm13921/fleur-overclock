@@ -24,6 +24,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V2-CapacityMargin0"
     ;;
+  "v12:meys-v12-walt-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-WALT-MT6781"
+    ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
     exit 2
@@ -70,6 +74,11 @@ python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSP
 python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
+if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py"
+  python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
+fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
@@ -79,8 +88,14 @@ export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$LOCALVERSION"
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
+if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
+fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
+if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
+  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
+fi
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 python3 "$WORKSPACE/scripts/audit_android_storage.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
@@ -121,6 +136,11 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_modes=0:HMP-style;1:EAS;2:Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
+  if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
+    echo "walt=MT6781 execution-window accounting plus WALT-aware schedutil utilization floor; PELT retained"
+    echo "walt_audit=walt-mt6781-audit.txt"
+    echo "walt_limitations=no Qualcomm HMP/core_ctl import; no WALT runtime sysctl ABI; no device runtime validation"
+  fi
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
   echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
   echo "android13_mediaprovider_bridge=not built or included in this kernel-only stability test"
