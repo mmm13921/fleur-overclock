@@ -540,8 +540,8 @@ audit.write_text(
     "accounting=per-task ravg history, demand, current/previous window busy time\n"
     "runqueue=cumulative runnable demand, window rollover, IRQ load, migration fixup under paired source/destination rq locks\n"
     "hooks=wakeup, local wakeup, fork, task start, context switch, scheduler tick, migration, CPU hotplug\n"
-    "utilization=WALT cumulative task demand for placement with candidate subtraction; dedicated WALT governor consumes current/previous execution-window sums; PELT fallback retained\n"
-    "controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload\n"
+    "utilization=WALT cumulative task demand for scheduler placement with candidate subtraction; PELT fallback retained\n"
+    "controls=base WALT utilization and IRQ controls; expanded Fleur-native bounded controls audited separately\n"
     "tracepoints=optional Fleur-only WALT tracepoints compiled as no-op on Fleux\n"
     "not_included=Qualcomm related-thread groups/core_ctl cluster-frequency ABI; native MTK HMP active migration is a separate integration layer\n"
     + "".join("patched=" + item + "\n" for item in changes)
