@@ -29,12 +29,12 @@ if not check:
     raise SystemExit("post-patch verification failed")
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(
-    "result=PASS\\n"
-    "file=kernel/sched/fair.c\\n"
-    "symbol=fits_capacity(cap,max)\\n"
-    "original_margin=1280\\n"
-    "new_margin=0\\n"
-    "capacity_scale=1024\\n"
-    "semantics=fit check becomes true for non-negative utilization and positive capacity; misfit detection via this check is disabled\\n"
+    "result=PASS\n"
+    "file=kernel/sched/fair.c\n"
+    "symbol=fits_capacity(cap,max)\n"
+    "original_margin=1280\n"
+    "new_margin=0\n"
+    "capacity_scale=1024\n"
+    "semantics=fit check becomes true for non-negative utilization and positive capacity; misfit detection via this check is disabled\n"
 )
 print(f"Applied capacity_margin=0 in {path}")
