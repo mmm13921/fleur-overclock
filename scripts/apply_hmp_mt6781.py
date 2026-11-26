@@ -267,7 +267,7 @@ replace_in_function(
 )
 regex_in_function(
     "kernel/sched/fair.c",
-    r"\bint\s+idle_balance\s*\(",
+    r"static int\s+idle_balance\s*\([^;]*\)\s*(?=\{)",
     r"pulled_task\s*=\s*aggressive_idle_pull\(this_cpu\);\n#endif\n\s*raw_spin_lock\(&this_rq->lock\);",
     """pulled_task = aggressive_idle_pull(this_cpu);
 #endif
