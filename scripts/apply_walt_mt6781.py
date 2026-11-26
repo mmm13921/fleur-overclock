@@ -289,8 +289,8 @@ replace_region("kernel/sched/fair.c",
     "WALT IRQ-aware CPU selection")
 
 replace_once("kernel/sched/walt.c",
-    "\\tp->ravg.demand = init_load_windows;\\n",
-    "\\tp->ravg.demand = init_load_windows;\\n#ifdef CONFIG_SCHED_HMP\\n\\tif (walt_ravg_window > (1ULL << SCHED_CAPACITY_SHIFT)) {\\n\\t\\tunsigned long hmp_load = div64_u64(init_load_windows,\\n\\t\\t\\twalt_ravg_window >> SCHED_CAPACITY_SHIFT);\\n\\t\\tp->se.avg.loadwop_avg = min_t(unsigned long, hmp_load,\\n\\t\\t\\tSCHED_CAPACITY_SCALE);\\n\\t\\tp->se.avg.loadwop_sum = p->se.avg.loadwop_avg;\\n\\t}\\n#endif\\n",
+    "\tp->ravg.demand = init_load_windows;\\n",
+    "\tp->ravg.demand = init_load_windows;\\n#ifdef CONFIG_SCHED_HMP\\n\tif (walt_ravg_window > (1ULL << SCHED_CAPACITY_SHIFT)) {\\n\t\tunsigned long hmp_load = div64_u64(init_load_windows,\\n\t\t\twalt_ravg_window >> SCHED_CAPACITY_SHIFT);\\n\t\tp->se.avg.loadwop_avg = min_t(unsigned long, hmp_load,\\n\t\t\tSCHED_CAPACITY_SCALE);\\n\t\tp->se.avg.loadwop_sum = p->se.avg.loadwop_avg;\\n\t}\\n#endif\\n",
     "Initialize HMP loadwop from WALT fork demand")
 
 # Export WALT execution-window utilization for the dedicated CPUFreq governor.
