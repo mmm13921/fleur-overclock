@@ -132,7 +132,7 @@ static inline bool hmp_task_prefer_big(struct task_struct *p)
 #endif
 """
 if "static inline int hmp_arch_get_nr_clusters(void)" not in hmp_h:
-    anchor = "extern bool sched_smp_initialized;\\n"
+    anchor = "extern bool sched_smp_initialized;\n"
     if anchor not in hmp_h:
         raise SystemExit("HMP compatibility helper anchor missing")
     hmp_h = hmp_h.replace(anchor, anchor + compat_helpers, 1)
@@ -149,11 +149,11 @@ if not hmp_h.startswith("#ifndef _KERNEL_SCHED_HMP_H"):
         "trace_sched_hmp_stats", "trace_sched_dynamic_threshold",
         "trace_sched_dynamic_threshold_draw",
     ]
-    trace_fallbacks = "\\n".join(
-        f"#ifndef {name}\\n#define {name}(...) do {{ }} while (0)\\n#endif"
+    trace_fallbacks = "\n".join(
+        f"#ifndef {name}\n#define {name}(...) do {{ }} while (0)\n#endif"
         for name in trace_names
     )
-    hmp_h = "#ifndef _KERNEL_SCHED_HMP_H\\n#define _KERNEL_SCHED_HMP_H\\n#include <linux/cpumask.h>\\n#include <linux/spinlock.h>\\n#include <trace/events/sched.h>\\n" + trace_fallbacks + "\\n" + hmp_h.rstrip() + "\\n#endif\\n"
+    hmp_h = "#ifndef _KERNEL_SCHED_HMP_H\n#define _KERNEL_SCHED_HMP_H\n#include <linux/cpumask.h>\n#include <linux/spinlock.h>\n#include <trace/events/sched.h>\n" + trace_fallbacks + "\n" + hmp_h.rstrip() + "\n#endif\n"
 hmp_h = replace_c_function(
     hmp_h,
     r"static inline bool\s+should_hmp\s*\(\s*int cpu\s*\)",
@@ -177,7 +177,7 @@ hmp_h = replace_c_function(
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
 hmp_c = (root / "kernel/sched/hmp.c").read_text()
-hmp_c = hmp_c.replace('#include <linux/list_sort.h>\\n', '#include <linux/list_sort.h>\\n#include "sched.h"\\n#include "hmp.h"\\n', 1)
+hmp_c = hmp_c.replace('#include <linux/list_sort.h>\n', '#include <linux/list_sort.h>\n#include "sched.h"\n#include "hmp.h"\n', 1)
 hmp_c = hmp_c.replace("arch_get_nr_clusters()", "hmp_arch_get_nr_clusters()")
 hmp_c = hmp_c.replace("arch_get_cluster_id(", "hmp_arch_get_cluster_id(")
 hmp_c = hmp_c.replace("arch_get_cluster_cpus(", "hmp_arch_get_cluster_cpus(")
