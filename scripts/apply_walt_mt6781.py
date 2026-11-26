@@ -126,12 +126,13 @@ replace_once("kernel/sched/fair.c",
     "static inline unsigned long cpu_util(int cpu)\n{\n\tstruct cfs_rq *cfs_rq;\n\tunsigned int util;\n\n\tcfs_rq = &cpu_rq(cpu)->cfs;",
     "static inline unsigned long cpu_util(int cpu)\n{\n\tstruct cfs_rq *cfs_rq;\n\tunsigned int util;\n\n#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {\n\t\tu64 walt_util = READ_ONCE(cpu_rq(cpu)->cumulative_runnable_avg);\n\t\twalt_util <<= SCHED_CAPACITY_SHIFT;\n\t\tdo_div(walt_util, walt_ravg_window);\n\t\treturn min_t(unsigned long, walt_util, capacity_orig_of(cpu));\n\t}\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;",
     "WALT CPU utilization")
-replace_once("kernel/sched/fair.c",
+replace_region("kernel/sched/fair.c",
+    "static unsigned long cpu_util_without(", "unsigned long capacity_curr_of(",
     "\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
-    "\t#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {\n\t\tu64 walt_util = READ_ONCE(cpu_rq(cpu)->cumulative_runnable_avg);\n\t\twalt_util <<= SCHED_CAPACITY_SHIFT;\n\t\tdo_div(walt_util, walt_ravg_window);\n\t\tif (walt_task_in_cum_window_demand(cpu_rq(cpu), p))\n\t\t\twalt_util -= min_t(u64, walt_util, task_util(p));\n\t\treturn min_t(unsigned long, walt_util, capacity_orig_of(cpu));\n\t}\n\t#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
+    "#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {\n\t\tu64 walt_util = READ_ONCE(cpu_rq(cpu)->cumulative_runnable_avg);\n\t\twalt_util <<= SCHED_CAPACITY_SHIFT;\n\t\tdo_div(walt_util, walt_ravg_window);\n\t\tif (walt_task_in_cum_window_demand(cpu_rq(cpu), p))\n\t\t\twalt_util -= min_t(u64, walt_util, task_util(p));\n\t\treturn min_t(unsigned long, walt_util, capacity_orig_of(cpu));\n\t}\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
     "WALT cpu_util_without")
 replace_region("kernel/sched/fair.c",
-    "static void enqueue_task_fair(", "static void set_next_buddy(",
+    "enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)", "static void set_next_buddy(",
     "\t\tcfs_rq->h_nr_running++;\n",
     "\t\tcfs_rq->h_nr_running++;\n\t\twalt_inc_cfs_cumulative_runnable_avg(cfs_rq, p);\n",
     "CFS hierarchy enqueue WALT accounting", count=2)
@@ -141,7 +142,7 @@ replace_region("kernel/sched/fair.c",
     "\t\tcfs_rq->h_nr_running--;\n\t\twalt_dec_cfs_cumulative_runnable_avg(cfs_rq, p);\n",
     "CFS hierarchy dequeue WALT accounting", count=2)
 replace_region("kernel/sched/fair.c",
-    "static void enqueue_task_fair(", "static void set_next_buddy(",
+    "enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)", "static void set_next_buddy(",
     "\t\tadd_nr_running(rq, 1);\n",
     "\t\tadd_nr_running(rq, 1);\n\t\twalt_inc_cumulative_runnable_avg(rq, p);\n",
     "runqueue enqueue WALT accounting")
@@ -213,7 +214,9 @@ replace_region("kernel/sched/core.c",
     "\tif (!task_on_rq_queued(p)) {\n",
     "\tif (!task_on_rq_queued(p)) {\n#ifdef CONFIG_SCHED_WALT\n\t\tu64 wallclock = walt_ktime_clock();\n\t\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);\n\t\twalt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);\n#endif\n",
     "local wakeup WALT accounting")
-replace_once("kernel/sched/core.c",
+replace_region("kernel/sched/core.c",
+    "try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,",
+    "static void sched_ttwu_pending(void)",
     "\tsmp_cond_load_acquire(&p->on_cpu, !VAL);\n",
     "\tsmp_cond_load_acquire(&p->on_cpu, !VAL);\n\twalt_try_to_wake_up(p);\n",
     "remote wakeup WALT accounting")
@@ -225,7 +228,8 @@ replace_once("kernel/sched/core.c",
     "\tactivate_task(rq, p, ENQUEUE_NOCLOCK);\n\tp->on_rq = TASK_ON_RQ_QUEUED;",
     "\tactivate_task(rq, p, ENQUEUE_NOCLOCK);\n\twalt_mark_task_starting(p);\n\tp->on_rq = TASK_ON_RQ_QUEUED;",
     "WALT new-task activation")
-replace_once("kernel/sched/core.c",
+replace_region("kernel/sched/core.c",
+    "void scheduler_tick(void)", "#ifdef CONFIG_NO_HZ_FULL",
     "\trq_lock(rq, &rf);\n\n\tupdate_rq_clock(rq);\n\tcurr->sched_class->task_tick(rq, curr, 0);",
     "\trq_lock(rq, &rf);\n#ifdef CONFIG_SCHED_WALT\n\twalt_set_window_start(rq, &rf);\n\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, walt_ktime_clock(), 0);\n#endif\n\tupdate_rq_clock(rq);\n\tcurr->sched_class->task_tick(rq, curr, 0);",
     "WALT scheduler tick accounting")
@@ -245,9 +249,10 @@ replace_once("kernel/sched/core.c",
     "\t\tperf_event_task_migrate(p);\n\t}\n\n\t__set_task_cpu(p, new_cpu);",
     "\t\tperf_event_task_migrate(p);\n#ifdef CONFIG_SCHED_WALT\n\t\twalt_fixup_busy_time(p, new_cpu);\n#endif\n\t}\n\n\t__set_task_cpu(p, new_cpu);",
     "WALT task migration fixup")
-replace_once("kernel/sched/core.c",
-    "\trq_lock_irqsave(rq, &rf);\n\tif (rq->rd) {",
-    "\trq_lock_irqsave(rq, &rf);\n#ifdef CONFIG_SCHED_WALT\n\twalt_migrate_sync_cpu(cpu);\n#endif\n\tif (rq->rd) {",
+replace_region("kernel/sched/core.c",
+    "int sched_cpu_dying(unsigned int cpu)", "\n#endif",
+    "\trq_lock_irqsave(rq, &rf);\n",
+    "\trq_lock_irqsave(rq, &rf);\n#ifdef CONFIG_SCHED_WALT\n\twalt_migrate_sync_cpu(cpu);\n#endif\n",
     "WALT sync CPU hotplug handoff")
 
 # Account IRQ time in WALT's idle/IRQ bucket, using the same scheduler clock.
@@ -273,8 +278,12 @@ replace_once("include/linux/sched.h",
     "#define TASK_COMM_LEN\t\t\t16\n",
     "#define TASK_COMM_LEN\t\t\t16\n#ifdef CONFIG_SCHED_WALT\nextern unsigned int sysctl_sched_use_walt_cpu_util;\nextern unsigned int sysctl_sched_use_walt_task_util;\nextern unsigned int sysctl_sched_walt_init_task_load_pct;\nextern unsigned int sysctl_sched_walt_cpu_high_irqload;\n#endif\n",
     "WALT sysctl declarations")
-replace_once("kernel/sysctl.c",
-    "#endif\n#ifdef CONFIG_PROVE_LOCKING",
+replace_region("kernel/sysctl.c",
+    "#if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)",
+    "#ifdef CONFIG_PROVE_LOCKING",
+    "#endif\n",
+    "#endif\n#ifdef CONFIG_SCHED_WALT\n\t{\n\t\t.procname\t= \"sched_use_walt_cpu_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_cpu_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_use_walt_task_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_task_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_init_task_load_pct\",\n\t\t.data\t\t= &sysctl_sched_walt_init_task_load_pct,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_cpu_high_irqload\",\n\t\t.data\t\t= &sysctl_sched_walt_cpu_high_irqload,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n#endif\n",
+    "WALT sysctl ABI")
     "#endif\n#ifdef CONFIG_SCHED_WALT\n\t{\n\t\t.procname\t= \"sched_use_walt_cpu_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_cpu_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_use_walt_task_util\",\n\t\t.data\t\t= &sysctl_sched_use_walt_task_util,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_init_task_load_pct\",\n\t\t.data\t\t= &sysctl_sched_walt_init_task_load_pct,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n\t{\n\t\t.procname\t= \"sched_walt_cpu_high_irqload\",\n\t\t.data\t\t= &sysctl_sched_walt_cpu_high_irqload,\n\t\t.maxlen\t\t= sizeof(unsigned int),\n\t\t.mode\t\t= 0644,\n\t\t.proc_handler\t= proc_dointvec,\n\t},\n#endif\n#ifdef CONFIG_PROVE_LOCKING",
     "WALT sysctl ABI")
 
