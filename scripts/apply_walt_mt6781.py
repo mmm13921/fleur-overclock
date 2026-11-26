@@ -215,8 +215,8 @@ replace_region("kernel/sched/core.c",
     "\tif (!task_on_rq_queued(p)) {\n#ifdef CONFIG_SCHED_WALT\n\t\tu64 wallclock = walt_ktime_clock();\n\t\twalt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);\n\t\twalt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);\n#endif\n",
     "local wakeup WALT accounting")
 replace_region("kernel/sched/core.c",
-    "try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,",
-    "static void sched_ttwu_pending(void)",
+    "static int\ntry_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,",
+    "void wake_up_new_task(",
     "\tsmp_cond_load_acquire(&p->on_cpu, !VAL);\n",
     "\tsmp_cond_load_acquire(&p->on_cpu, !VAL);\n\twalt_try_to_wake_up(p);\n",
     "remote wakeup WALT accounting")
