@@ -178,19 +178,8 @@ hmp_h = replace_c_function(
 )
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
-# Set EAS capacity margin to zero as requested (no additional utilization headroom).
-replace_once(
-    "kernel/sched/fair.c",
-    "#define fits_capacity(cap, max) ((cap) * 1280 < (max) * 1024)",
-    "#define fits_capacity(cap, max) ((cap) * 1024 < (max) * 1024)",
-    "MTK EAS fits_capacity margin zero",
-)
-replace_once(
-    "kernel/sched/fair.c",
-    "unsigned int capacity_margin\t\t\t\t= 1280;",
-    "unsigned int capacity_margin\t\t\t\t= 0;",
-    "EAS capacity margin zero",
-)
+# Preserve the target kernel's native EAS capacity margin default (1280).
+# Do not rewrite fits_capacity() or capacity_margin; both remain at upstream defaults.
 hmp_c = (root / "kernel/sched/hmp.c").read_text()
 hmp_c = hmp_c.replace('#include <linux/list_sort.h>\n', '#include <linux/list_sort.h>\n#include "hmp.h"\n', 1)
 hmp_c = hmp_c.replace("arch_get_nr_clusters()", "hmp_arch_get_nr_clusters()")
@@ -549,8 +538,8 @@ for path, needle in [
     ("kernel/sched/hmp.c", "hmp_cpu_mask_setup"),
     ("kernel/sched/hmp.c", "hmp_get_heaviest_task"),
     ("kernel/sched/hmp.c", "hmp_get_lightest_task"),
-    ("kernel/sched/fair.c", "unsigned int capacity_margin\t\t\t\t= 0;"),
-    ("kernel/sched/fair.c", "#define fits_capacity(cap, max) ((cap) * 1024 < (max) * 1024)"),
+    ("kernel/sched/fair.c", "unsigned int capacity_margin\t\t\t\t= 1280;"),
+    ("kernel/sched/fair.c", "#define fits_capacity(cap, max) ((cap) * 1280 < (max) * 1024)"),
     ("kernel/sched/hmp.c", "#define HMP_CAPACITY_MARGIN 1280"),
     ("kernel/sched/hmp.c", "cpu_load * HMP_CAPACITY_MARGIN"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_cpus(&cpu_mask, id);"),
@@ -579,7 +568,7 @@ audit.write_text(
     "integration=CFS enqueue/dequeue, fork/wake placement, idle pull, periodic up migration, CPU hotplug\n"
     "clusters=2; topology=MT6781 arch_cpu_cluster_id and arch_get_cluster_cpus\n"
     "mode_control=/proc/sys/kernel/sched_cpu_mode: 0 HMP, 1 EAS, 2 Hybrid\n"
-    "eas_capacity_margin=0 (fits_capacity uses no additional EAS headroom)\n"
+    "eas_capacity_margin=1280 (preserve Fleux V12 native EAS default; no override)\n"
     "hmp_native_capacity_margin=1280 (preserves Fleur 4.14 migration-capacity safety independently)\n"
     "hybrid_overutilization=Fleux_root_domain_overutilized (4.19 equivalent of native Fleur 4.14 sd shared flag)\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
