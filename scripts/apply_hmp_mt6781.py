@@ -182,7 +182,7 @@ static inline bool should_hmp(int cpu)
 replace_once(
     "kernel/sched/fair.c",
     "#define fits_capacity(cap, max) ((cap) * 1280 < (max) * 1024)",
-    "#define fits_capacity(cap, max) ((cap) * 0 < (max) * 1024)",
+    "#define fits_capacity(cap, max) ((cap) * 1024 < (max) * 1024)",
     "MTK EAS fits_capacity margin zero",
 )
 replace_once(
@@ -316,6 +316,21 @@ hmp_c = replace_c_function(
 )
 hmp_c = hmp_c.replace("rq->cfs.runnable_load_avg", "rq->cfs.avg.loadwop_avg")
 hmp_c = hmp_c.replace("cfs_rq->runnable_load_avg", "cfs_rq->avg.loadwop_avg")
+# Keep Fleur's native HMP capacity guard independent from the zero EAS margin.
+old_hmp_capacity = """#define hmp_fast_cpu_has_spare_cycles(B, cpu_load) \\
+		((cpu_load * capacity_margin) < (SCHED_CAPACITY_SCALE * 1024))"""
+new_hmp_capacity = """#define HMP_CAPACITY_MARGIN 1280
+#define hmp_fast_cpu_has_spare_cycles(B, cpu_load) \\
+		((cpu_load * HMP_CAPACITY_MARGIN) < (SCHED_CAPACITY_SCALE * 1024))"""
+if old_hmp_capacity not in hmp_c:
+    raise SystemExit("HMP native capacity guard anchor missing")
+hmp_c = hmp_c.replace(old_hmp_capacity, new_hmp_capacity, 1)
+hmp_c = hmp_c.replace("unsigned long cpu_perf;", "unsigned long cpu_perf = 0;", 1)
+hmp_c = hmp_c.replace(
+    "return (ca.cpu_perf > cb.cpu_perf) ? -1 : 1;",
+    "return (ca.cpu_perf > cb.cpu_perf) ? -1 : (ca.cpu_perf < cb.cpu_perf ? 1 : 0);",
+    1,
+)
 (root / "kernel/sched/hmp.c").write_text(hmp_c)
 
 replace_once(
@@ -484,10 +499,22 @@ if '#include "hmp.c"' not in fair_text:
 
 for path, needle in [
     ("kernel/sched/hmp.c", "hmp_force_up_migration"),
+    ("kernel/sched/hmp.c", "hmp_force_down_migration"),
+    ("kernel/sched/hmp.c", "hmp_active_load_balance_cpu_stop"),
+    ("kernel/sched/hmp.c", "hmp_select_task_migration"),
+    ("kernel/sched/hmp.c", "hmp_up_migration"),
+    ("kernel/sched/hmp.c", "hmp_down_migration"),
+    ("kernel/sched/hmp.c", "hmp_idle_pull"),
+    ("kernel/sched/hmp.c", "hmp_fork_balance"),
+    ("kernel/sched/hmp.c", "hmp_online_cpu"),
+    ("kernel/sched/hmp.c", "hmp_offline_cpu"),
+    ("kernel/sched/hmp.c", "hmp_cpu_mask_setup"),
     ("kernel/sched/hmp.c", "hmp_get_heaviest_task"),
     ("kernel/sched/hmp.c", "hmp_get_lightest_task"),
     ("kernel/sched/fair.c", "unsigned int capacity_margin\t\t\t\t= 0;"),
-    ("kernel/sched/fair.c", "#define fits_capacity(cap, max) ((cap) * 0 < (max) * 1024)"),
+    ("kernel/sched/fair.c", "#define fits_capacity(cap, max) ((cap) * 1024 < (max) * 1024)"),
+    ("kernel/sched/hmp.c", "#define HMP_CAPACITY_MARGIN 1280"),
+    ("kernel/sched/hmp.c", "cpu_load * HMP_CAPACITY_MARGIN"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_cpus(&cpu_mask, id);"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_id(cpu)"),
     ("kernel/sched/hmp.h", "should_hmp"),
@@ -514,7 +541,8 @@ audit.write_text(
     "integration=CFS enqueue/dequeue, fork/wake placement, idle pull, periodic up migration, CPU hotplug\n"
     "clusters=2; topology=MT6781 arch_cpu_cluster_id and arch_get_cluster_cpus\n"
     "mode_control=/proc/sys/kernel/sched_cpu_mode: 0 HMP, 1 EAS, 2 Hybrid\n"
-    "eas_capacity_margin=0\\n"
+    "eas_capacity_margin=0 (fits_capacity uses no additional EAS headroom)\\n"
+    "hmp_native_capacity_margin=1280 (preserves Fleur 4.14 migration-capacity safety independently)\\n"
     "hybrid_overutilization=root_domain_flag_or_local_util_at_capacity\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
     "related_thread_groups=not present in Fleur MTK 4.14 reference; Qualcomm RTG not imported\n"
