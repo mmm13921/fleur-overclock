@@ -73,6 +73,11 @@ for name in ("walt.c", "walt.h"):
     (sched_dir / name).write_text(text)
 changes += ["full Fleur 4.14 WALT engine", "WALT API header"]
 
+replace_once("kernel/sched/walt.c",
+    "if (p->state == TASK_WAKING)\n\t\tdouble_rq_lock(src_rq, dest_rq);\n\n\twallclock = walt_ktime_clock();",
+    "if (p->state == TASK_WAKING)\n\t\tdouble_rq_lock(src_rq, dest_rq);\n\n\tlockdep_assert_held(&src_rq->lock);\n\tlockdep_assert_held(&dest_rq->lock);\n\twallclock = walt_ktime_clock();",
+    "WALT migration runqueue lock assertions")
+
 # Kconfig and object wiring.
 replace_once("kernel/Kconfig.preempt",
     "endchoice\n\nconfig PREEMPT_COUNT",
@@ -299,7 +304,7 @@ replace_once("kernel/sysctl.c",
 
 # Structural checks prevent a PASS if any critical integration path is absent.
 checks = {
-    "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime", "walt_cpu_freq_util(struct rq *rq)"],
+    "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime", "walt_cpu_freq_util(struct rq *rq)", "lockdep_assert_held(&src_rq->lock)", "lockdep_assert_held(&dest_rq->lock)"],
     "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_fixup_busy_time(p, cpu);", "double_rq_lock(rq, dst_rq);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
     "kernel/sched/fair.c": ["walt_inc_cumulative_runnable_avg(rq, p);", "walt_dec_cumulative_runnable_avg(rq, p);", "walt_cpu_high_irqload(cpu)", "cumulative_runnable_avg", "p->ravg.demand"],
     "kernel/sysctl.c": ['"sched_use_walt_cpu_util"', '"sched_use_walt_task_util"', '"sched_walt_cpu_high_irqload"'],
