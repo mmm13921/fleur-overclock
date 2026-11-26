@@ -280,7 +280,7 @@ regex_in_function(
 )
 replace_in_function(
     "kernel/sched/fair.c",
-    r"static void\s+run_rebalance_domains\s*\(",
+    r"static(?:\s+__latent_entropy)?\s+void\s+run_rebalance_domains\s*\(",
     "if (nohz_idle_balance(this_rq, idle))",
     """#ifdef CONFIG_SCHED_HMP
 \tif (should_hmp(this_rq->cpu))
