@@ -28,7 +28,7 @@ def function_region(source, pattern, label):
 path = root / "kernel/sched/cpufreq_schedutil.c"
 source = path.read_text()
 
-struct_match = re.search(r"struct sugov_cpu\\s*\\{", source)
+struct_match = re.search(r"struct sugov_cpu\s*\{", source)
 if not struct_match:
     raise SystemExit("sugov_cpu structure not found")
 struct_start = struct_match.end() - 1
@@ -42,49 +42,49 @@ for index in range(struct_start, len(source)):
         if depth == 0:
             struct_end = index + 1
             break
-if struct_end < 0 or not re.search(r"\\bunsigned\\s+long\\s+max\\s*;", source[struct_start:struct_end]):
+if struct_end < 0 or not re.search(r"\bunsigned\s+long\s+max\s*;", source[struct_start:struct_end]):
     raise SystemExit("sugov_cpu.max field not found; refusing incompatible patch")
 
-get_start, get_end = function_region(source, r"static\\s+unsigned\\s+long\\s+sugov_get_util\\s*\\(", "sugov_get_util")
+get_start, get_end = function_region(source, r"static\s+unsigned\s+long\s+sugov_get_util\s*\(", "sugov_get_util")
 get_body = source[get_start:get_end]
-max_decl = re.search(r"unsigned\\s+long\\s+max\\s*=\\s*arch_scale_cpu_capacity\\s*\\(\\s*NULL\\s*,\\s*sg_cpu->cpu\\s*\\)\\s*;", get_body)
-max_assign = re.search(r"sg_cpu->max\\s*=\\s*max\\s*;", get_body)
+max_decl = re.search(r"unsigned\s+long\s+max\s*=\s*arch_scale_cpu_capacity\s*\(\s*NULL\s*,\s*sg_cpu->cpu\s*\)\s*;", get_body)
+max_assign = re.search(r"sg_cpu->max\s*=\s*max\s*;", get_body)
 if not max_decl or not max_assign:
     raise SystemExit("Fleux V12 sugov_get_util capacity anchors changed; refusing unsafe patch")
 get_body = get_body[:max_decl.start()] + "unsigned long max = READ_ONCE(sg_cpu->max);" + get_body[max_decl.end():]
-max_assign = re.search(r"\\n\\s*sg_cpu->max\\s*=\\s*max\\s*;", get_body)
+max_assign = re.search(r"\n\s*sg_cpu->max\s*=\s*max\s*;", get_body)
 if not max_assign:
     raise SystemExit("schedutil max cache assignment anchor changed")
 get_body = get_body[:max_assign.start()] + get_body[max_assign.end():]
 source = source[:get_start] + get_body + source[get_end:]
 
-start_pos, start_end = function_region(source, r"static\\s+int\\s+sugov_start\\s*\\(", "sugov_start")
+start_pos, start_end = function_region(source, r"static\s+int\s+sugov_start\s*\(", "sugov_start")
 start_body = source[start_pos:start_end]
 init_anchor = "sg_cpu->sg_policy = sg_policy;"
 if start_body.count(init_anchor) != 1:
     raise SystemExit("sugov_start policy initialization anchor changed")
-init_line = init_anchor + "\\n sg_cpu->max = arch_scale_cpu_capacity(NULL, cpu);"
+init_line = init_anchor + "\n sg_cpu->max = arch_scale_cpu_capacity(NULL, cpu);"
 start_body = start_body.replace(init_anchor, init_line, 1)
 source = source[:start_pos] + start_body + source[start_end:]
 
-verify_get_start, verify_get_end = function_region(source, r"static\\s+unsigned\\s+long\\s+sugov_get_util\\s*\\(", "post-patch sugov_get_util")
+verify_get_start, verify_get_end = function_region(source, r"static\s+unsigned\s+long\s+sugov_get_util\s*\(", "post-patch sugov_get_util")
 verify_get = source[verify_get_start:verify_get_end]
 if "unsigned long max = READ_ONCE(sg_cpu->max);" not in verify_get or "sg_cpu->max =" in verify_get:
     raise SystemExit("schedutil runtime capacity refresh was not removed")
-verify_start, verify_end = function_region(source, r"static\\s+int\\s+sugov_start\\s*\\(", "post-patch sugov_start")
+verify_start, verify_end = function_region(source, r"static\s+int\s+sugov_start\s*\(", "post-patch sugov_start")
 if "sg_cpu->max = arch_scale_cpu_capacity(NULL, cpu);" not in source[verify_start:verify_end]:
     raise SystemExit("schedutil capacity reference is not initialized at policy start")
 
 path.write_text(source)
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(
-    "result=PASS\\n"
-    "file=kernel/sched/cpufreq_schedutil.c\\n"
-    "change=per-CPU schedutil capacity reference initialized at sugov_start\\n"
-    "runtime_capacity_refresh=disabled\\n"
-    "utilization=PELT/RT/DL/IRQ and iowait calculations retained\\n"
-    "frequency_mapping=unchanged\\n"
-    "thermal_safety=cpufreq policy limits and thermal cooling paths unchanged\\n"
-    "scheduler_capacity=HMP/EAS placement and capacity calculations untouched\\n"
+    "result=PASS\n"
+    "file=kernel/sched/cpufreq_schedutil.c\n"
+    "change=per-CPU schedutil capacity reference initialized at sugov_start\n"
+    "runtime_capacity_refresh=disabled\n"
+    "utilization=PELT/RT/DL/IRQ and iowait calculations retained\n"
+    "frequency_mapping=unchanged\n"
+    "thermal_safety=cpufreq policy limits and thermal cooling paths unchanged\n"
+    "scheduler_capacity=HMP/EAS placement and capacity calculations untouched\n"
 )
 print(audit.read_text(), end="")
