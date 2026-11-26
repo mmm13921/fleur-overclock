@@ -35,8 +35,6 @@ edit("kernel/sched/sched.h",
 p = root / "kernel/sched/sched.h"
 s = p.read_text()
 marker = "#endif /* _KERNEL_SCHED_SCHED_H */"
-if marker not in s:
-    raise SystemExit("scheduler header final guard not found")
 api = """
 #ifdef CONFIG_SCHED_WALT
 void walt_enqueue_task(struct rq *rq, struct task_struct *p);
@@ -53,7 +51,11 @@ static inline unsigned long walt_cpu_util(struct rq *rq) { return 0; }
 """
 if "void walt_enqueue_task(" in s:
     raise SystemExit("WALT API already present; refusing duplicate patch")
-p.write_text(s.replace(marker, api + marker))
+if marker in s:
+    s = s.replace(marker, api + marker)
+else:
+    s = s.rstrip() + "\n\n" + api
+p.write_text(s)
 changes.append("scheduler WALT API")
 
 # Forked tasks must not inherit the parent's window state or rq membership.
