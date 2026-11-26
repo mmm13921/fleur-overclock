@@ -54,7 +54,9 @@ for symbol, source_name in (
 ):
     if not re.search(rf"(?m)^config {symbol}\s*$", kconfig):
         raise SystemExit(f"{symbol} Kconfig entry missing")
-    if not re.search(rf"(?m)^\s*obj-\$\({symbol}\)\s*\+=\s*{re.escape(source_name[:-2])}\.o\s*$", makefile):
+    expected_object = f"obj-$(CONFIG_{symbol})+={source_name}"
+    normalized_makefile = [line.strip().replace(" ", "").replace("\\t", "") for line in makefile.splitlines()]
+    if expected_object not in normalized_makefile:
         raise SystemExit(f"{symbol} Makefile object wiring missing")
     if f"CONFIG_{symbol}=y" not in config:
         raise SystemExit(f"CONFIG_{symbol}=y did not survive olddefconfig")
