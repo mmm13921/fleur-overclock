@@ -200,6 +200,101 @@ if old_hmp_prototypes not in hmp_c:
 hmp_c = hmp_c.replace(old_hmp_prototypes, new_hmp_prototypes, 1)
 hmp_c = replace_c_function(
     hmp_c,
+    r"static struct sched_entity \\*hmp_get_heaviest_task\\s*\\(",
+    """static struct sched_entity *hmp_get_heaviest_task(
+        struct sched_entity *se, int target_cpu)
+{
+    int num_tasks = hmp_max_tasks;
+    struct sched_entity *max_se = se;
+    struct sched_entity *iter;
+    struct rb_node *node;
+    struct cfs_rq *cfs_rq = cfs_rq_of(se);
+    long int max_ratio = se->avg.loadwop_avg;
+    const struct cpumask *hmp_target_mask = NULL;
+    struct hmp_domain *hmp;
+
+    if (hmp_cpu_is_fastest(cpu_of(cfs_rq->rq)))
+        return max_se;
+
+    if (!task_prefer_little(task_of(se))) {
+        max_se = se;
+        max_ratio = se->avg.loadwop_avg;
+    }
+
+    hmp = hmp_faster_domain(cpu_of(cfs_rq->rq));
+    if (!hmp)
+        return max_se;
+    hmp_target_mask = &hmp->cpus;
+    if (target_cpu >= 0) {
+        if (!cpumask_test_cpu(target_cpu, hmp_target_mask))
+            return NULL;
+        hmp_target_mask = cpumask_of(target_cpu);
+    }
+
+    /* EEVDF replaced the old CFS entity iterator with an rb_root_cached timeline. */
+    for (node = rb_first_cached(&cfs_rq->tasks_timeline);
+         node && num_tasks; node = rb_next(node), num_tasks--) {
+        iter = rb_entry(node, struct sched_entity, run_node);
+        if (entity_is_task(iter) &&
+            iter->avg.loadwop_avg > max_ratio &&
+            cpumask_intersects(hmp_target_mask,
+                               &task_of(iter)->cpus_allowed)) {
+            max_se = iter;
+            max_ratio = iter->avg.loadwop_avg;
+        }
+    }
+    return max_se;
+}""",
+    "HMP heaviest task EEVDF rb-tree iterator",
+)
+hmp_c = replace_c_function(
+    hmp_c,
+    r"static struct sched_entity \\*hmp_get_lightest_task\\s*\\(",
+    """static struct sched_entity *hmp_get_lightest_task(
+        struct sched_entity *se, int migrate_down)
+{
+    int num_tasks = hmp_max_tasks;
+    struct sched_entity *min_se = NULL;
+    struct sched_entity *iter;
+    struct rb_node *node;
+    struct cfs_rq *cfs_rq = cfs_rq_of(se);
+    unsigned long int min_ratio = INT_MAX;
+    const struct cpumask *hmp_target_mask = NULL;
+
+    if (migrate_down) {
+        struct hmp_domain *hmp;
+
+        if (hmp_cpu_is_slowest(cpu_of(cfs_rq->rq)))
+            return min_se;
+        hmp = hmp_slower_domain(cpu_of(cfs_rq->rq));
+        if (!hmp)
+            return min_se;
+        hmp_target_mask = &hmp->cpus;
+    }
+
+    if (!task_prefer_big(task_of(se))) {
+        min_se = se;
+        min_ratio = se->avg.loadwop_avg;
+    }
+
+    /* Preserve 4.14's leftmost-to-rightmost scan order on the EEVDF timeline. */
+    for (node = rb_first_cached(&cfs_rq->tasks_timeline);
+         node && num_tasks; node = rb_next(node), num_tasks--) {
+        iter = rb_entry(node, struct sched_entity, run_node);
+        if (entity_is_task(iter) && hmp_target_mask &&
+            iter->avg.loadwop_avg < min_ratio &&
+            cpumask_intersects(hmp_target_mask,
+                               &task_of(iter)->cpus_allowed)) {
+            min_se = iter;
+            min_ratio = iter->avg.loadwop_avg;
+        }
+    }
+    return min_se;
+}""",
+    "HMP lightest task EEVDF rb-tree iterator",
+)
+hmp_c = replace_c_function(
+    hmp_c,
     r"static int\s+hmp_active_load_balance_cpu_stop\s*\(\s*void \*data\s*\)",
 "static int hmp_active_load_balance_cpu_stop(void *data)\n{\n\tstruct rq *src_rq = data;\n\tstruct rq *dst_rq = NULL;\n\tstruct task_struct *p = NULL;\n\tstruct sched_domain *sd;\n\tstruct rq_flags rf;\n\tint src_cpu = cpu_of(src_rq);\n\tint dst_cpu;\n\tbool detached = false;\n\n\trq_lock_irq(src_rq, &rf);\n\tdst_cpu = src_rq->push_cpu;\n\tp = src_rq->hmp_migrate_task;\n\tif (!p || dst_cpu < 0 || dst_cpu >= nr_cpu_ids ||\n\t    src_cpu != smp_processor_id() || !src_rq->active_balance ||\n\t    src_rq->nr_running <= 1 ||\n\t    !cpu_active(src_cpu) || !cpu_active(dst_cpu) ||\n\t    !cpu_online(src_cpu) || !cpu_online(dst_cpu) ||\n\t    cpu_isolated(src_cpu) || cpu_isolated(dst_cpu) ||\n\t    task_cpu(p) != src_cpu || !task_on_rq_queued(p) ||\n\t    !cpumask_test_cpu(dst_cpu, &p->cpus_allowed))\n\t\tgoto out_unlock;\n\n\tdst_rq = cpu_rq(dst_cpu);\n\tBUG_ON(src_rq == dst_rq);\n\trcu_read_lock();\n\tfor_each_domain(dst_cpu, sd) {\n\t\tif ((sd->flags & SD_LOAD_BALANCE) &&\n\t\t    cpumask_test_cpu(src_cpu, sched_domain_span(sd)))\n\t\t\tbreak;\n\t}\n\tif (sd) {\n\t\tstruct lb_env env = {\n\t\t\t.sd = sd,\n\t\t\t.dst_cpu = dst_cpu,\n\t\t\t.dst_rq = dst_rq,\n\t\t\t.src_cpu = src_cpu,\n\t\t\t.src_rq = src_rq,\n\t\t\t.idle = CPU_IDLE,\n\t\t\t.flags = LBF_DST_PINNED,\n\t\t};\n\n\t\tschedstat_inc(sd->alb_count);\n\t\tupdate_rq_clock(src_rq);\n\t\tif (can_migrate_task(p, &env)) {\n\t\t\tdetach_task(p, &env);\n\t\t\tdetached = true;\n\t\t\tschedstat_inc(sd->alb_pushed);\n\t\t\tsd->nr_balance_failed = 0;\n\t\t} else {\n\t\t\tschedstat_inc(sd->alb_failed);\n\t\t}\n\t}\n\trcu_read_unlock();\n\nout_unlock:\n\tsrc_rq->hmp_migrate_task = NULL;\n\tsrc_rq->active_balance = 0;\n\trq_unlock(src_rq, &rf);\n\tif (detached)\n\t\tattach_one_task(dst_rq, p);\n\tif (p)\n\t\tput_task_struct(p);\n\tlocal_irq_enable();\n\treturn 0;\n}",
     "HMP active migration callback",
