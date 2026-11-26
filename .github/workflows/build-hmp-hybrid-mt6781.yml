@@ -1,5 +1,6 @@
 name: Fleux V12 HMP Capacity Frequency Separation
 run-name: CAPACITY-FREQ-BUILD48
+# Rebuild after validating the schedutil patch against the pinned Fleux V12 source.
 on:
   push:
     branches:
