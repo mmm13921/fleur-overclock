@@ -54,7 +54,7 @@ gov_block = """config CPU_FREQ_GOV_WALT
 \t  execution-window utilization. It uses the active CPUFreq policy mask,
 \t  preserving separate LITTLE and big cluster policies.
 
-comment "CPU frequency scaling drivers""""
+comment "CPU frequency scaling drivers\"""
 k = replace_once(k, gov_anchor, gov_block, "WALT governor Kconfig")
 
 mk = replace_once(

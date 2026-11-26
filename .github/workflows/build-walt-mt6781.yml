@@ -35,7 +35,7 @@ jobs:
       - name: Check builder syntax
         run: |
           bash -n scripts/build_kernel.sh
-          python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py
+          python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py scripts/apply_hmp_mt6781.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
