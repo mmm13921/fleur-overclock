@@ -25,7 +25,7 @@ edit("kernel/sched/Makefile",
      "scheduler Makefile")
 edit("include/linux/sched.h",
      "\tu64\t\t\t\tlast_enqueued_ts;\n",
-     "\tu64\t\t\tlast_enqueued_ts;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\twalt_window_start;\n\tu64\t\t\twalt_curr_window;\n\tu64\t\t\twalt_prev_window;\n\tu32\t\t\twalt_demand;\n\tbool\t\t\twalt_on_rq;\n#endif\n",
+     "\tu64\t\t\t\tlast_enqueued_ts;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\twalt_window_start;\n\tu64\t\t\twalt_curr_window;\n\tu64\t\t\twalt_prev_window;\n\tu32\t\t\twalt_demand;\n\tbool\t\t\twalt_on_rq;\n#endif\n",
      "task_struct WALT state")
 edit("kernel/sched/sched.h",
      "\tstruct cfs_rq\t\tcfs;\n",
