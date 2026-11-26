@@ -49,11 +49,7 @@ for name in ("walt.c", "walt.h"):
         marker = '#include "walt.h"\n'
         if marker not in text:
             raise SystemExit("native WALT source include anchor missing")
-        text = text.replace(marker, marker +
-            "\n/* Fleux V12 does not carry the optional Fleur WALT trace events. */\n"
-            "#define trace_walt_update_history(...) do { } while (0)\n"
-            "#define trace_walt_update_task_ravg(...) do { } while (0)\n"
-            "#define trace_walt_migration_update_sum(...) do { } while (0)\n", 1)
+        text = text.replace(marker, marker, 1)
     else:
         marker = "extern bool walt_disabled;\n"
         if marker not in text:
@@ -306,6 +302,98 @@ replace_once("kernel/sched/core.c",
     "\t\tdeactivate_task(src_rq, p, 0);\n#ifdef CONFIG_SCHED_WALT\n\t\twalt_fixup_busy_time(p, cpu);\n#endif\n\t\tset_task_cpu(p, cpu);",
     "WALT swap migration with both runqueue locks")
 
+# Port the native WALT tracepoints instead of compiling them out.
+walt_trace_events = """#ifdef CONFIG_SCHED_WALT
+struct rq;
+
+TRACE_EVENT(walt_update_task_ravg,
+    TP_PROTO(struct task_struct *p, struct rq *rq, int evt, u64 wallclock, u64 irqtime),
+    TP_ARGS(p, rq, evt, wallclock, irqtime),
+    TP_STRUCT__entry(
+        __field(pid_t, pid)
+        __field(pid_t, curr_pid)
+        __field(int, cpu)
+        __field(int, event)
+        __field(u64, wallclock)
+        __field(u64, mark_start)
+        __field(u64, window_start)
+        __field(u64, irqtime)
+        __field(u64, curr_sum)
+        __field(u64, prev_sum)
+        __field(u32, demand)
+        __field(u32, sum)
+    ),
+    TP_fast_assign(
+        __entry->pid = p->pid;
+        __entry->curr_pid = rq->curr->pid;
+        __entry->cpu = rq->cpu;
+        __entry->event = evt;
+        __entry->wallclock = wallclock;
+        __entry->mark_start = p->ravg.mark_start;
+        __entry->window_start = rq->window_start;
+        __entry->irqtime = irqtime;
+        __entry->curr_sum = rq->curr_runnable_sum;
+        __entry->prev_sum = rq->prev_runnable_sum;
+        __entry->demand = p->ravg.demand;
+        __entry->sum = p->ravg.sum;
+    ),
+    TP_printk("cpu=%d pid=%d curr=%d event=%d wallclock=%llu mark=%llu window=%llu irq=%llu curr_sum=%llu prev_sum=%llu demand=%u sum=%u",
+        __entry->cpu, __entry->pid, __entry->curr_pid, __entry->event,
+        __entry->wallclock, __entry->mark_start, __entry->window_start,
+        __entry->irqtime, __entry->curr_sum, __entry->prev_sum,
+        __entry->demand, __entry->sum)
+);
+
+TRACE_EVENT(walt_update_history,
+    TP_PROTO(struct rq *rq, struct task_struct *p, u32 runtime, int samples, int evt),
+    TP_ARGS(rq, p, runtime, samples, evt),
+    TP_STRUCT__entry(
+        __field(pid_t, pid)
+        __field(int, cpu)
+        __field(u32, runtime)
+        __field(int, samples)
+        __field(int, event)
+        __field(u32, demand)
+        __field(unsigned long, pelt_util)
+    ),
+    TP_fast_assign(
+        __entry->pid = p->pid;
+        __entry->cpu = rq->cpu;
+        __entry->runtime = runtime;
+        __entry->samples = samples;
+        __entry->event = evt;
+        __entry->demand = p->ravg.demand;
+        __entry->pelt_util = p->se.avg.util_avg;
+    ),
+    TP_printk("cpu=%d pid=%d runtime=%u samples=%d event=%d demand=%u pelt=%lu",
+        __entry->cpu, __entry->pid, __entry->runtime, __entry->samples,
+        __entry->event, __entry->demand, __entry->pelt_util)
+);
+
+TRACE_EVENT(walt_migration_update_sum,
+    TP_PROTO(struct rq *rq, struct task_struct *p),
+    TP_ARGS(rq, p),
+    TP_STRUCT__entry(
+        __field(int, cpu)
+        __field(pid_t, pid)
+        __field(u64, curr_sum)
+        __field(u64, prev_sum)
+    ),
+    TP_fast_assign(
+        __entry->cpu = rq->cpu;
+        __entry->pid = p->pid;
+        __entry->curr_sum = rq->curr_runnable_sum;
+        __entry->prev_sum = rq->prev_runnable_sum;
+    ),
+    TP_printk("cpu=%d pid=%d curr_sum=%llu prev_sum=%llu",
+        __entry->cpu, __entry->pid, __entry->curr_sum, __entry->prev_sum)
+);
+#endif /* CONFIG_SCHED_WALT */
+"""
+replace_once("include/trace/events/sched.h",
+    "#endif /* _TRACE_SCHED_H */",
+    walt_trace_events + "\n#endif /* _TRACE_SCHED_H */",
+    "WALT trace event definitions")
 # Core scheduler event hooks: wakeup, fork, switch, tick, migration and hotplug.
 replace_once("kernel/sched/core.c",
     "static int\ntry_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,\n\t       int sibling_count_hint)\n{",
