@@ -208,7 +208,7 @@ replace_region("kernel/sched/fair.c",
 replace_once("kernel/sched/walt.c",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn cpu_util_cfs(rq);\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
-    "WALT schedutil utilization export")
+    "WALT execution-window CPUFreq utilization export")
 replace_once("kernel/sched/core.c",
     "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n\tset_task_cpu(p, new_cpu);",
     "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n#ifdef CONFIG_SCHED_WALT\n\t{\n\t\tstruct rq *dst_rq = cpu_rq(new_cpu);\n\t\tunsigned long flags;\n\t\trq_unlock(rq, rf);\n\t\tlocal_irq_save(flags);\n\t\tdouble_rq_lock(rq, dst_rq);\n\t\twalt_fixup_busy_time(p, new_cpu);\n\t\tdouble_rq_unlock(rq, dst_rq);\n\t\tlocal_irq_restore(flags);\n\t\trq_lock(rq, rf);\n\t}\n#endif\n\tset_task_cpu(p, new_cpu);",
@@ -318,7 +318,7 @@ audit.write_text(
     "target=daliboss/fleux v12 Linux 4.19.325 MT6781\n"
     "window=20ms tick-adjusted native WALT window\n"
     "accounting=per-task ravg history, demand, current/previous window busy time\n"
-    "runqueue=cumulative runnable demand, window rollover, IRQ load, migration fixup\n"
+    "runqueue=cumulative runnable demand, window rollover, IRQ load, migration fixup under paired source/destination rq locks\n"
     "hooks=wakeup, local wakeup, fork, task start, context switch, scheduler tick, migration, CPU hotplug\n"
     "utilization=WALT cumulative task demand for placement with candidate subtraction; dedicated WALT governor consumes current/previous execution-window sums; PELT fallback retained\n"
     "controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload\n"
