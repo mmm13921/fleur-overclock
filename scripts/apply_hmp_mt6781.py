@@ -166,23 +166,14 @@ hmp_h = replace_c_function(
 		return false;
 	if (READ_ONCE(sysctl_sched_cpu_mode) == 2 &&
 	    READ_ONCE(sysctl_sched_energy_aware)) {
-		struct sched_domain *sd;
-		bool overutilized = false;
+		struct rq *rq = cpu_rq(cpu);
 
-		rcu_read_lock();
-		for_each_domain(cpu, sd) {
-			if (READ_ONCE(sd->shared->overutilized)) {
-				overutilized = true;
-				break;
-			}
-		}
-		rcu_read_unlock();
-		return overutilized;
+		/* Fleux 4.19 stores the EAS overutilized state in root_domain. */
+		return rq->rd && READ_ONCE(rq->rd->overutilized);
 	}
 #endif
 	return true;
-}""",
-    "HMP mode policy",
+}""",icy",
 )
 (root / "kernel/sched/hmp.h").write_text(hmp_h)
 
@@ -589,7 +580,7 @@ audit.write_text(
     "mode_control=/proc/sys/kernel/sched_cpu_mode: 0 HMP, 1 EAS, 2 Hybrid\n"
     "eas_capacity_margin=0 (fits_capacity uses no additional EAS headroom)\n"
     "hmp_native_capacity_margin=1280 (preserves Fleur 4.14 migration-capacity safety independently)\n"
-    "hybrid_overutilization=any_sched_domain_shared_overutilized (native Fleur 4.14 should_hmp semantics)\\n"
+    "hybrid_overutilization=Fleux_root_domain_overutilized (4.19 equivalent of native Fleur 4.14 sd shared flag)\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
     "related_thread_groups=not present in Fleur MTK 4.14 reference; Qualcomm RTG not imported\n"
     "hmp_plus=enabled; enhanced heaviest/lightest selection and guarded active migration\n"

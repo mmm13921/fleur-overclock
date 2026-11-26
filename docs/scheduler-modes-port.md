@@ -12,7 +12,7 @@ Path: /proc/sys/kernel/sched_cpu_mode
 
 - 0: HMP — disable EAS placement and run the Fleur MTK HMP cluster policy.
 - 1: EAS — retain Fleux's existing Energy Aware Scheduling path.
-- 2: Hybrid — use EAS until any sched_domain's shared overutilized flag is set; then switch to Fleur HMP, matching the native 4.14 `should_hmp()` policy.
+- 2: Hybrid — use EAS until Fleux 4.19 sets `rq->rd->overutilized`; then switch to Fleur HMP. This adapts the 4.14 per-domain overutilized decision to Fleux's root-domain EAS state.
 
 Default: 0 (HMP). HMP is active from boot; EAS and Hybrid remain selectable explicitly at runtime.
 
