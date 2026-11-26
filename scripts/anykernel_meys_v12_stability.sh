@@ -1,7 +1,7 @@
 #!/sbin/sh
 # AnyKernel3 installer for the isolated Fleux V12 stability test.
 properties() { '
-kernel.string=Meys V12 Stability Isolation Test
+kernel.string=hmp-build
 do.devicecheck=1
 do.modules=0
 do.systemless=1
@@ -17,9 +17,9 @@ RAMDISK_COMPRESSION=auto;
 PATCH_VBMETA_FLAG=auto;
 . tools/ak3-core.sh;
 ui_print " ";
-ui_print "Meys V12 Stability Isolation Test";
+ui_print "hmp-build";
 ui_print "Target: Redmi Note 11S 4G / POCO M4 Pro 4G / MT6781";
-ui_print "Kernel: 4.19.325-Meys-V12-Stability-NoSDCardFS";
+ui_print "Kernel: hmp-build";
 ui_print "Keeps CONFIGFS_FS enabled; CONFIG_SDCARD_FS disabled";
 ui_print "Keeps FUSE passthrough and F2FS support";
 ui_print "Experimental: preserve a known-good boot image";

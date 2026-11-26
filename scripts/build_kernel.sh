@@ -1,6 +1,7 @@
 set -Eeuo pipefail
 SOURCE_REF="${1:-v12}"
 BUILD_PROFILE="${2:-meys-v12-android-data-sdcardfs}"
+BUILD_LABEL="${3:-}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
 SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
@@ -37,6 +38,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     exit 2
     ;;
 esac
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" && -n "$BUILD_LABEL" ]]; then
+  [[ "$BUILD_LABEL" =~ ^hmp-build[0-9]+$ ]] || { echo "Invalid HMP build label: $BUILD_LABEL" >&2; exit 2; }
+  LOCALVERSION="-$BUILD_LABEL"
+fi
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
   echo "Set TOOLCHAIN_DIR to the extracted Android Clang r563880c directory." >&2
   exit 2
@@ -147,6 +152,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
+  [[ -z "$BUILD_LABEL" ]] || echo "kernel_name=$BUILD_LABEL"
   echo "debug_archive=debug-archive.md; historical and unresolved device issues included; see status labels in archive"
   echo "modem_dpmaif_pm=MT6781 DPMAIF syscore resume only in READY/EXCEPTION; null-safe suspend/resume; no full 4.14 driver port"
   echo "fuse_passthrough=Android FUSE writeback/cache-coherency backport for Linux 4.19"
