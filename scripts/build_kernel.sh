@@ -75,9 +75,11 @@ python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py"
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
+  python3 "$WORKSPACE/scripts/apply_waltgov_mt6781.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
 fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
@@ -90,11 +92,16 @@ make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_I
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_WALT
+  "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  "$SRC_DIR/scripts/config" --enable CPU_FREQ_DEFAULT_GOV_WALT
 fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
   grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_WALT did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_WALT=y" "$OUT_DIR/.config" || { echo "WALT governor is not selected as the default governor." >&2; exit 1; }
 fi
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
@@ -137,9 +144,12 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=PELT/util_est placement adaptation; not full WALT HMP"
   if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-    echo "walt=MT6781 execution-window accounting plus WALT-aware schedutil utilization floor; PELT retained"
-    echo "walt_audit=walt-mt6781-audit.txt"
-    echo "walt_limitations=no Qualcomm HMP/core_ctl import; no WALT runtime sysctl ABI; no device runtime validation"
+    echo "walt=Fleur-native 20ms execution-window accounting, task/runqueue demand, wakeup/context-switch/tick/migration/hotplug/IRQ hooks"
+    echo "walt_governor=MTK-aware schedutil-derived 'walt' governor using WALT runqueue utilization; selected as default for both active CPUFreq policies"
+    echo "walt_controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload"
+    echo "walt_governor_tunables=/sys/devices/system/cpu/cpufreq/policy*/walt/{up_rate_limit_us,down_rate_limit_us}"
+    echo "walt_audit=walt-mt6781-audit.txt;waltgov-mt6781-audit.txt"
+    echo "walt_limitations=Qualcomm-only core_ctl/related-thread-group ABI not imported; native MTK policy masks and thermal/DVFS protections retained; runtime sysctl and governor behavior require device validation"
   fi
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
   echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
