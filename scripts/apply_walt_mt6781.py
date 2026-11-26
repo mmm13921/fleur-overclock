@@ -209,6 +209,15 @@ replace_once("kernel/sched/walt.c",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
     "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !sysctl_sched_use_walt_cpu_util || !walt_ravg_window)\n\t\treturn cpu_util_cfs(rq);\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
     "WALT schedutil utilization export")
+replace_once("kernel/sched/core.c",
+    "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n\tset_task_cpu(p, new_cpu);",
+    "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n#ifdef CONFIG_SCHED_WALT\n\t{\n\t\tstruct rq *dst_rq = cpu_rq(new_cpu);\n\t\tunsigned long flags;\n\t\trq_unlock(rq, rf);\n\t\tlocal_irq_save(flags);\n\t\tdouble_rq_lock(rq, dst_rq);\n\t\twalt_fixup_busy_time(p, new_cpu);\n\t\tdouble_rq_unlock(rq, dst_rq);\n\t\tlocal_irq_restore(flags);\n\t\trq_lock(rq, rf);\n\t}\n#endif\n\tset_task_cpu(p, new_cpu);",
+    "WALT queued migration with both runqueue locks")
+replace_once("kernel/sched/core.c",
+    "\t\tdeactivate_task(src_rq, p, 0);\n\t\tset_task_cpu(p, cpu);",
+    "\t\tdeactivate_task(src_rq, p, 0);\n#ifdef CONFIG_SCHED_WALT\n\t\twalt_fixup_busy_time(p, cpu);\n#endif\n\t\tset_task_cpu(p, cpu);",
+    "WALT swap migration with both runqueue locks")
+
 # Core scheduler event hooks: wakeup, fork, switch, tick, migration and hotplug.
 replace_once("kernel/sched/core.c",
     "static int\ntry_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,\n\t       int sibling_count_hint)\n{",
@@ -252,7 +261,7 @@ replace_once("kernel/sched/core.c",
     "WALT task sleep timestamp")
 replace_once("kernel/sched/core.c",
     "\t\tperf_event_task_migrate(p);\n\t}\n\n\t__set_task_cpu(p, new_cpu);",
-    "\t\tperf_event_task_migrate(p);\n#ifdef CONFIG_SCHED_WALT\n\t\twalt_fixup_busy_time(p, new_cpu);\n#endif\n\t}\n\n\t__set_task_cpu(p, new_cpu);",
+    "\t\tperf_event_task_migrate(p);\n#ifdef CONFIG_SCHED_WALT\n\t\tif (p->state == TASK_WAKING)\n\t\t\twalt_fixup_busy_time(p, new_cpu);\n#endif\n\t}\n\n\t__set_task_cpu(p, new_cpu);",
     "WALT task migration fixup")
 replace_region("kernel/sched/core.c",
     "int sched_cpu_dying(unsigned int cpu)", "\n#endif",
@@ -291,7 +300,7 @@ replace_once("kernel/sysctl.c",
 # Structural checks prevent a PASS if any critical integration path is absent.
 checks = {
     "kernel/sched/walt.c": ["void walt_update_task_ravg", "void walt_fixup_busy_time", "void walt_account_irqtime"],
-    "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
+    "kernel/sched/core.c": ["walt_try_to_wake_up(p);", "walt_set_window_start(rq, &rf);", "walt_fixup_busy_time(p, new_cpu);", "walt_fixup_busy_time(p, cpu);", "double_rq_lock(rq, dst_rq);", "walt_update_task_ravg(prev, rq, PUT_PREV_TASK"],
     "kernel/sched/fair.c": ["walt_inc_cumulative_runnable_avg(rq, p);", "walt_dec_cumulative_runnable_avg(rq, p);", "walt_cpu_high_irqload(cpu)"],
     "kernel/sched/walt.c": ["walt_cpu_freq_util(struct rq *rq)"],\n    "kernel/sched/fair.c": ["cumulative_runnable_avg", "p->ravg.demand"],
     "kernel/sysctl.c": ['"sched_use_walt_cpu_util"', '"sched_use_walt_task_util"', '"sched_walt_cpu_high_irqload"'],
