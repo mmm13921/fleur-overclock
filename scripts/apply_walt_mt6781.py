@@ -60,11 +60,6 @@ for name in ("walt.c", "walt.h"):
             "extern unsigned int sysctl_sched_walt_cpu_high_irqload;\n"
             "extern unsigned int sysctl_sched_use_walt_cpu_util;\n"
             "extern unsigned int sysctl_sched_use_walt_task_util;\n"
-            "#ifdef CONFIG_SCHED_WALT\n"
-            "extern unsigned long walt_cpu_freq_util(struct rq *rq);\n"
-            "#else\n"
-            "static inline unsigned long walt_cpu_freq_util(struct rq *rq) { return 0; }\n"
-            "#endif\n"
             + marker, 1)
     (sched_dir / name).write_text(text)
 changes += ["full Fleur 4.14 WALT engine", "WALT API header"]
