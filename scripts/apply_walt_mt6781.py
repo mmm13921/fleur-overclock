@@ -54,7 +54,7 @@ if "void walt_enqueue_task(" in s:
 if marker in s:
     s = s.replace(marker, api + marker)
 else:
-    s = s.rstrip() + "\n" + api.lstrip("\n")
+    s = s.rstrip() + "\n" + api.strip("\n") + "\n"
 p.write_text(s)
 changes.append("scheduler WALT API")
 
