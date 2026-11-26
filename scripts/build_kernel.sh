@@ -75,8 +75,9 @@ python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
+  python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
   python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" | tee "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
@@ -93,7 +94,7 @@ make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_I
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$LOCALVERSION"
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT --enable SCHED_HMP --enable MTK_SCHED_EXTENSION
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable IRQ_TIME_ACCOUNTING
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_WALT
   "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
@@ -102,7 +103,9 @@ fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
 if [[ "$BUILD_PROFILE" == "meys-v12-walt-mt6781" ]]; then
-  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config"
+  grep -qx "CONFIG_SCHED_HMP=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_MTK_SCHED_EXTENSION=y" "$OUT_DIR/.config" || { echo "CONFIG_MTK_SCHED_EXTENSION did not survive olddefconfig." >&2; exit 1; } || { echo "CONFIG_SCHED_WALT did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for WALT IRQ load accounting." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_WALT did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL is required for the EAS governor-change callback." >&2; exit 1; }

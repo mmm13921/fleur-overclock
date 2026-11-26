@@ -98,3 +98,12 @@ The dedicated WALT CPUFreq governor (separate from schedutil) also inherits two 
 Qualcomm-only names such as related-thread-group controls, user hints, core_ctl thresholds and Qualcomm cluster-frequency controls are not presented as supported MT6781 parameters. They require separate MTK implementations and are not part of this ABI.
 
 A successful compile verifies only that the code links. Validate each sysctl on-device by reading its initial value, testing the documented bounds, writing a valid alternate value, confirming the corresponding WALT code path changes, and restoring the default. Also verify WALT accounting consistency across fork/exit, migration, suspend/resume, CPU hotplug and both MTK CPUFreq policies.
+
+
+## Native Fleur HMP integration
+
+The MT6781 profile backports the Fleur 4.14 HMP policy into Fleux V12. WALT task demand is normalized to the 0..1024 range and exposed through HMP `loadwop_avg`; CFS enqueue/dequeue accounting, fork/wake placement, idle pull, periodic up-migration, cluster-domain initialization, and CPU hotplug hooks are integrated.
+
+Runtime mode control remains `/proc/sys/kernel/sched_cpu_mode`: `0` selects HMP, `1` selects the existing Fleux EAS path, and `2` uses EAS until the root domain is overutilized, then HMP. The existing MTK core-control path is retained. Qualcomm-specific RTG and Qualcomm core_ctl are not part of the Fleur MTK 4.14 reference and are not represented as ported.
+
+CI verifies source integration and compilation only; it cannot establish device boot, radio, thermal, or benchmark correctness.

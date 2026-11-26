@@ -173,6 +173,46 @@ static void walt_fixup_cumulative_runnable_avg_fair(struct rq *rq,
 \t\t\t\t\t\t    struct task_struct *p,
 \t\t\t\t\t\t    u64 new_task_load)
 {
+#ifdef CONFIG_SCHED_HMP
+	if (walt_ravg_window > (1ULL << SCHED_CAPACITY_SHIFT)) {
+		u32 hmp_old = p->se.avg.loadwop_avg;
+		u32 hmp_new = min_t(u64,
+			div64_u64(new_task_load,
+				  walt_ravg_window >> SCHED_CAPACITY_SHIFT),
+			SCHED_CAPACITY_SCALE);
+		s64 hmp_delta = (s64)hmp_new - hmp_old;
+		struct sched_entity *hse;
+
+		p->se.avg.loadwop_avg = hmp_new;
+		p->se.avg.loadwop_sum = hmp_new;
+		if (p->on_rq == TASK_ON_RQ_QUEUED && hmp_delta) {
+			for_each_sched_entity(hse) {
+				struct cfs_rq *hcfs = cfs_rq_of(hse);
+
+				if (hse != &p->se) {
+					if (hmp_delta > 0) {
+						hse->avg.loadwop_avg += hmp_delta;
+						hse->avg.loadwop_sum += hmp_delta;
+					} else {
+						hse->avg.loadwop_avg -= min_t(unsigned long,
+							hse->avg.loadwop_avg, -hmp_delta);
+						hse->avg.loadwop_sum -= min_t(unsigned long,
+							hse->avg.loadwop_sum, -hmp_delta);
+					}
+				}
+				if (hmp_delta > 0) {
+					hcfs->avg.loadwop_avg += hmp_delta;
+					hcfs->avg.loadwop_sum += hmp_delta;
+				} else {
+					hcfs->avg.loadwop_avg -= min_t(unsigned long,
+						hcfs->avg.loadwop_avg, -hmp_delta);
+					hcfs->avg.loadwop_sum -= min_t(unsigned long,
+						hcfs->avg.loadwop_sum, -hmp_delta);
+				}
+			}
+		}
+	}
+#endif
 #ifdef CONFIG_CFS_BANDWIDTH
 \tstruct cfs_rq *cfs_rq;
 \tstruct sched_entity *se = &p->se;
