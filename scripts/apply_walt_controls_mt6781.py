@@ -95,8 +95,8 @@ extra = '''\t{
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
-\t\t.extra1\t\t= SYSCTL_ZERO,
-\t\t.extra2\t\t= &one,
+\t\t.extra1\t\t= &walt_sysctl_zero,
+\t\t.extra2\t\t= &walt_sysctl_one,
 \t},'''
 if data.count(anchor) != 1:
     raise SystemExit("WALT IRQ threshold sysctl anchor missing or duplicated")
@@ -142,7 +142,7 @@ entries = '''
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
 \t\t.extra1\t\t= &one,
-\t\t.extra2\t\t= &five,
+\t\t.extra2\t\t= &walt_sysctl_five,
 \t},
 \t{
 \t\t.procname\t= "sched_walt_window_stats_policy",
@@ -151,7 +151,7 @@ entries = '''
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_dointvec_minmax,
 \t\t.extra1\t\t= SYSCTL_ZERO,
-\t\t.extra2\t\t= &three,
+\t\t.extra2\t\t= &walt_sysctl_three,
 \t},
 \t{
 \t\t.procname\t= "sched_walt_account_wait_time",
