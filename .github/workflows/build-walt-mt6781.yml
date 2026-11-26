@@ -78,6 +78,7 @@ jobs:
           unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
       - name: Publish experimental WALT prerelease
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: meys-v12-walt-mt6781-${{ github.run_number }}
@@ -100,9 +101,10 @@ jobs:
             artifacts/waltgov-mt6781-audit.txt
             artifacts/WALT-MT6781-SHA256.txt
       - name: Upload build artifacts
+        if: always() && !cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: meys-v12-walt-mt6781
           path: artifacts/
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 30
