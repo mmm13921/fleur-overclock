@@ -73,9 +73,18 @@ edit(
     "extern unsigned int sysctl_sched_walt_freq_account_wait_time;\n"
     "extern unsigned int sysctl_sched_walt_io_is_busy;\n"
     "extern unsigned int walt_ravg_window;\n"
-    "extern bool walt_disabled;\n",
+    "extern int walt_disabled;\n",
     "WALT parameter declarations",
 )
+# Linux 4.19 has no proc_dobool handler. Use an int-backed boolean state so
+# proc_dointvec reads exactly sizeof(int).
+edit(
+    "kernel/sched/walt.c",
+    "bool __read_mostly walt_disabled = false;",
+    "int __read_mostly walt_disabled = 0;",
+    "WALT disabled state 4.19 sysctl compatibility",
+)
+
 
 # Add explicit bounds for writable controls and read-only introspection for
 # the boot-time window and disabled state. These are genuine live variables,
@@ -190,9 +199,9 @@ entries = '''
 \t{
 \t\t.procname\t= "sched_walt_disabled",
 \t\t.data\t\t= &walt_disabled,
-\t\t.maxlen\t\t= sizeof(bool),
+\t\t.maxlen\t\t= sizeof(int),
 \t\t.mode\t\t= 0444,
-\t\t.proc_handler\t= proc_dobool,
+\t\t.proc_handler\t= proc_dointvec,
 \t},\n'''
 data = data[:irq_end] + entries + data[irq_end + len("\n\t},"):]
 sysctl.write_text(data)
