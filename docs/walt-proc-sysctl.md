@@ -53,7 +53,7 @@ The current MT6781 branch deliberately exports `sched_use_walt_cpu_util` and `sc
 1. Task/runqueue state, fork initialization, CFS enqueue/dequeue, demand history and window accounting are ported; migration lifetime and lock correctness still require stress testing.
 2. Wakeup, local wakeup, fork, task-start, context-switch, tick, migration, CPU-hotplug and IRQ hooks are integrated; suspend/resume and race behavior need device validation.
 3. WALT task/CPU utilization and an MTK-policy-aware CPUFreq governor are integrated, with PELT fallback controls retained.
-4. WALT demand is fed into existing scheduler utilization paths and IRQ-heavy EAS candidate filtering; this is not a complete Qualcomm HMP/core_ctl port.
+4. WALT demand is fed into scheduler placement and IRQ-heavy EAS candidate filtering; the dedicated governor consumes execution-window busy time. This is not a complete Qualcomm HMP/core_ctl port.
 5. WALT governor uses the native MTK CPUFreq policy masks; frequency tables and thermal protections remain native.
 6. Fleur-native tuning variables and MT6781 utilization switches are exposed with bounds; the window and disabled state are read-only.
 7. CI compile, ZIP integrity and static audits must pass; device boot and live sysctl behavior remain unverified until tested on fleur.
@@ -66,7 +66,7 @@ The build harness now applies `scripts/apply_walt_mt6781.py` to the pinned Fleux
 - Per-task current/previous 20 ms execution windows and normalized WALT demand.
 - Per-runqueue aggregate runnable WALT demand.
 - Accounting hooks at CFS enqueue, dequeue, and runtime update.
-- WALT-aware schedutil utilization using the greater of PELT CFS utilization and WALT runnable demand, scaled to the CPU's original capacity.
+- WALT placement utilization from cumulative runnable task demand, with the candidate task removed for `cpu_util_without()`. A dedicated MTK-policy-aware `walt` CPUFreq governor consumes the greater of current and previous WALT execution-window busy-time sums; PELT remains the fallback when WALT is disabled.
 - PELT remains enabled; WALT is opt-in through `CONFIG_SCHED_WALT`.
 
 This is a real accounting/schedutil integration stage, not full Qualcomm WALT/HMP parity. It intentionally does not import Qualcomm cluster topology, core_ctl, related-thread groups, user hints, migration heuristics, IRQ accounting, or the runtime WALT sysctl ABI. CPU placement remains the existing MTK scheduler/HMP/PELT path. The build workflow is `.github/workflows/build-walt-mt6781.yml`; it builds the exact pinned V12 commit, packages an experimental AnyKernel3 ZIP, and publishes a prerelease only if compilation and packaging succeed.
@@ -93,7 +93,7 @@ The controls below are sourced from the pinned Fleur 4.14 implementation or are 
 | `sched_walt_ravg_window` | 20 ms | RO | Effective tick-adjusted WALT window; set at boot with `walt_ravg_window=`. |
 | `sched_walt_disabled` | 0 | RO | Reports whether invalid boot-time window configuration disabled WALT. |
 
-The WALT CPUFreq governor also inherits two live per-policy sysfs controls from Fleux schedutil: `/sys/devices/system/cpu/cpufreq/policyX/walt/up_rate_limit_us` and `/sys/devices/system/cpu/cpufreq/policyX/walt/down_rate_limit_us`. Both are in microseconds and control the minimum delay for frequency increases and decreases respectively; their initial values are taken from the MTK policy transition delay in the base governor, not hard-coded by this port. The governor uses each policy's own related-CPU mask, so LITTLE and big policies remain independent.\n\nThe five native internal Fleur tuning variables (history size, history policy, wait-time accounting, frequency wait-time accounting and I/O-busy accounting) are now exported with explicit bounds. The effective window is intentionally read-only: changing it live would invalidate task histories and per-runqueue window sums. The disabled flag is also read-only; exposing a writable global enable switch without synchronously resetting all task/runqueue accounting would be unsafe.
+The dedicated WALT CPUFreq governor (separate from schedutil) also inherits two live per-policy sysfs controls from Fleux schedutil: `/sys/devices/system/cpu/cpufreq/policyX/walt/up_rate_limit_us` and `/sys/devices/system/cpu/cpufreq/policyX/walt/down_rate_limit_us`. Both are in microseconds and control the minimum delay for frequency increases and decreases respectively; their initial values are taken from the MTK policy transition delay in the base governor, not hard-coded by this port. The governor uses each policy's own related-CPU mask, so LITTLE and big policies remain independent.\n\nThe five native internal Fleur tuning variables (history size, history policy, wait-time accounting, frequency wait-time accounting and I/O-busy accounting) are now exported with explicit bounds. The effective window is intentionally read-only: changing it live would invalidate task histories and per-runqueue window sums. The disabled flag is also read-only; exposing a writable global enable switch without synchronously resetting all task/runqueue accounting would be unsafe.
 
 Qualcomm-only names such as related-thread-group controls, user hints, core_ctl thresholds and Qualcomm cluster-frequency controls are not presented as supported MT6781 parameters. They require separate MTK implementations and are not part of this ABI.
 
