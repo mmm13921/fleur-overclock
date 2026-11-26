@@ -132,6 +132,7 @@ print(
     "utilization=current/previous WALT execution-window busy time plus RT/DL/IRQ/uclamp accounting\n"
     "policies=dynamic cpufreq policy masks; LITTLE and big policies handled independently\n"
     "frequency_tables=unchanged; existing MTK cpufreq driver and OPP tables retained\n"
-    "tunables=up_rate_limit_us,down_rate_limit_us\n"\n    "eas_callback=base schedutil callback recognizes WALT governor changes\n"
+    "tunables=up_rate_limit_us,down_rate_limit_us\n"
+    "eas_callback=base schedutil callback recognizes WALT governor changes\n"
     "fallback=schedutil remains available\n"
 )
