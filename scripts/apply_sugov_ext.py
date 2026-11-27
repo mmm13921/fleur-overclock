@@ -37,6 +37,7 @@ ext = re.sub(r'\bschedutil_cpu_util\b', 'sugov_ext_schedutil_cpu_util', ext)
 ext = re.sub(r'\bschedutil_set_', 'sugov_ext_set_', ext)
 ext = re.sub(r'\bschedutil_gov\b', 'sugov_ext_gov', ext)
 ext = re.sub(r'\bsugov(?=_|[A-Za-z])', 'sugov_ext', ext)
+ext = ext.replace('= "schedutil",', '= "sugov_ext",', 1)
 
 # The default governor accessor and EAS callback are singleton core interfaces:
 # keep them in cpufreq_schedutil.c, never duplicate them in the cloned object.
@@ -75,7 +76,7 @@ static ssize_t target_load_show(struct gov_attr_set *attr_set, char *buf)
 {
 	struct sugov_ext_tunables *tunables = to_sugov_ext_tunables(attr_set);
 
-	return sprintf(buf, "%u\\n", READ_ONCE(tunables->target_load));
+	return sprintf(buf, "%u\n", READ_ONCE(tunables->target_load));
 }
 
 static ssize_t target_load_store(struct gov_attr_set *attr_set,
@@ -135,7 +136,7 @@ plus_ext = plus_ext.replace(plus_anchor,
 # 4.19 uses sprintf/scnprintf; sysfs_emit is deliberately not introduced.
 if "sysfs_emit(" in ext or "sysfs_emit(" in plus_ext:
     raise SystemExit("SUGOV_EXT: post-5.10 sysfs API leaked into 4.19 clone")
-if '.name\t\t\t= "sugov_ext"' not in ext:
+if '.name' not in ext or '"sugov_ext"' not in ext:
     raise SystemExit("SUGOV_EXT: independent governor name was not cloned")
 if "EXPORT_SYMBOL(sugov_ext_notifier_fp)" not in ext:
     raise SystemExit("SUGOV_EXT: notifier symbol was not independently renamed")
@@ -194,7 +195,7 @@ makefile.write_text(ms_new)
 written = (root / "kernel/sched/cpufreq_sugov_ext.c").read_text()
 written_plus = (root / "kernel/sched/cpufreq_sugov_ext_plus.c").read_text()
 checks = {
-    "separate governor registration": '.name\\t\\t\\t= "sugov_ext"' in written,
+    "separate governor registration": '.name' in written and '"sugov_ext"' in written,
     "separate notifier symbol": "EXPORT_SYMBOL(sugov_ext_notifier_fp)" in written,
     "target_load sysfs": "&target_load.attr" in written and "target_load_store" in written,
     "target_load default": "tunables->target_load = 80;" in written,
@@ -215,17 +216,17 @@ if failed:
 
 audit.parent.mkdir(parents=True, exist_ok=True)
 audit.write_text(
-    "result=PASS\\n"
-    "target=Fleux V12 Linux 4.19.325 MT6781\\n"
-    "implementation=independent cloned SUGOV_EXT governor\\n"
-    "governor_name=sugov_ext\\n"
-    "default_governor=schedutil (unchanged)\\n"
-    "target_load=default 80; accepted range 1..100; sysfs read/write\\n"
-    "rate_limits=independent up_rate_limit_us and down_rate_limit_us\\n"
-    "opp_mapping=Fleux MTK nonlinear mtk_map_util_freq path retained\\n"
-    "scheduler_hooks=4.19 schedutil update-util, IOWAIT, fast-switch and deferred update retained\\n"
-    "eas=single original callback recognizes schedutil and sugov_ext\\n"
-    "sysfs_api=4.19 compatible; no sysfs_emit\\n"
-    "hardware_validation=not performed by CI\\n"
+    "result=PASS\n"
+    "target=Fleux V12 Linux 4.19.325 MT6781\n"
+    "implementation=independent cloned SUGOV_EXT governor\n"
+    "governor_name=sugov_ext\n"
+    "default_governor=schedutil (unchanged)\n"
+    "target_load=default 80; accepted range 1..100; sysfs read/write\n"
+    "rate_limits=independent up_rate_limit_us and down_rate_limit_us\n"
+    "opp_mapping=Fleux MTK nonlinear mtk_map_util_freq path retained\n"
+    "scheduler_hooks=4.19 schedutil update-util, IOWAIT, fast-switch and deferred update retained\n"
+    "eas=single original callback recognizes schedutil and sugov_ext\n"
+    "sysfs_api=4.19 compatible; no sysfs_emit\n"
+    "hardware_validation=not performed by CI\n"
 )
 print(audit.read_text(), end="")
