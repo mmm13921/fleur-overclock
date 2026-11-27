@@ -20,6 +20,8 @@ bash "$CONFIG_TOOL" --file "$CONFIG" \
   --enable FAIR_GROUP_SCHED \
   --enable CFS_BANDWIDTH \
   --enable CGROUP_PIDS \
+  --enable PERF_EVENTS \
+  --enable CGROUP_PERF \
   --enable UCLAMP_TASK_GROUP \
   --enable PSI \
   --enable CGROUP_RDMA \
