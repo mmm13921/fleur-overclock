@@ -31,7 +31,7 @@ def require(names, actual, label):
         raise SystemExit(label + " missing implemented controls: " + ",".join(missing))
 def optional_config(name):
     return "y" if enabled(name) else "not-enabled"
-required_config = ["CGROUPS", "CPUSETS", "MEMCG", "BLK_CGROUP", "CGROUP_SCHED", "FAIR_GROUP_SCHED", "CFS_BANDWIDTH", "CGROUP_PIDS"]
+required_config = ["CGROUPS", "CPUSETS", "MEMCG", "BLK_CGROUP", "CGROUP_SCHED", "FAIR_GROUP_SCHED", "CFS_BANDWIDTH", "CGROUP_PIDS", "PERF_EVENTS", "CGROUP_PERF"]
 missing_cfg = [x for x in required_config if not enabled(x)]
 if missing_cfg:
     raise SystemExit("Required cgroup configuration missing: " + ",".join(missing_cfg))
@@ -97,6 +97,10 @@ core_required = ["type", "procs", "threads", "controllers", "subtree_control", "
 require(["cgroup." + x for x in core_required] + ["cpu.stat"], core_names, "cgroup core")
 if "cgroup2_fs_type" not in core_src:
     raise SystemExit("cgroup2 filesystem implementation is missing")
+perf_rel = "kernel/events/core.c"
+perf_src = source(perf_rel)
+if "struct cgroup_subsys perf_event_cgrp_subsys" not in perf_src or ".implicit_on_dfl = true" not in perf_src:
+    raise SystemExit("perf_event cgroup v2 implicit registration is missing")
 
 psi_names = {"cpu.pressure", "io.pressure", "memory.pressure"}
 psi_active = enabled("PSI")
@@ -116,6 +120,7 @@ lines = [
     "memory_controller=" + ",".join(sorted("memory." + x for x in mem_names)),
     "memory_swap_v2=not-registered-in-target-v2-table",
     "pids_controller=" + ",".join(sorted("pids." + x for x in pids_names)),
+    "perf_event_controller=implicit_on_dfl;perf_event_open-cgroup-fd-filtering;no-cftype-files",
     "rdma_controller_config=" + optional_config("CGROUP_RDMA"),
     "rdma_controls=" + (",".join(sorted("rdma." + x for x in rdma_names)) if enabled("CGROUP_RDMA") else "not-enabled"),
     "psi_config=" + optional_config("PSI"),
