@@ -34,7 +34,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: limit-60-${{ github.ref }}
+  group: limit-62-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build-and-package:
