@@ -83,10 +83,12 @@ registered(pids_src, "pids_cgrp_subsys", "pids_files", pids_rel)
 require(["max", "current", "events"], pids_names, "pids")
 
 rdma_rel = "kernel/cgroup/rdma.c"
-rdma_src = source(rdma_rel)
-rdma_names = table(rdma_src, "rdmacg_files", rdma_rel)
-registered(rdma_src, "rdma_cgrp_subsys", "rdmacg_files", rdma_rel)
-require(["max", "current"], rdma_names, "rdma")
+rdma_names = set()
+if enabled("CGROUP_RDMA"):
+    rdma_src = source(rdma_rel)
+    rdma_names = table(rdma_src, "rdmacg_files", rdma_rel)
+    registered(rdma_src, "rdma_cgrp_subsys", "rdmacg_files", rdma_rel)
+    require(["max", "current"], rdma_names, "rdma")
 
 core_rel = "kernel/cgroup/cgroup.c"
 core_src = source(core_rel)
@@ -115,7 +117,7 @@ lines = [
     "memory_swap_v2=not-registered-in-target-v2-table",
     "pids_controller=" + ",".join(sorted("pids." + x for x in pids_names)),
     "rdma_controller_config=" + optional_config("CGROUP_RDMA"),
-    "rdma_controls=" + ",".join(sorted("rdma." + x for x in rdma_names)),
+    "rdma_controls=" + (",".join(sorted("rdma." + x for x in rdma_names)) if enabled("CGROUP_RDMA") else "not-enabled"),
     "psi_config=" + optional_config("PSI"),
     "psi_controls=" + (",".join(sorted(psi_names)) if psi_active else "not-enabled"),
     "bpf_cgroup_config=" + optional_config("CGROUP_BPF"),
