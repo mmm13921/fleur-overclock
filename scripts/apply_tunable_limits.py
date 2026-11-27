@@ -59,13 +59,13 @@ replace_exact(
 )
 replace_exact(
     r"static int max_sched_granularity_ns\s*=\s*NSEC_PER_SEC\s*;",
-    "static int max_sched_granularity_ns = INT_MAX;",
-    "maximum scheduler granularity",
+    "",
+    "maximum scheduler granularity declaration",
 )
 replace_exact(
     r"static int max_wakeup_granularity_ns\s*=\s*NSEC_PER_SEC\s*;",
-    "static int max_wakeup_granularity_ns = INT_MAX;",
-    "maximum wakeup granularity",
+    "",
+    "maximum wakeup granularity declaration",
 )
 
 entries = []
