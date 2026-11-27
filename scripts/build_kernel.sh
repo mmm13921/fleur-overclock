@@ -77,6 +77,9 @@ if [[ "$ACTUAL_SOURCE_COMMIT" != "$EXPECTED_SOURCE_COMMIT" ]]; then
   echo "Expected pinned commit: $EXPECTED_SOURCE_COMMIT" >&2
   exit 2
 fi
+python3 -m py_compile "$WORKSPACE/patches/sysctl-unlimit/apply_sysctl_unlimit.py"
+python3 "$WORKSPACE/patches/sysctl-unlimit/apply_sysctl_unlimit.py" "$SRC_DIR" "$ARTIFACT_DIR/sysctl-unlimit-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/sysctl-unlimit-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
   python3 "$WORKSPACE/scripts/apply_capacity_margin_zero.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
@@ -234,7 +237,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then echo "schedutil_static_capacity_audit=schedutil-static-capacity-audit.txt"; fi
-  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md"
+  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/sysctl-unlimit-audit.txt" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md"
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/conservative-governor-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/conservative-governor-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"; fi
