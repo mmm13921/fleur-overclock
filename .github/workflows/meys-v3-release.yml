@@ -43,7 +43,7 @@ jobs:
           test -s dist/LIMIT-62.zip
           unzip -t dist/LIMIT-62.zip
           test -s dist/LIMIT-62-SHA256.txt
-          (cd dist && sha256sum -c LIMIT-62-SHA256.txt)
+          (cd dist && awk '{print $1 "  LIMIT-62.zip"}' LIMIT-62-SHA256.txt | sha256sum -c -)
       - name: Replace MEYS V3 release asset and mark latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
