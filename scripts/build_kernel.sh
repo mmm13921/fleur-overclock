@@ -182,6 +182,8 @@ fi
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
 grep -qx "result=PASS" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
 cp "$WORKSPACE/scripts/check_cgroup_runtime.sh" "$ARTIFACT_DIR/check-cgroup-runtime.sh"
+cp "$WORKSPACE/scripts/cpuset_v2.sh" "$ARTIFACT_DIR/cpuset_v2.sh"
+cp "$WORKSPACE/docs/cpuset-v2-runtime.md" "$ARTIFACT_DIR/cpuset-v2-runtime.md"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 python3 "$WORKSPACE/scripts/audit_android_storage.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
 grep -qx "CONFIG_QUOTA=y" "$OUT_DIR/.config"
@@ -221,6 +223,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   fi
   echo "capacity_margin=1 in EAS capacity_margin, MTK fits_capacity, and Fleur HMP native capacity guard"
   echo "cgroup_v2=source-verified core, CPU, CPUSET, IO, memory and PID interfaces; see cgroup-interface-audit.txt"
+  echo "cpuset_v2_runtime=explicit helper included as cpuset_v2.sh; supports status, enable, create, set, attach, show and remove; no boot-time changes"
   echo "scheduler_modes=Fleur 4.14 native HMP + existing Fleux EAS; runtime selector supports HMP/EAS/Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
@@ -257,7 +260,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo
   if [[ -f "$ARTIFACT_DIR/capacity-margin-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/capacity-margin-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then echo "schedutil_static_capacity_audit=schedutil-static-capacity-audit.txt"; fi
-  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md" "$ARTIFACT_DIR/cgroup-interface-audit.txt" "$ARTIFACT_DIR/check-cgroup-runtime.sh"
+  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md" "$ARTIFACT_DIR/cgroup-interface-audit.txt" "$ARTIFACT_DIR/check-cgroup-runtime.sh" "$ARTIFACT_DIR/cpuset_v2.sh" "$ARTIFACT_DIR/cpuset-v2-runtime.md"
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/conservative-governor-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/conservative-governor-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"; fi
