@@ -1,0 +1,55 @@
+name: MEYS V4
+run-name: MEYS V4 release — Build 62
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/meys-v4-release.yml'
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful LIMIT-62 workflow run ID
+        required: true
+        default: "46044886463"
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build 62 artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          run_id: ${{ inputs.run_id || '46044886463' }}
+          name: LIMIT-62
+          path: dist
+          if_no_artifact_found: fail
+      - name: Verify release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/LIMIT-62.zip
+          unzip -t dist/LIMIT-62.zip
+          test -s dist/LIMIT-62-SHA256.txt
+          (cd dist && awk '{print $1 "  LIMIT-62.zip"}' LIMIT-62-SHA256.txt | sha256sum -c -)
+      - name: Publish MEYS V4 and mark latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: mmm13921/fleur-overclock
+        run: |
+          set -euo pipefail
+          NOTES="Fleux V12 / Linux 4.19.325 kernel for Redmi Note 11S 4G (fleur / MT6781).
+
+          Build 62 AnyKernel3 ZIP. EAS, MTK fits_capacity and HMP capacity margins are restored to their stock/default value (1280).
+
+          Build completion and package integrity are verified by GitHub Actions. Device boot and stability still require on-device validation. Keep a known-good boot image for recovery."
+          if gh release view meys-v4 >/dev/null 2>&1; then
+            gh release upload meys-v4 dist/LIMIT-62.zip dist/LIMIT-62-SHA256.txt --clobber
+            gh release edit meys-v4 --title "MEYS V4 — BUILD 62" --notes "$NOTES" --latest
+          else
+            gh release create meys-v4 dist/LIMIT-62.zip dist/LIMIT-62-SHA256.txt --title "MEYS V4 — BUILD 62" --notes "$NOTES" --target 40f776403ff241c895b326bbdd9289b22aae65cf --latest
+          fi
