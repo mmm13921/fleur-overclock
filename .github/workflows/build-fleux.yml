@@ -1,9 +1,9 @@
-name: Fleux V12 MT6781 modem resume test
-run-name: Meys modem resume test build ${{ github.run_number }}
+name: MEYS-63 | Fleux V12 MT6781 stability build
+run-name: MEYS-63 | Build #63
 on:
   push:
     branches:
-      - meys-v12-modem-resume-guard
+      - meys-63
     paths:
       - '.github/workflows/build-fleux.yml'
       - 'scripts/build_kernel.sh'
@@ -21,8 +21,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
-      SOURCE_REF: v12
+      SOURCE_REF: lineage-24.0
       BUILD_PROFILE: meys-v12-stability-no-sdcardfs
+      BUILD_LABEL: MEYS-63
     steps:
       - name: Check out builder
         uses: actions/checkout@v4
@@ -46,7 +47,7 @@ jobs:
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
       - name: Build pinned Fleux V12 stability profile
-        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE" "$BUILD_LABEL"
       - name: Fetch pinned upstream AnyKernel3 framework
         env:
           AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
@@ -67,7 +68,7 @@ jobs:
           cp docs/modem-resume-comparison.md "$AK_DIR/modem-resume-comparison.md"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-Modem-Resume-Guard.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-63-AnyKernel3.zip" \
               META-INF tools LICENSE anykernel.sh Image.gz-dtb \
               kernel.config build-manifest.txt modem-pm-audit.txt \
               modem-resume-comparison.md
@@ -78,7 +79,7 @@ jobs:
       - name: Upload kernel image, flashable ZIP, and comparison evidence
         uses: actions/upload-artifact@v4
         with:
-          name: meys-v12-modem-resume-guard
+          name: MEYS-63
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
