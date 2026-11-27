@@ -115,6 +115,7 @@ def entries(source: str, opening: int, closing: int):
             i += 1
 
 def edit_table(source: str, table_name: str, audit: list[str]) -> tuple[str, int]:
+    scope = "kernel" if table_name == "kern_table" else "vm"
     opening, closing = table_span(source, table_name)
     changes = []
     for start, end in entries(source, opening, closing):
@@ -127,26 +128,26 @@ def edit_table(source: str, table_name: str, audit: list[str]) -> tuple[str, int
         handler = handler_match.group(1) if handler_match else "none"
         if not re.search(r"\.maxlen\s*=\s*sizeof\s*\(", block):
             continue
-        if name in PROTECTED[table_name]:
+        if name in PROTECTED[scope]:
             if ".extra1" in block or ".extra2" in block:
-                audit.append(f"{table_name}.{name}: PRESERVED ({PROTECTED[table_name][name]})")
+                audit.append(f"{scope}.{name}: PRESERVED ({PROTECTED[scope][name]})")
             continue
         if handler not in GENERIC_HANDLERS:
             if ".extra1" in block or ".extra2" in block:
                 audit.append(f"{table_name}.{name}: CUSTOM_HANDLER_BOUNDS_PRESERVED ({handler})")
             continue
         old = block
-        if table_name == "kernel" and name == "printk_delay":
+        if scope == "kernel" and name == "printk_delay":
             block = re.sub(r"^\s*\.extra2\s*=\s*[^,]+,\s*\n", "", block, flags=re.M)
         else:
             block = re.sub(r"^\s*\.extra[12]\s*=\s*[^,]+,\s*\n", "", block, flags=re.M)
         if block != old:
-            audit.append(f"{table_name}.{name}: ARTIFICIAL_BOUNDS_REMOVED ({handler})")
+            audit.append(f"{scope}.{name}: ARTIFICIAL_BOUNDS_REMOVED ({handler})")
             changes.append((start, end + 1, block))
         elif ".extra1" in block or ".extra2" in block:
-            audit.append(f"{table_name}.{name}: REVIEW_REQUIRED ({handler})")
+            audit.append(f"{scope}.{name}: REVIEW_REQUIRED ({handler})")
         else:
-            audit.append(f"{table_name}.{name}: ALREADY_UNBOUNDED ({handler})")
+            audit.append(f"{scope}.{name}: ALREADY_UNBOUNDED ({handler})")
     for start, end, replacement in reversed(changes):
         source = source[:start] + replacement + source[end:]
     return source, len(changes)
