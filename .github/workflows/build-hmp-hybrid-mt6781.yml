@@ -79,7 +79,7 @@ jobs:
           cp README.md docs/scheduler-modes-port.md docs/schedutil-static-capacity-test.md docs/conservative-governor.md docs/dbs-sampling-rate-unlimited.md docs/sugov-ext-port.md artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-demand-engine-audit.txt artifacts/schedutil-static-capacity-audit.txt artifacts/conservative-governor-audit.txt artifacts/dbs-sampling-rate-audit.txt artifacts/sugov-ext-patch-audit.txt artifacts/sugov-ext-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md schedutil-static-capacity-test.md conservative-governor.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt schedutil-static-capacity-audit.txt conservative-governor-audit.txt dbs-sampling-rate-audit.txt dbs-sampling-rate-unlimited.md
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md schedutil-static-capacity-test.md conservative-governor.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt schedutil-static-capacity-audit.txt conservative-governor-audit.txt dbs-sampling-rate-audit.txt dbs-sampling-rate-unlimited.md sugov-ext-port.md sugov-ext-patch-audit.txt sugov-ext-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip" | tee "artifacts/${BUILD_LABEL}-SHA256.txt"
