@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(cputest)
+enable_language(ASM)
+add_library(cputest SHARED native.cpp arm64.S)
+find_library(log-lib log)
+target_link_libraries(cputest ${log-lib})
+target_compile_options(cputest PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-O3;-ffast-math>)
