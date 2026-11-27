@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - LIMIT-62
+      - CAPACITY-MARGIN-TEST-BUILD62
     paths:
       - '.github/workflows/build-hmp-hybrid-mt6781.yml'
       - 'scripts/build_kernel.sh'
