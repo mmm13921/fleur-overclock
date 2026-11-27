@@ -106,8 +106,10 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
-  python3 -m py_compile "$WORKSPACE/scripts/apply_capacity_margin_1.py"
-  python3 "$WORKSPACE/scripts/apply_capacity_margin_1.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
+  python3 -m py_compile "$WORKSPACE/scripts/apply_capacity_margin_1.py" "$WORKSPACE/scripts/apply_capacity_margin_stock.py"
+  python3 "$WORKSPACE/scripts/apply_capacity_margin_1.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-trial-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-trial-audit.txt"
+  python3 "$WORKSPACE/scripts/apply_capacity_margin_stock.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
 fi
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
@@ -179,7 +181,7 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimi
   python3 "$WORKSPACE/scripts/audit_dbs_sampling_rate.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
 fi
-bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR" "$ARTIFACT_DIR/cgroup-interface-audit.txt" "$ARTIFACT_DIR/capacity-margin-audit.txt"
 grep -qx "result=PASS" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
 cp "$WORKSPACE/scripts/check_cgroup_runtime.sh" "$ARTIFACT_DIR/check-cgroup-runtime.sh"
 cp "$WORKSPACE/scripts/cpuset_v2.sh" "$ARTIFACT_DIR/cpuset_v2.sh"
@@ -221,7 +223,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
     echo "capacity_margin=0 in scheduler variable and MTK fits_capacity helper; capacity-based misfit/overutilized thresholds disabled"
   fi
-  echo "capacity_margin=1 in EAS capacity_margin, MTK fits_capacity, and Fleur HMP native capacity guard"
+  echo "capacity_margin=1280 stock default in EAS capacity_margin, MTK fits_capacity, and Fleur HMP native capacity guard"
   echo "cgroup_v2=source-verified core, CPU, CPUSET, IO, memory and PID interfaces; see cgroup-interface-audit.txt"
   echo "cpuset_v2_runtime=explicit helper included as cpuset_v2.sh; supports status, enable, create, set, attach, show and remove; no boot-time changes"
   echo "scheduler_modes=Fleur 4.14 native HMP + existing Fleux EAS; runtime selector supports HMP/EAS/Hybrid"
