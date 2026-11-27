@@ -18,7 +18,8 @@ on:
       - 'scripts/audit_conservative_governor.py'
       - 'scripts/patch_dbs_sampling_rate.py'
       - 'scripts/audit_dbs_sampling_rate.py'
-      - 'scripts/apply_tunable_limits.py scripts/audit_cgroup_interfaces.py'
+      - 'scripts/apply_tunable_limits.py'
+      - 'scripts/audit_cgroup_interfaces.py'
       - 'docs/dbs-sampling-rate-unlimited.md'
       - 'docs/conservative-governor.md'
       - 'docs/schedutil-static-capacity-test.md'
@@ -29,7 +30,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: limit-59-${{ github.ref }}
+  group: limit-60-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build-and-package:
@@ -47,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/build_kernel.sh
-          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_capacity_margin_1.py scripts/apply_schedutil_capacity_frequency.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py scripts/audit_conservative_governor.py scripts/patch_dbs_sampling_rate.py scripts/audit_dbs_sampling_rate.py scripts/apply_tunable_limits.py
+          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_capacity_margin_1.py scripts/apply_schedutil_capacity_frequency.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py scripts/audit_conservative_governor.py scripts/patch_dbs_sampling_rate.py scripts/audit_dbs_sampling_rate.py scripts/apply_tunable_limits.py scripts/audit_cgroup_interfaces.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
