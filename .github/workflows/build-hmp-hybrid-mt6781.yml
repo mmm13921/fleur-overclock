@@ -1,16 +1,17 @@
-name: LIMIT-61
-run-name: LIMIT-61
+name: LIMIT-62
+run-name: LIMIT-62
 # Combined HMP/EAS/Hybrid, schedutil capacity isolation, and built-in Conservative test.
 on:
   push:
     branches:
-      - LIMIT-61
+      - LIMIT-62
     paths:
       - '.github/workflows/build-hmp-hybrid-mt6781.yml'
       - 'scripts/build_kernel.sh'
       - 'scripts/apply_scheduler_modes.py'
       - 'scripts/apply_hmp_mt6781.py'
       - 'scripts/apply_capacity_margin_1.py'
+      - 'scripts/apply_capacity_margin_stock.py'
       - 'scripts/apply_schedutil_capacity_frequency.py'
       - 'scripts/configure_cgroup_v2.sh'
       - 'scripts/audit_cgroup_interfaces.py'
@@ -37,13 +38,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build-and-package:
-    name: LIMIT-61
+    name: LIMIT-62
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
       SOURCE_REF: v12
       BUILD_PROFILE: meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781
-      BUILD_LABEL: LIMIT-61
+      BUILD_LABEL: LIMIT-62
     steps:
       - name: Checkout builder
         uses: actions/checkout@v4
@@ -51,7 +52,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/build_kernel.sh scripts/configure_cgroup_v2.sh scripts/check_cgroup_runtime.sh scripts/cpuset_v2.sh
-          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_capacity_margin_1.py scripts/apply_schedutil_capacity_frequency.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py scripts/audit_conservative_governor.py scripts/patch_dbs_sampling_rate.py scripts/audit_dbs_sampling_rate.py scripts/apply_tunable_limits.py scripts/audit_cgroup_interfaces.py
+          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_capacity_margin_1.py scripts/apply_capacity_margin_stock.py scripts/apply_schedutil_capacity_frequency.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py scripts/audit_conservative_governor.py scripts/patch_dbs_sampling_rate.py scripts/audit_dbs_sampling_rate.py scripts/apply_tunable_limits.py scripts/audit_cgroup_interfaces.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -66,7 +67,7 @@ jobs:
           test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
-      - name: Build LIMIT-61 Kernel
+      - name: Build LIMIT-62 Kernel
         run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE" "$BUILD_LABEL"
       - name: Package flashable AnyKernel3 ZIP
         env:
@@ -92,7 +93,7 @@ jobs:
       - name: Upload build and audit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: LIMIT-61
+          name: LIMIT-62
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
