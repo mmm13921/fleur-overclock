@@ -13,11 +13,11 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: fleux-modem-resume-test-${{ github.ref }}
+  group: meys-build-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build-and-package:
-    name: Build MT6781 modem resume test and AnyKernel3 ZIP
+    name: Build MEYS-63 Fleux V12 kernel and AnyKernel3 ZIP
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
