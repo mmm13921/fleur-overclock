@@ -1,0 +1,50 @@
+name: MEYS V3
+run-name: MEYS V3 release — Build 62
+on:
+  workflow_run:
+    workflows:
+      - LIMIT-62
+    types:
+      - completed
+    branches:
+      - LIMIT-62
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful LIMIT-62 workflow run ID
+        required: true
+        default: "46044886463"
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build 62 artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          run_id: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || github.event.workflow_run.id }}
+          name: LIMIT-62
+          path: dist
+          if_no_artifact_found: fail
+      - name: Verify release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/LIMIT-62.zip
+          unzip -t dist/LIMIT-62.zip
+          test -s dist/LIMIT-62-SHA256.txt
+          (cd dist && sha256sum -c LIMIT-62-SHA256.txt)
+      - name: Replace MEYS V3 release asset and mark latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release view meys-v3 >/dev/null
+          gh release delete-asset meys-v3 LIMIT-57.zip --yes || true
+          gh release upload meys-v3 dist/LIMIT-62.zip dist/LIMIT-62-SHA256.txt --clobber
+          gh release edit meys-v3 --title "MEYS V3 — BUILD 62" --notes "Fleux V12 / Linux 4.19.325 kernel for Redmi Note 11S 4G (fleur / MT6781).\n\nReplaces the previous MEYS V3 Build 57 package with the successful Build 62 AnyKernel3 ZIP. EAS, MTK fits_capacity and HMP capacity margins are restored to their stock/default value (1280).\n\nBuild completion and packaging are verified by GitHub Actions. Device boot and stability still require on-device validation. Keep a known-good boot image for recovery." --latest
