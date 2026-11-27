@@ -11,7 +11,7 @@ make = (root / "kernel/sched/Makefile").read_text()
 kconfig = (root / "kernel/Kconfig.preempt").read_text()
 checks = {
  "CONFIG_CPU_FREQ_GOV_SUGOV_EXT=y": "CONFIG_CPU_FREQ_GOV_SUGOV_EXT=y" in config,
- "independent governor registration": bool(re.search(r'(?m)^\s*\.name\s*=\s*"sugov_ext",?, src)),
+ "independent governor registration": bool(re.search(r'(?m)^\s*\.name\s*=\s*"sugov_ext",?$', src)),
  "target-load sysfs": 'target_load_store' in src and '&target_load.attr' in src,
  "target-load scaling": 'sg_policy->tunables->target_load' in src and 'sg_policy->tunables->target_load' in plus,
  "up/down rate limits": 'up_rate_limit_us' in src and 'down_rate_limit_us' in src,
