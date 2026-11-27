@@ -42,7 +42,11 @@ Header v2, kernel `gzip -9n`, sha1 id recomputed, ramdisk untouched (unless Magi
 
 - `--sched-bounds`: lifts the sysctl bounds of sched_min_granularity_ns (min 100000 -> 0), sched_latency_ns, sched_wakeup_granularity_ns (max 1000000000 -> 2147483647). HyperOS 4.19 5143 offsets: min 0x1a06188, max 0x1a0618c, wakeup max 0x1a06190 (wakeup min is bss 0). 4.14 efdca: min 0x1a06550, max 0x1a06554, wakeup max 0x1a06558. 4.14 Dec34: 0x1cf6620 / 0x1cf6624 / 0x1cf6628.
 - `--sched-u32`: same but max = 4294967295 (~4.29 s): the `bl proc_dointvec_minmax` inside sched_proc_update_handler is retargeted to `proc_douintvec_minmax` and the shared max variables set to 4294967295. If the handler patch cannot be applied the max stays 2147483647.
-- **Queued for the next kernel compile only — do not apply to the current source/build:**\n  - `--irq-affinity-unbound` (Fleux V12 source-level patch): remove artificial CPU-mask restrictions on writable `/proc/irq/<IRQ>/{smp_affinity,smp_affinity_list}` controls so users can select any online CPU permitted by the IRQ chip/controller and kernel affinity rules. Audit the procfs write path, `irq_set_affinity()` / `irq_set_affinity_hint()` callers, managed IRQ handling, and driver-specific affinity masks; do not bypass hardware/controller constraints, managed-IRQ ownership, or online-CPU validation. Preserve correct mask parsing and reject empty/offline-only masks where the kernel requires a valid target. Validate by reading/writing both affinity interfaces on representative IRQs and checking effective affinity in `/proc/irq/<IRQ>/effective_affinity{,_list}`.\n  - `--tunable-min0` (Fleux V12 source-level patch): audit every exposed scheduler, governor (including `schedutil`, `sugov_ext`, `ondemand`, and `conservative`), CPUFreq/DBS, VM, and performance tunable for artificial lower-bound checks; where zero is a valid value, change the effective minimum to `0` and remove matching store/sysctl validation clamps. Explicitly includes `sched_min_granularity_ns` (currently rejected below 100000 ns in the active source path), sampling/granularity controls, and other tunables whose lower limit is only policy-imposed. Preserve each parameter's units, default, upper bound, and ABI. Do not blindly force hardware/firmware limits or parameters that require a positive divisor/period to zero: add zero-safe handling first (no divide-by-zero, underflow, overflow, or busy-loop regressions). Verify runtime read-back for every changed sysfs/sysctl node after boot.\n  - **Execution rule:** these two patches are documentation/queue entries only in this commit. Do not modify source files, patcher logic, kernel config, or the active build workflow for them until the next compile stage is explicitly started.\n- `--vm-bounds`: vm.extfrag_threshold max 1000 -> 2147483647 (min is bss 0). HyperOS 4.19 offset 0x1a06b68.
+- **Queued for the next kernel compile only — do not apply to the current source/build:**
+  - `--irq-affinity-unbound` (Fleux V12 source-level patch): remove artificial CPU-mask restrictions on writable `/proc/irq/<IRQ>/{smp_affinity,smp_affinity_list}` controls so users can select any online CPU permitted by the IRQ chip/controller and kernel affinity rules. Audit the procfs write path, `irq_set_affinity()` / `irq_set_affinity_hint()` callers, managed IRQ handling, and driver-specific affinity masks; do not bypass hardware/controller constraints, managed-IRQ ownership, or online-CPU validation. Preserve correct mask parsing and reject empty/offline-only masks where the kernel requires a valid target. Validate by reading/writing both affinity interfaces on representative IRQs and checking effective affinity in `/proc/irq/<IRQ>/effective_affinity{,_list}`.
+  - `--tunable-min0` (Fleux V12 source-level patch): audit every exposed scheduler, governor (including `schedutil`, `sugov_ext`, `ondemand`, and `conservative`), CPUFreq/DBS, VM, and performance tunable for artificial lower-bound checks; where zero is a valid value, change the effective minimum to `0` and remove matching store/sysctl validation clamps. Explicitly includes `sched_min_granularity_ns` (currently rejected below 100000 ns in the active source path), sampling/granularity controls, and other tunables whose lower limit is only policy-imposed. Preserve each parameter's units, default, upper bound, and ABI. Do not blindly force hardware/firmware limits or parameters that require a positive divisor/period to zero: add zero-safe handling first (no divide-by-zero, underflow, overflow, or busy-loop regressions). Verify runtime read-back for every changed sysfs/sysctl node after boot.
+  - **Execution rule:** these two patches are documentation/queue entries only in this commit. Do not modify source files, patcher logic, kernel config, or the active build workflow for them until the next compile stage is explicitly started.
+- `--vm-bounds`: vm.extfrag_threshold max 1000 -> 2147483647 (min is bss 0). HyperOS 4.19 offset 0x1a06b68.
 - `--od-rate0`: removes the ondemand governor sampling_rate minimum check (store function rejects < 8000 us via lsr #6 / cmp #125 / b.cs -> unconditional branch; b.lo variant for Fleux -> nop). No min_sampling_rate file exists in these kernels; default governor stays schedutil. He runs ondemand with up_threshold 99 and sampling_rate 1 on policy0/policy6.
 - `--dbs-rate0` (planned source-level patch): remove the shared DBS `sampling_rate` lower-bound check for both `ondemand` and `conservative`, accepting `0..UINT_MAX` microseconds (`0..4294967295`). `0` means sampling on every eligible update-util callback and may increase CPU/workqueue overhead. The source implementation must make `sampling_rate * rate_mult` overflow-safe. This is a separate source patch, not yet implemented; the existing binary `--od-rate0` remains ondemand-specific.
 - `--cap-percpu`: cpu_capacity_store writes only the target CPU instead of the whole cluster (so cpu5=1024 and the other little cores 427 is possible). Several layouts: 4.14 original, 4.19 fx (Fleux), stock-hyper @0x69bc04, PortROM "ba" (cap2).
@@ -317,7 +321,8 @@ def magisk_patch(r,ref,boot_sha1,log):
     for n in ('init-ld.xz','magisk.xz','stub.xz'):
         mk('overlay.d/sbin/'+n,'overlay.d/sbin/'+n)
     out=ramdisk_pack(method,cpio_write(ents+new))
-    log.append('magisk patched ramdisk (%s): %d -> %d bytes, config %s'%(method,len(r),len(out),cfg.decode().replace('\n',' ')))
+    log.append('magisk patched ramdisk (%s): %d -> %d bytes, config %s'%(method,len(r),len(out),cfg.decode().replace('
+',' ')))
     return out
 
 
@@ -860,7 +865,8 @@ def main():
         k,tail,gz=split_kernel(d)
         patch_kernel(k,log,gpu,gvolt,sched,vm,od,u32,capp,capm)
         out=(gz9(bytes(k)) if gz else bytes(k))+patch_dtbs(tail,log)
-        print('\n'.join(log))
+        print('
+'.join(log))
         if not dry and len(a)>1:
             open(a[1],'wb').write(out);print('written',a[1])
         return
@@ -882,7 +888,8 @@ def main():
     if mref:
         ro,rs=P['r'];nr=magisk_patch(d[ro:ro+rs],mref,hashlib.sha1(d).hexdigest(),log)
         rd=None if nr==d[ro:ro+rs] else nr
-    print('\n'.join(log))
+    print('
+'.join(log))
     if dry or len(a)<2:
         return
     open(a[1],'wb').write(build(d,I,kern,dtb,rd))
