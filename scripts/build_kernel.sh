@@ -100,7 +100,7 @@ python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSP
 python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
@@ -112,22 +112,22 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   python3 "$WORKSPACE/scripts/apply_capacity_margin_stock.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_schedutil_static_capacity.py"
   python3 "$WORKSPACE/scripts/apply_schedutil_static_capacity.py" "$SRC_DIR" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_schedutil_capacity_frequency.py"
   python3 "$WORKSPACE/scripts/apply_schedutil_capacity_frequency.py" "$SRC_DIR" "$ARTIFACT_DIR/schedutil-capacity-frequency-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/schedutil-capacity-frequency-audit.txt"
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/patch_dbs_sampling_rate.py"
   python3 "$WORKSPACE/scripts/patch_dbs_sampling_rate.py" "$SRC_DIR" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_tunable_limits.py"
   python3 "$WORKSPACE/scripts/apply_tunable_limits.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
@@ -141,7 +141,7 @@ export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
 make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$LOCALVERSION"
 "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_EXTENSION
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_CPU_PREFER
@@ -152,15 +152,15 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
   "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_WALT
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_CONSERVATIVE
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_ONDEMAND
 fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "Native Fleur WALT demand accounting is required by HMP and did not survive olddefconfig." >&2; exit 1; }
   grep -qx "CONFIG_MTK_SCHED_EXTENSION=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_EXTENSION is required for native CPU isolation masks." >&2; exit 1; }
   grep -qx "CONFIG_MTK_SCHED_CPU_PREFER=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_CPU_PREFER is required to preserve MTK task preference hints." >&2; exit 1; }
@@ -170,12 +170,12 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "EAS requires schedutil support." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain the default governor; WALT governor is not part of this build." >&2; exit 1; }
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/audit_conservative_governor.py"
   python3 "$WORKSPACE/scripts/audit_conservative_governor.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/conservative-governor-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/conservative-governor-audit.txt"
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+if [[ "$SOURCE_REF" == "v12" ]]; then
   grep -qx "CONFIG_CPU_FREQ_GOV_ONDEMAND=y" "$OUT_DIR/.config"
   python3 -m py_compile "$WORKSPACE/scripts/audit_dbs_sampling_rate.py"
   python3 "$WORKSPACE/scripts/audit_dbs_sampling_rate.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
@@ -229,7 +229,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_modes=Fleur 4.14 native HMP + existing Fleux EAS; runtime selector supports HMP/EAS/Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
-  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+  if [[ "$SOURCE_REF" == "v12" ]]; then
     echo "hmp_load_source=Fleur-native WALT runnable-demand accounting retained internally because the 4.14 MTK HMP engine consumes loadwop_avg"
     echo "walt_governor=not enabled; schedutil remains default for EAS"
     echo "walt_standalone_controls=not included; WALT accounting is an internal HMP dependency only"
@@ -237,16 +237,16 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "hmp_audit=hmp-mt6781-audit.txt;walt-demand-engine-audit.txt"
     echo "hmp_limitations=MTK HMP policies are adapted to Fleux 4.19 APIs; runtime mode and migration behavior require device validation"
   fi
-  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+  if [[ "$SOURCE_REF" == "v12" ]]; then
     echo "schedutil_static_capacity=per-CPU reference latched at sugov_start; no dynamic capacity refresh in sugov_get_util"
     echo "schedutil_capacity_audit=schedutil-static-capacity-audit.txt"
     echo "schedutil_capacity_frequency_audit=schedutil-capacity-frequency-audit.txt; capacity_margin excluded from linear and nonlinear schedutil mapping"
   fi
-  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+  if [[ "$SOURCE_REF" == "v12" ]]; then
     echo "cpufreq_conservative=Linux 4.19 native conservative governor built-in; schedutil remains default"
     echo "conservative_audit=conservative-governor-audit.txt"
   fi
-  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ]]; then
+  if [[ "$SOURCE_REF" == "v12" ]]; then
     echo "cpufreq_ondemand=Linux 4.19 native ondemand governor built-in; schedutil remains default"
     echo "dbs_sampling_rate=conservative and ondemand accept 0..UINT_MAX; no userspace minimum or artificial maximum"
     echo "dbs_sampling_rate_audit=dbs-sampling-rate-audit.txt"
