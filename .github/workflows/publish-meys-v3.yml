@@ -1,30 +1,39 @@
-name: Publish MEYS V3 from HMP Build47
-run-name: Publish MEYS V3 (HMP Build47)
+name: Publish MEYS V3 Build53
+run-name: Publish MEYS V3 Build53
 on:
   push:
     branches: [main]
     paths:
       - .github/workflows/publish-meys-v3.yml
 permissions:
-  actions: read
   contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Download Build47 artifact
+      - name: Verify Build53 release package
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh run download 45896547052 --repo "$GITHUB_REPOSITORY" --name meys-v12-hmp-hybrid-mt6781 --dir build47
-          find build47 -maxdepth 3 -type f
-      - name: Publish MEYS V3 as latest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          ZIP="$(find build47 -type f -iname '*.zip' -print -quit)"
-          test -n "$ZIP"
+          mkdir -p release-package
+          gh release download meys-v3 --repo "$GITHUB_REPOSITORY" --pattern "CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD53.zip" --dir release-package
+          ZIP="release-package/CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD53.zip"
+          test -s "$ZIP"
           unzip -t "$ZIP"
-          gh release edit meys-v3 --repo "$GITHUB_REPOSITORY" --title "MEYS V3" --latest --notes "MEYS V3 — HMP/Hybrid kernel release for Redmi Note 11S 4G (fleur / MT6781). Built from successful HMP Build47 and confirmed booted on device.\n\nCredits: Based on Fleux V12 kernel source by Dali Boss (Daliboss). Original project: https://gitlab.com/daliboss/fleux\n\nBuild source commit: d64fbd05e9b45b29d5a27df2d11a118985d82e8a. The MEYS HMP/Hybrid integration and build modifications are maintained in this repository."
+          sha256sum "$ZIP"
+      - name: Update MEYS V3 release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit meys-v3 --repo "$GITHUB_REPOSITORY" --title "MEYS V3 — BUILD53" --latest --target "$GITHUB_SHA" --notes "MEYS V3 — Build 53 for Redmi Note 11S 4G (fleur / MT6781).
+
+          Package: CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD53.zip
+
+          This release points to the Build 53 flashable package. The package is verified as a valid ZIP during publication. Device boot validation for Build 53 is not claimed here.
+
+          Kernel source base: Fleux V12 by Dali Boss (Daliboss).
+          Original project: https://gitlab.com/daliboss/fleux
+          Source baseline commit: d64fbd05e9b45b29d5a27df2d11a118985d82e8a
+          MEYS kernel integration and build modifications are maintained in this repository."
