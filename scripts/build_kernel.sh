@@ -102,6 +102,9 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
+  python3 -m py_compile "$WORKSPACE/scripts/apply_capacity_margin_10.py"
+  python3 "$WORKSPACE/scripts/apply_capacity_margin_10.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
 fi
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/apply_schedutil_static_capacity.py"
@@ -205,6 +208,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
     echo "capacity_margin=0 in scheduler variable and MTK fits_capacity helper; capacity-based misfit/overutilized thresholds disabled"
   fi
+  echo "capacity_margin=10 in EAS capacity_margin, MTK fits_capacity, and Fleur HMP native capacity guard"
   echo "scheduler_modes=Fleur 4.14 native HMP + existing Fleux EAS; runtime selector supports HMP/EAS/Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
@@ -238,6 +242,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
+  if [[ -f "$ARTIFACT_DIR/capacity-margin-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/capacity-margin-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then echo "schedutil_static_capacity_audit=schedutil-static-capacity-audit.txt"; fi
   sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md"
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"; fi

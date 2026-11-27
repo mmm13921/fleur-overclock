@@ -334,10 +334,10 @@ hmp_c = replace_c_function(
 )
 hmp_c = hmp_c.replace("rq->cfs.runnable_load_avg", "rq->cfs.avg.loadwop_avg")
 hmp_c = hmp_c.replace("cfs_rq->runnable_load_avg", "cfs_rq->avg.loadwop_avg")
-# Keep Fleur's native HMP capacity guard independent from the zero EAS margin.
+# Set Fleur's native HMP capacity guard to the same test margin as EAS.
 old_hmp_capacity = """#define hmp_fast_cpu_has_spare_cycles(B, cpu_load) \\
 		((cpu_load * capacity_margin) < (SCHED_CAPACITY_SCALE * 1024))"""
-new_hmp_capacity = """#define HMP_CAPACITY_MARGIN 1280
+new_hmp_capacity = """#define HMP_CAPACITY_MARGIN 10
 #define hmp_fast_cpu_has_spare_cycles(B, cpu_load) \\
 		((cpu_load * HMP_CAPACITY_MARGIN) < (SCHED_CAPACITY_SCALE * 1024))"""
 if old_hmp_capacity not in hmp_c:
@@ -540,7 +540,7 @@ for path, needle in [
     ("kernel/sched/hmp.c", "hmp_get_lightest_task"),
     ("kernel/sched/fair.c", "unsigned int capacity_margin\t\t\t\t= 1280;"),
     ("kernel/sched/fair.c", "#define fits_capacity(cap, max) ((cap) * 1280 < (max) * 1024)"),
-    ("kernel/sched/hmp.c", "#define HMP_CAPACITY_MARGIN 1280"),
+    ("kernel/sched/hmp.c", "#define HMP_CAPACITY_MARGIN 10"),
     ("kernel/sched/hmp.c", "cpu_load * HMP_CAPACITY_MARGIN"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_cpus(&cpu_mask, id);"),
     ("kernel/sched/hmp.c", "hmp_arch_get_cluster_id(cpu)"),
@@ -568,8 +568,8 @@ audit.write_text(
     "integration=CFS enqueue/dequeue, fork/wake placement, idle pull, periodic up migration, CPU hotplug\n"
     "clusters=2; topology=MT6781 arch_cpu_cluster_id and arch_get_cluster_cpus\n"
     "mode_control=/proc/sys/kernel/sched_cpu_mode: 0 HMP, 1 EAS, 2 Hybrid\n"
-    "eas_capacity_margin=1280 (preserve Fleux V12 native EAS default; no override)\n"
-    "hmp_native_capacity_margin=1280 (preserves Fleur 4.14 migration-capacity safety independently)\n"
+    "eas_capacity_margin=10 (matched test value)\n"
+    "hmp_native_capacity_margin=10 (matched test value)\n"
     "hybrid_overutilization=Fleux_root_domain_overutilized (4.19 equivalent of native Fleur 4.14 sd shared flag)\\n"
     "core_ctl=existing MTK core_ctl path retained; Qualcomm core_ctl not imported\n"
     "related_thread_groups=not present in Fleur MTK 4.14 reference; Qualcomm RTG not imported\n"
