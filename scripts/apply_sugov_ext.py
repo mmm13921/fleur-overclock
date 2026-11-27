@@ -23,7 +23,7 @@ ext = re.sub(r'\bmtk_cpu_util\b', 'sugov_ext_cpu_util', ext)
 ext = re.sub(r'\bschedutil_cpu_util\b', 'sugov_ext_schedutil_cpu_util', ext)
 ext = re.sub(r'\bschedutil_set_', 'sugov_ext_set_', ext)
 ext = re.sub(r'\bschedutil_gov\b', 'sugov_ext_gov', ext)
-ext = re.sub(r'\bsugov\b', 'sugov_ext', ext)
+ext = re.sub(r'\bsugov(?!_ext)', 'sugov_ext', ext)
 # The default-governor entry point must remain owned by schedutil.
 ext = re.sub(r'\n#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL\nstruct cpufreq_governor \*cpufreq_default_governor\(void\)\n\{\n\s*return &sugov_ext_gov;\n\}\n#endif\n', '\n', ext, count=1)
 # EAS governor-change notification is global and remains owned by schedutil.
