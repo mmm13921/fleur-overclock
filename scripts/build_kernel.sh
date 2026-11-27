@@ -45,6 +45,10 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Conservative-UnlimitedSampling"
     ;;
+  "v12:meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Conservative-UnlimitedSampling-SUGOV-EXT"
+    ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
     exit 2
@@ -108,10 +112,15 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_
   python3 "$WORKSPACE/scripts/apply_schedutil_static_capacity.py" "$SRC_DIR" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/patch_dbs_sampling_rate.py"
   python3 "$WORKSPACE/scripts/patch_dbs_sampling_rate.py" "$SRC_DIR" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_sugov_ext.py" "$WORKSPACE/scripts/audit_sugov_ext.py"
+  python3 "$WORKSPACE/scripts/apply_sugov_ext.py" "$SRC_DIR" "$ARTIFACT_DIR/sugov-ext-patch-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/sugov-ext-patch-audit.txt"
 fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
@@ -136,8 +145,11 @@ fi
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_CONSERVATIVE
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781" ]]; then
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_ONDEMAND
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781" ]]; then
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_SUGOV_EXT
 fi
 make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
 grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
@@ -156,11 +168,16 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781
   python3 "$WORKSPACE/scripts/audit_conservative_governor.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/conservative-governor-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/conservative-governor-audit.txt"
 fi
-if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" ]]; then
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781" ]]; then
   grep -qx "CONFIG_CPU_FREQ_GOV_ONDEMAND=y" "$OUT_DIR/.config"
   python3 -m py_compile "$WORKSPACE/scripts/audit_dbs_sampling_rate.py"
   python3 "$WORKSPACE/scripts/audit_dbs_sampling_rate.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781" ]]; then
+  grep -qx "CONFIG_CPU_FREQ_GOV_SUGOV_EXT=y" "$OUT_DIR/.config"
+  python3 "$WORKSPACE/scripts/audit_sugov_ext.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/sugov-ext-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/sugov-ext-audit.txt"
 fi
 bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
@@ -223,6 +240,10 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "cpufreq_ondemand=Linux 4.19 native ondemand governor built-in; schedutil remains default"
     echo "dbs_sampling_rate=conservative and ondemand accept 0..UINT_MAX; no userspace minimum or artificial maximum"
     echo "dbs_sampling_rate_audit=dbs-sampling-rate-audit.txt"
+  fi
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781" ]]; then
+    echo "cpufreq_sugov_ext=independent MTK-derived governor; schedutil remains default; target_load 1..100 default 80"
+    echo "sugov_ext_audit=sugov-ext-audit.txt;sugov-ext-patch-audit.txt"
   fi
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
   echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
