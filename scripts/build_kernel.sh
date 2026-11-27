@@ -77,9 +77,6 @@ if [[ "$ACTUAL_SOURCE_COMMIT" != "$EXPECTED_SOURCE_COMMIT" ]]; then
   echo "Expected pinned commit: $EXPECTED_SOURCE_COMMIT" >&2
   exit 2
 fi
-python3 -m py_compile "$WORKSPACE/patches/sysctl-unlimit/apply_sysctl_unlimit.py"
-python3 "$WORKSPACE/patches/sysctl-unlimit/apply_sysctl_unlimit.py" "$SRC_DIR" "$ARTIFACT_DIR/sysctl-unlimit-audit.txt"
-grep -qx "result=PASS" "$ARTIFACT_DIR/sysctl-unlimit-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
   python3 "$WORKSPACE/scripts/apply_capacity_margin_zero.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
@@ -116,6 +113,9 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimi
   python3 "$WORKSPACE/scripts/patch_dbs_sampling_rate.py" "$SRC_DIR" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
 fi
+python3 -m py_compile "$WORKSPACE/patches/sysctl-unlimit/apply_sysctl_unlimit.py"
+python3 "$WORKSPACE/patches/sysctl-unlimit/apply_sysctl_unlimit.py" "$SRC_DIR" "$ARTIFACT_DIR/sysctl-unlimit-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/sysctl-unlimit-audit.txt"
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
