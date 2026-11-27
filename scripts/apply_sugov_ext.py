@@ -100,7 +100,7 @@ base_text = base_text.replace(callback_old, callback_new, 1)
 extern_anchor = 'void sched_cpufreq_governor_change(struct cpufreq_policy *policy,'
 if extern_anchor not in base_text:
     raise SystemExit("SUGOV_EXT: EAS governor callback declaration missing")
-base_text = base_text.replace(extern_anchor, '#ifdef CONFIG_CPU_FREQ_GOV_SUGOV_EXT\\nextern struct cpufreq_governor sugov_ext_gov;\\n#endif\\n\\n' + extern_anchor, 1)
+base_text = base_text.replace(extern_anchor, '#ifdef CONFIG_CPU_FREQ_GOV_SUGOV_EXT\nextern struct cpufreq_governor sugov_ext_gov;\n#endif\n\n' + extern_anchor, 1)
 main.write_text(base_text)
 if 'config CPU_FREQ_GOV_SUGOV_EXT' not in kconfig.read_text():
     ks = kconfig.read_text()
