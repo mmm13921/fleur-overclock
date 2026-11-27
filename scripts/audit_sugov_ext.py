@@ -45,7 +45,8 @@ checks = {
         "policy->governor == &sugov_ext_gov" in main,
     "no duplicate EAS callback": "sched_cpufreq_governor_change(" not in ext,
     "no duplicate default governor accessor": "cpufreq_default_governor(" not in ext,
-    "Kconfig wiring": "config CPU_FREQ_GOV_SUGOV_EXT" in kconfig,
+    "Kconfig wiring": "config CPU_FREQ_GOV_SUGOV_EXT" in kconfig and
+        "select CPU_FREQ_GOV_SCHEDUTIL" in kconfig,
     "Makefile wiring": "CONFIG_CPU_FREQ_GOV_SUGOV_EXT) += cpufreq_sugov_ext.o" in makefile,
 }
 failed = [name for name, ok in checks.items() if not ok]
