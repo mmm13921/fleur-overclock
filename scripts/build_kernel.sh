@@ -113,6 +113,11 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimi
   python3 "$WORKSPACE/scripts/patch_dbs_sampling_rate.py" "$SRC_DIR" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
 fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_tunable_limits.py"
+  python3 "$WORKSPACE/scripts/apply_tunable_limits.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
+fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
