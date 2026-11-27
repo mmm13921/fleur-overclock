@@ -1,6 +1,7 @@
 name: Fleux V12 HMP WALT Capacity Conservative Ondemand SUGOV_EXT
 run-name: SUGOV-EXT-BUILD54
 # Combined HMP/EAS/Hybrid, schedutil capacity isolation, and built-in Conservative test.
+# SUGOV_EXT linkage fix: export cloned governor registration for the singleton EAS callback.
 on:
   push:
     branches:
