@@ -36,6 +36,7 @@ ext = re.sub(r'\bschedutil_cpu_util\b', 'sugov_ext_schedutil_cpu_util', ext)
 ext = re.sub(r'\bschedutil_set_', 'sugov_ext_set_', ext)
 ext = re.sub(r'\bschedutil_gov\b', 'sugov_ext_gov', ext)
 ext = re.sub(r'\bsugov(?=_|[A-Za-z])', 'sugov_ext', ext)
+ext = re.sub(r'\bto_sugov_tunables\b', 'to_sugov_ext_tunables', ext)
 notifier_def = "void (*cpufreq_notifier_fp)(int cluster_id, unsigned long freq);\nEXPORT_SYMBOL(cpufreq_notifier_fp);"
 if ext.count(notifier_def) != 1:
     raise SystemExit("SUGOV_EXT: shared FPSGO notifier definition anchor mismatch")
