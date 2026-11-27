@@ -32,11 +32,15 @@ if "CONFIG_CPU_FREQ_GOV_SUGOV_EXT" in ks or "cpufreq_sugov_ext.o" in ms:
 # Clone the real Fleux implementation, preserving its 4.19 update path, IOWAIT,
 # fast-switch/deferred work, shared-policy, limits, and MTK hooks.
 ext = src.replace('"cpufreq_schedutil_plus.c"', '"cpufreq_sugov_ext_plus.c"')
-ext = re.sub(r'\bcpufreq_notifier_fp\b', 'sugov_ext_notifier_fp', ext)
 ext = re.sub(r'\bschedutil_cpu_util\b', 'sugov_ext_schedutil_cpu_util', ext)
 ext = re.sub(r'\bschedutil_set_', 'sugov_ext_set_', ext)
 ext = re.sub(r'\bschedutil_gov\b', 'sugov_ext_gov', ext)
 ext = re.sub(r'\bsugov(?=_|[A-Za-z])', 'sugov_ext', ext)
+notifier_def = "void (*cpufreq_notifier_fp)(int cluster_id, unsigned long freq);\nEXPORT_SYMBOL(cpufreq_notifier_fp);"
+if ext.count(notifier_def) != 1:
+    raise SystemExit("SUGOV_EXT: shared FPSGO notifier definition anchor mismatch")
+ext = ext.replace(notifier_def,
+    "extern void (*cpufreq_notifier_fp)(int cluster_id, unsigned long freq);", 1)
 ext = ext.replace('= "schedutil",', '= "sugov_ext",', 1)
 
 # The default governor accessor and EAS callback are singleton core interfaces:
