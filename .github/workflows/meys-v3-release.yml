@@ -47,6 +47,7 @@ jobs:
       - name: Replace MEYS V3 release asset and mark latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: mmm13921/fleur-overclock
         run: |
           set -euo pipefail
           gh release view meys-v3 >/dev/null
