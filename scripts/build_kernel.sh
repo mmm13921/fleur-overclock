@@ -179,8 +179,9 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimi
   python3 "$WORKSPACE/scripts/audit_dbs_sampling_rate.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
 fi
-bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR" "$ARTIFACT_DIR/cgroup-interface-audit.txt" "$ARTIFACT_DIR/check-cgroup-runtime.sh"
 grep -qx "result=PASS" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
+cp "$WORKSPACE/scripts/check_cgroup_runtime.sh" "$ARTIFACT_DIR/check-cgroup-runtime.sh"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 python3 "$WORKSPACE/scripts/audit_android_storage.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
 grep -qx "CONFIG_QUOTA=y" "$OUT_DIR/.config"
