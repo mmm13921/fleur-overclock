@@ -47,7 +47,7 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     ;;
   "v12:meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-sugov-ext-mt6781")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
-    LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Conservative-UnlimitedSampling-SUGOV-EXT"
+    LOCALVERSION="-Meys-V12-HMP-SUGOV-EXT"
     ;;
   *)
     echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
