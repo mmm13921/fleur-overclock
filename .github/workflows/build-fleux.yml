@@ -73,9 +73,9 @@ jobs:
               kernel.config build-manifest.txt modem-pm-audit.txt \
               modem-resume-comparison.md
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-Modem-Resume-Guard.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-Modem-Resume-Guard.zip" \
-            | tee artifacts/MODEM-RESUME-SHA256.txt
+          unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-63-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-63-AnyKernel3.zip" \
+            | tee artifacts/MEYS-63-SHA256.txt
       - name: Upload kernel image, flashable ZIP, and comparison evidence
         uses: actions/upload-artifact@v4
         with:
