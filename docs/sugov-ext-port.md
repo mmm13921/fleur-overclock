@@ -1,23 +1,25 @@
-# SUGOV_EXT port for Fleux V12 / MT6781
+# SUGOV_EXT port for Fleux V12 / Linux 4.19.325 / MT6781
 
-This build adds an independent `sugov_ext` CPUFreq governor by cloning the Fleux V12 scheduler governor after the existing scheduler/WALT/capacity patches have been applied. The original `schedutil` implementation remains untouched and remains the configured default.
+This patcher clones the actual Fleux 4.19 schedutil implementation into a separately registered `sugov_ext` governor. It does not replace the stock governor or change the configured default.
 
-## Included behavior
+## Independent governor integration
 
-- Separate governor registration name: `sugov_ext`
-- Separate tunables directory with `up_rate_limit_us`, `down_rate_limit_us`, and `target_load`
-- `target_load` defaults to 80 and accepts values 1 through 100
-- Target-load scaling is applied before frequency/OPP selection
-- Retains the Fleux MTK nonlinear OPP mapping path when `CONFIG_NONLINEAR_FREQ_CTL` is enabled
-- Retains I/O-wait boost, fast-switch, deferred update, shared-policy, policy-limit and per-CPU static-capacity logic from the already-patched Fleux V12 schedutil source
-- Does not replace or modify the default schedutil governor
+- Separate `sugov_ext` registration and independent tunables storage.
+- Independent `up_rate_limit_us` and `down_rate_limit_us` controls.
+- `target_load` sysfs control, default 80, valid range 1..100.
+- Target-load utilization scaling is applied in both the linear mapper and Fleux's `CONFIG_NONLINEAR_FREQ_CTL` MediaTek `mtk_map_util_freq()` mapper.
+- Preserves Fleux 4.19 update-util callbacks, I/O-wait boost, shared-policy aggregation, fast-switch and deferred-update paths, policy limits, and MTK hooks.
+- Keeps the one EAS governor-change callback in the original schedutil translation unit and extends it to recognize either governor. The clone does not define a second EAS callback or a second default-governor accessor.
+- Uses the 4.19 sysfs interface (`sprintf`/governor_attr); it does not introduce post-4.19 `sysfs_emit()`.
 
 ## Configuration
 
 `CONFIG_CPU_FREQ_GOV_SUGOV_EXT=y`
 
-The build audit verifies the independent governor registration, target-load sysfs, rate-limit controls, nonlinear OPP mapping, and that `CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y` remains selected.
+The build enables SUGOV_EXT explicitly. `CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y` remains selected, so SUGOV_EXT is available for runtime selection without changing the boot default.
 
 ## Validation status
 
-A successful CI build proves compilation and packaging only. Runtime governor switching, target-load response, frequency transition latency, thermal behavior, HMP/EAS/Hybrid interaction, and COD Mobile frame pacing still require device testing.
+The patcher performs fail-closed source-anchor and post-write checks before emitting its patch audit. The build audit checks configuration, registration, tunables, both OPP mapping paths, scheduler callbacks, Kconfig/Makefile wiring, and the absence of duplicate singleton callbacks.
+
+A successful CI compile validates the 4.19 source integration and packaging. Runtime governor switching, target-load response, cluster behavior, thermal response, EAS/HMP/Hybrid interaction, and COD Mobile frame pacing still require testing on the Redmi Note 11S (fleur).
