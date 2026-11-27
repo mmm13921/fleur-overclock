@@ -24,7 +24,7 @@ public class MainActivity extends Activity {
  private final Handler ui=new Handler(Looper.getMainLooper());
  private final ExecutorService worker=Executors.newSingleThreadExecutor();
  private LinearLayout root,sections,cpuBox,sensorBox;
- private TextView status,gpsStatus,benchmark;
+ private TextView status,gpsStatus,benchmark,rootStatus;
  private final Map<Integer,long[]> cpuPrev=new HashMap<>();
  private final Map<Integer,Float> cpuUse=new HashMap<>();
  private final Map<Integer,String> sensorValues=new HashMap<>();
@@ -49,6 +49,7 @@ public class MainActivity extends Activity {
   root.addView(text("SILICON / SoC MONITOR",23,0xffe7f1ff,true));
   root.addView(text("MT6781 • CPU / GPU / MEMORY / POWER / RADIO / GNSS",11,0xff8ea6c2,false));
   status=text("INITIALIZING HARDWARE TELEMETRY",12,0xff63d7a2,true);status.setPadding(0,dp(12),0,dp(12));root.addView(status);
+  section("ROOT ACCESS / DEEP HARDWARE INSPECTION","Requests superuser access through Magisk or another su manager. Read-only diagnostics; no kernel settings are changed.");LinearLayout rc=cardContainer();Button rb=button("REQUEST ROOT & RUN FULL DIAGNOSTICS");rb.setOnClickListener(v->runRootDiagnostics());rc.addView(rb);rootStatus=text("Root status: not checked",11,0xffb7c8dc,false);rootStatus.setPadding(0,dp(8),0,0);rc.addView(rootStatus);root.addView(rc);
   section("SILICON ACTIVITY ESTIMATE","Software-derived activity index. Not a physical transistor-state measurement.");
   addCard("TRANSISTOR SWITCHING ESTIMATE","switching");addCard("CPU CLUSTERS & PER-CORE TELEMETRY","cpu");addCard("GPU / GRAPHICS ENGINE","gpu");addCard("MEMORY / MEMORY CONTROLLER","memory");addCard("STORAGE I/O","storage");addCard("INTERCONNECT / DEVFREQ DOMAINS","devfreq");addCard("MODEM / NETWORK INTERFACES","network");addCard("POWER / BATTERY","power");addCard("THERMAL ZONES","thermal");addCard("SENSORS","sensors");addCard("DISPLAY ENGINE","display");addCard("GNSS / GPS MONITOR","gnss");
   section("LOAD TEST","Optional workload for observing how telemetry changes under load.");
@@ -107,6 +108,16 @@ public class MainActivity extends Activity {
   }catch(Exception e){gpsActive=false;set("gnss","GNSS error: "+e.getMessage());}
  }
  @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==41&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startGnss();}
+ private void runRootDiagnostics(){
+  rootStatus.setText("Requesting superuser permission… approve the Magisk prompt if shown.");
+  worker.execute(()->{
+   String cmd="id; echo ROOT_CHECK_DONE; echo SELINUX; getenforce 2>/dev/null; echo CPUFREQ; for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq /sys/devices/system/cpu/cpu*/cpufreq/scaling_min_freq /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do [ -r \\"$f\\" ] && echo \\"$f=$(cat \\"$f\\")\\"; done; echo GPU_DEVFREQ; for f in /sys/class/devfreq/*/cur_freq /sys/class/devfreq/*/max_freq /sys/class/devfreq/*/available_frequencies; do [ -r \\"$f\\" ] && echo \\"$f=$(cat \\"$f\\")\\"; done; echo THERMAL; for f in /sys/class/thermal/thermal_zone*/type /sys/class/thermal/thermal_zone*/temp; do [ -r \\"$f\\" ] && echo \\"$f=$(cat \\"$f\\")\\"; done; echo REGULATORS; for f in /sys/class/regulator/regulator*/name /sys/class/regulator/regulator*/microvolts /sys/class/regulator/regulator*/state; do [ -r \\"$f\\" ] && echo \\"$f=$(cat \\"$f\\")\\"; done; echo DEVFREQ_DOMAINS; ls -la /sys/class/devfreq 2>/dev/null; echo ROOT_DIAGNOSTICS_DONE";
+   StringBuilder out=new StringBuilder();Process p=null;
+   try{p=new ProcessBuilder("su","-c",cmd).redirectErrorStream(true).start();BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream()));String line;while((line=r.readLine())!=null){if(out.length()<24000)out.append(line).append('\\n');}int code=p.waitFor();String result=out.toString();boolean granted=result.contains("uid=0")&&code==0;String label=(granted?"ROOT GRANTED":"ROOT NOT GRANTED / COMMAND FAILED")+" · exit="+code+"\\n"+result;ui.post(()->rootStatus.setText(label));}
+   catch(Exception e){String msg="Root request failed: "+e.getClass().getSimpleName()+": "+e.getMessage();ui.post(()->rootStatus.setText(msg));}
+   finally{if(p!=null)p.destroy();}
+  });
+ }
  private void runCpuTest(){status.setText("CPU benchmark running…");worker.execute(()->{String out=runBenchmark(Runtime.getRuntime().availableProcessors(),8000000L);ui.post(()->{benchmark.setText(out);status.setText("CPU benchmark completed");});});}
  private static class LoadRenderer implements GLSurfaceView.Renderer{volatile boolean enabled=false;int program,pos,timeLoc;final java.nio.FloatBuffer vertices=java.nio.ByteBuffer.allocateDirect(32).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer();public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 g,javax.microedition.khronos.egl.EGLConfig c){String vs="attribute vec2 aPos;void main(){gl_Position=vec4(aPos,0.,1.);}";String fs="precision highp float;void main(){vec2 p=gl_FragCoord.xy/512.;float z=0.;for(int i=0;i<80;i++){p=abs(p)/max(dot(p,p),.02)-.7;z+=sin(p.x*8.)*cos(p.y*9.);}gl_FragColor=vec4(.5+.5*sin(z),.5+.5*cos(z),.4,1.);}";int v=sh(35633,vs),f=sh(35632,fs);program=GLES20.glCreateProgram();GLES20.glAttachShader(program,v);GLES20.glAttachShader(program,f);GLES20.glLinkProgram(program);pos=GLES20.glGetAttribLocation(program,"aPos");vertices.put(new float[]{-1,-1,1,-1,-1,1,1,1}).position(0);}int sh(int t,String s){int x=GLES20.glCreateShader(t);GLES20.glShaderSource(x,s);GLES20.glCompileShader(x);return x;}public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 g,int w,int h){GLES20.glViewport(0,0,w,h);}public void onDrawFrame(javax.microedition.khronos.opengles.GL10 g){if(!enabled){GLES20.glClearColor(.03f,.05f,.08f,1);GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);return;}GLES20.glUseProgram(program);GLES20.glEnableVertexAttribArray(pos);GLES20.glVertexAttribPointer(pos,2,GLES20.GL_FLOAT,false,0,vertices);GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);}}
  @Override protected void onPause(){super.onPause();if(gl!=null)gl.onPause();}
