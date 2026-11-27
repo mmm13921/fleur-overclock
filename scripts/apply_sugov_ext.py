@@ -37,6 +37,13 @@ ext = re.sub(r'\bschedutil_set_', 'sugov_ext_set_', ext)
 ext = re.sub(r'\bschedutil_gov\b', 'sugov_ext_gov', ext)
 ext = re.sub(r'\bsugov(?=_|[A-Za-z])', 'sugov_ext', ext)
 ext = re.sub(r'\bto_sugov_tunables\b', 'to_sugov_ext_tunables', ext)
+
+# EAS callback in cpufreq_schedutil.c references this governor across translation units.
+# The cloned upstream governor is file-local; give only its registration object external linkage.
+private_gov = 'static struct cpufreq_governor sugov_ext_gov'
+if ext.count(private_gov) != 1:
+    raise SystemExit("SUGOV_EXT: cloned governor registration linkage anchor mismatch")
+ext = ext.replace(private_gov, 'struct cpufreq_governor sugov_ext_gov', 1)
 notifier_def = "void (*cpufreq_notifier_fp)(int cluster_id, unsigned long freq);\nEXPORT_SYMBOL(cpufreq_notifier_fp);"
 if ext.count(notifier_def) != 1:
     raise SystemExit("SUGOV_EXT: shared FPSGO notifier definition anchor mismatch")
