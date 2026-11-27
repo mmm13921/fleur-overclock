@@ -15,15 +15,15 @@ def source(rel):
         raise SystemExit("Required kernel source file is missing: " + rel)
     return p.read_text()
 def table(text, name, rel):
-    pattern = r"struct\\s+cftype\\s+" + re.escape(name) + r"\\s*\\[\\]\\s*=\\s*\\{(.*?)\\n\\};"
+    pattern = r"struct\s+cftype\s+" + re.escape(name) + r"\s*\[\]\s*=\s*\{(.*?)\n\};"
     m = re.search(pattern, text, re.S)
     if not m:
         raise SystemExit("Cannot find registered cftype table " + name + " in " + rel)
-    return set(re.findall(r'\\.name\\s*=\\s*"([^"]+)"', m.group(1)))
+    return set(re.findall(r'\.name\s*=\s*"([^"]+)"', m.group(1)))
 def registered(text, subsystem, table_name, rel):
-    pattern = r"struct\\s+cgroup_subsys\\s+" + re.escape(subsystem) + r"\\s*=\\s*\\{(.*?)\\n\\};"
+    pattern = r"struct\s+cgroup_subsys\s+" + re.escape(subsystem) + r"\s*=\s*\{(.*?)\n\};"
     m = re.search(pattern, text, re.S)
-    if not m or not re.search(r"\\.dfl_cftypes\\s*=\\s*" + re.escape(table_name) + r"\\b", m.group(1)):
+    if not m or not re.search(r"\.dfl_cftypes\s*=\s*" + re.escape(table_name) + r"\b", m.group(1)):
         raise SystemExit("Default-hierarchy registration missing: " + subsystem + " -> " + table_name + " in " + rel)
 def require(names, actual, label):
     missing = sorted(set(names) - actual)
@@ -126,5 +126,5 @@ lines = [
     "defaults=unchanged;no-resource-limits-or-runtime-values-written",
 ]
 audit.parent.mkdir(parents=True, exist_ok=True)
-audit.write_text("\\n".join(lines) + "\\n")
-print("\\n".join(lines))
+audit.write_text("\n".join(lines) + "\n")
+print("\n".join(lines))
