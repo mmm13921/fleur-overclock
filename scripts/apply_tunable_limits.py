@@ -29,6 +29,8 @@ GENERIC_MINMAX = {
     "proc_dointvec_minmax",
     "proc_douintvec_minmax",
     "proc_doulongvec_minmax",
+    "proc_dointvec_minmax_warn_RT_change",
+    "watermark_scale_factor_sysctl_handler",
 }
 
 def matching_brace(text, start):
@@ -41,6 +43,21 @@ def matching_brace(text, start):
             if depth == 0:
                 return i + 1
     raise SystemExit("unterminated sysctl table entry")
+
+# sched_proc_update_handler delegates to proc_dointvec_minmax and consumes
+# extra1/extra2. Keep a positive floor to protect scheduler arithmetic, but
+# remove the historical 100us/1s ceilings.
+source, n_min = re.subn(
+    r"static int min_sched_granularity_ns\s*=\s*100000\s*;",
+    "static int min_sched_granularity_ns = 1;", source)
+source, n_max = re.subn(
+    r"static int max_sched_granularity_ns\s*=\s*NSEC_PER_SEC\s*;",
+    "static int max_sched_granularity_ns = INT_MAX;", source)
+source, n_wakeup = re.subn(
+    r"static int max_wakeup_granularity_ns\s*=\s*NSEC_PER_SEC\s*;",
+    "static int max_wakeup_granularity_ns = INT_MAX;", source)
+if n_min != 1 or n_max != 1 or n_wakeup != 1:
+    raise SystemExit("scheduler granularity bounds not found exactly once")
 
 matches = list(re.finditer(r'\.procname\s*=\s*"([^"]+)"', source))
 edits = []
@@ -106,7 +123,8 @@ audit.write_text(
     "irq_threshold=sched_walt_cpu_high_irqload; proc_dointvec; already no extra1/extra2 bounds\n"
     "sampling_rate=handled by existing DBS unlimited patch with overflow protection\n"
     "protected_semantics=" + ",".join(sorted(SCHED_PROTECTED)) + "\n"
-    "custom_handlers=unchanged; only generic proc_dointvec_minmax family entries edited\n"
+    "scheduler_granularity=min=1; max=INT_MAX; wakeup_max=INT_MAX\n"
+    "custom_handlers=known minmax wrappers handled; unrelated custom handlers unchanged\n"
     "natural_type_limits=retained; signed/unsigned storage and kernel arithmetic remain finite\n"
 )
 print(audit.read_text(), end="")
