@@ -1,10 +1,10 @@
-name: LIMIT-56
-run-name: LIMIT-56
+name: LIMIT-57
+run-name: LIMIT-57
 # Combined HMP/EAS/Hybrid, schedutil capacity isolation, and built-in Conservative test.
 on:
   push:
     branches:
-      - LIMIT-56
+      - LIMIT-57
     paths:
       - '.github/workflows/build-hmp-hybrid-mt6781.yml'
       - 'scripts/build_kernel.sh'
@@ -26,17 +26,17 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: limit-56-${{ github.ref }}
+  group: limit-57-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build-and-package:
-    name: LIMIT-56
+    name: LIMIT-57
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
       SOURCE_REF: v12
       BUILD_PROFILE: meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781
-      BUILD_LABEL: LIMIT-56
+      BUILD_LABEL: LIMIT-57
     steps:
       - name: Checkout builder
         uses: actions/checkout@v4
@@ -59,7 +59,7 @@ jobs:
           test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
-      - name: Build LIMIT-56 Kernel
+      - name: Build LIMIT-57 Kernel
         run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE" "$BUILD_LABEL"
       - name: Package flashable AnyKernel3 ZIP
         env:
@@ -85,7 +85,7 @@ jobs:
       - name: Upload build and audit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: LIMIT-56
+          name: LIMIT-57
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
