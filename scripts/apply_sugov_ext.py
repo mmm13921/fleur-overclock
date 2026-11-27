@@ -173,6 +173,7 @@ config CPU_FREQ_GOV_SUGOV_EXT
 	bool "'sugov_ext' MediaTek scheduler governor"
 	depends on CPU_FREQ && SMP
 	select CPU_FREQ_GOV_ATTR_SET
+	select CPU_FREQ_GOV_SCHEDUTIL
 	select IRQ_WORK
 	help
 	  Build an independent Fleux/MediaTek schedutil-derived governor.
