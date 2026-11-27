@@ -1,6 +1,11 @@
 name: MEYS V3
 run-name: MEYS V3 release — Build 62
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/meys-v3-release.yml'
   workflow_run:
     workflows:
       - LIMIT-62
@@ -27,7 +32,7 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          run_id: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || github.event.workflow_run.id }}
+          run_id: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || github.event.workflow_run.id || '46044886463' }}
           name: LIMIT-62
           path: dist
           if_no_artifact_found: fail
