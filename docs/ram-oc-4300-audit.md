@@ -83,3 +83,27 @@ A generic LPDDR4X datasheet is not a substitute for the exact fitted component's
 6. Only then create an isolated experimental patch and test it with verified recovery and data backups.
 
 Until these conditions are met, 4266 MT/s remains the highest observed and source-defined operating point for this kernel configuration. This is a conservative engineering conclusion, not a claim that every possible hardware revision is physically incapable of a higher rate.
+
+
+## Additional cross-checks — device specification and DRAM speed bins
+
+Checked against public device and vendor documentation on 2026-11-27:
+
+- Xiaomi's Redmi Note 11S specification confirms the 8GB configuration uses LPDDR4X, but does not publish the fitted DRAM manufacturer's part number or its speed grade: https://www.mi.com/fr/product/redmi-note-11s/specs/
+- The public fleur device tree independently lists 6/8GB LPDDR4X for the MT6781 device family, but likewise does not identify the physical memory package: https://github.com/xiaomi-mt6781-fleur-dev/android_device_xiaomi_fleur
+- MediaTek's official Helio G96 specification lists LPDDR4X at 2133MHz maximum. This is the memory clock; the corresponding double-data-rate transfer rate is 4266 MT/s: https://www.mediatek.com/products/smartphones/mediatek-helio-g96
+- A publicly available LPDDR4X datasheet for the unrelated GDB4CBQN component distinguishes two orderable speed grades, 3733Mbps and 4266Mbps, and does not specify a 4300Mbps grade. This is useful evidence that EMI profiles can represent different qualified memory bins, but it is NOT evidence that this exact component is fitted to the Redmi Note 11S: https://atta.szlcsc.com/upload/public/pdf/source/20251010/7150A8D12FD0A168FF752CD8C1990421.pdf
+
+### Reconciliation of 3733 vs 4266
+
+The kernel's measured 4266 rate and the preloader investigation's reported 3733 ceiling cannot yet be treated as the same measurement of the same selected profile. The public GDB4CBQN example demonstrates that 3733 and 4266 can be distinct manufacturer speed grades, but the handset's actual DRAM package remains unknown. The kernel reading is a live PLL-derived rate according to the inspected Fleux DRAMC implementation; the preloader's 3733 observation may refer to a different EMI record, an alternate qualified profile, or a parser interpretation. The complete active EMI record and exact part number are required to decide.
+
+### What can and cannot be concluded
+
+- Confirmed: this handset family uses LPDDR4X; the G96's official maximum interface specification is 2133MHz / 4266 MT/s.
+- Confirmed from the supplied runtime: the currently running configuration reports 4266 MT/s and the memory test passes at that operating point.
+- Not confirmed: the fitted DRAM's exact vendor, part number, speed grade, or whether the reported preloader 3733 record is the active record.
+- Not demonstrated: any 4300-capable DRAM/PHY/SoC operating point or successful 4300 training.
+- A 4300 request is about 0.80% above 4266, but it remains outside the published G96 memory-interface rating. The percentage does not remove the need for a qualified PLL setting, timing set, training, and boot-firmware transition path.
+
+No code, firmware, voltage, timing, or OPP changes were made as part of this cross-check.
