@@ -4,24 +4,24 @@ The Fleux V12 4.19.325 source registers CPUSET natively on the cgroup v2 default
 
 ## Install and inspect
 
-The AnyKernel3 ZIP contains `cpuset-v2.sh`. After flashing, copy it to a writable location, for example:
+The AnyKernel3 ZIP contains `cpuset_v2.sh`. After flashing, copy it to a writable location, for example:
 
 ```sh
 su
-cp /path/to/cpuset-v2.sh /data/local/tmp/cpuset-v2.sh
-chmod 0755 /data/local/tmp/cpuset-v2.sh
-/data/local/tmp/cpuset-v2.sh status
+cp /path/to/cpuset_v2.sh /data/local/tmp/cpuset_v2.sh
+chmod 0755 /data/local/tmp/cpuset_v2.sh
+/data/local/tmp/cpuset_v2.sh status
 ```
 
 ## Explicit setup
 
 ```sh
 su
-/data/local/tmp/cpuset-v2.sh enable
-/data/local/tmp/cpuset-v2.sh create game
-/data/local/tmp/cpuset-v2.sh set game 6-7 0
-/data/local/tmp/cpuset-v2.sh show game
-/data/local/tmp/cpuset-v2.sh attach game PID
+/data/local/tmp/cpuset_v2.sh enable
+/data/local/tmp/cpuset_v2.sh create game
+/data/local/tmp/cpuset_v2.sh set game 6-7 0
+/data/local/tmp/cpuset_v2.sh show game
+/data/local/tmp/cpuset_v2.sh attach game PID
 ```
 
 Replace CPU and memory-node lists with values valid on the running device. The example `6-7` is illustrative only; confirm online CPUs and memory nodes first. `attach` moves the entire process (all its threads) to the group. Do not move Android system processes or framework services without understanding the impact.
@@ -31,7 +31,7 @@ Replace CPU and memory-node lists with values valid on the running device. The e
 Move attached processes back to the root or another cgroup before removing the child. Then run:
 
 ```sh
-/data/local/tmp/cpuset-v2.sh remove game
+/data/local/tmp/cpuset_v2.sh remove game
 ```
 
 The helper deliberately does not disable the root cpuset controller, mount cgroup2, edit init/ramdisk files, set boot-time defaults, or change task affinity. The `enable` action writes `+cpuset` to the cgroup2 root's `cgroup.subtree_control`; Android init or vendor policy may own this hierarchy and may reject or later overwrite the change. All commands require root. If the controller is not advertised or the hierarchy is not writable, the helper exits with an error rather than falling back to cgroup v1.
