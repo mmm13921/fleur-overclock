@@ -179,7 +179,8 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimi
   python3 "$WORKSPACE/scripts/audit_dbs_sampling_rate.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
 fi
-bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR" "$ARTIFACT_DIR/cpuset-cgroup-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/cpuset-cgroup-audit.txt"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
 python3 "$WORKSPACE/scripts/audit_android_storage.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
 grep -qx "CONFIG_QUOTA=y" "$OUT_DIR/.config"
@@ -218,6 +219,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "capacity_margin=0 in scheduler variable and MTK fits_capacity helper; capacity-based misfit/overutilized thresholds disabled"
   fi
   echo "capacity_margin=1 in EAS capacity_margin, MTK fits_capacity, and Fleur HMP native capacity guard"
+  echo "cpuset=CONFIG_CPUSETS=y; legacy cgroup-v1 controls verified by cpuset-cgroup-audit.txt"
   echo "scheduler_modes=Fleur 4.14 native HMP + existing Fleux EAS; runtime selector supports HMP/EAS/Hybrid"
   echo "scheduler_mode_default=0"
   echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"

@@ -45,4 +45,4 @@ audit.write_text("\n".join([
     "hmp_margin=1 (verified separately by apply_hmp_mt6781.py)",
     "semantics=EAS and MTK task-fit capacity comparisons use margin 1; Fleur HMP native migration guard is set to the same margin",
 ]) + "\n")
-print(f"Applied EAS capacity margin 10 to scheduler variable and MTK helper in {path}")
+print(f"Applied EAS capacity margin 1 to scheduler variable and MTK helper in {path}")
