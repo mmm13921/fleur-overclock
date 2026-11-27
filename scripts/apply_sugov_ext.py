@@ -46,13 +46,13 @@ ext = ext.replace('= "schedutil",', '= "sugov_ext",', 1)
 # The default governor accessor and EAS callback are singleton core interfaces:
 # keep them in cpufreq_schedutil.c, never duplicate them in the cloned object.
 accessor_pattern = (
-    r'(?ms)^[ \t]*(?:#(?:if|ifdef|ifndef)\\b[^\\n]*\\n)?'
-    r'[ \t]*struct\\s+cpufreq_governor\\s*\\*\\s*'
-    r'cpufreq_default_governor\\s*\\(\\s*void\\s*\\)\\s*'
-    r'\\{[^{}]*\\}[ \t]*(?:\\n[ \t]*#endif\\b[^\\n]*)?'
+    r'(?ms)^[ \t]*(?:#(?:if|ifdef|ifndef)\b[^\n]*\n)?'
+    r'[ \t]*struct\s+cpufreq_governor\s*\*\s*'
+    r'cpufreq_default_governor\s*\(\s*void\s*\)\s*'
+    r'\{[^{}]*\}[ \t]*(?:\n[ \t]*#endif\b[^\n]*)?'
 )
-ext, _ = re.subn(accessor_pattern, '\\n', ext, count=1)
-if "cpufreq_default_governor(" in ext:
+ext, _ = re.subn(accessor_pattern, '\n', ext, count=1)
+if re.search(r'cpufreq_default_governor\s*\(', ext):
     raise SystemExit("SUGOV_EXT: cloned default-governor accessor remains")
 eas_start = ext.rfind('\n#ifdef CONFIG_ENERGY_MODEL\n')
 if eas_start < 0 or "void sched_cpufreq_governor_change(" not in ext[eas_start:]:
