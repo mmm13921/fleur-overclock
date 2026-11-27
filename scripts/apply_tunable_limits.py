@@ -60,6 +60,7 @@ if "static int sched_minimum_zero = 0;" not in source:
 
 matches = list(re.finditer(r'\.procname\s*=\s*"([^"]+)"', source))
 edits = []
+declared_minimums = set()
 changed = []
 already_unbounded = []
 custom_handlers = []
@@ -107,22 +108,11 @@ for match in matches:
         if not minimum:
             raise SystemExit(f"{name}: scheduler minimum pointer missing")
         minimum_name = minimum.group(1)
-        decl = re.compile(
-            r'(?m)^(\s*static\s+int\s+' + re.escape(minimum_name) +
-            r'\s*)(?:=\s*[^;]*)?;'
-        )
-        source, count = decl.subn(r'\1= 0;', source, count=1)
-        if count != 1:
-            raise SystemExit(f"{name}: minimum declaration {minimum_name} not found")
-        # Recalculate the entry offsets after changing the declaration.
-        match2 = re.search(r'\.procname\s*=\s*"' + re.escape(name) + r'"', source)
-        start2 = source.rfind("{", 0, match2.start())
-        end2 = matching_brace(source, start2)
-        entry2 = source[start2:end2]
-        new_entry = re.sub(r'(?m)^\s*\.extra2\s*=.*\n', '', entry2)
+        declared_minimums.add(minimum_name)
+        new_entry = re.sub(r'(?m)^\s*\.extra2\s*=.*\n', '', entry)
         if ".extra2" in new_entry:
             raise SystemExit(f"{name}: maximum pointer could not be removed")
-        edits.append((start2, end2, new_entry))
+        edits.append((start, end, new_entry))
         changed.append(name)
         if name in granularity_names:
             already_unbounded.append(name + ":minimum-zero")
@@ -178,6 +168,16 @@ for match in matches:
 # Apply edits from the end so source offsets remain valid.
 for start, end, replacement in sorted(edits, key=lambda item: item[0], reverse=True):
     source = source[:start] + replacement + source[end:]
+
+# Apply zero lower bounds after table edits so original source offsets stay valid.
+for minimum_name in sorted(declared_minimums):
+    decl = re.compile(
+        r'(?m)^(\s*static\s+int\s+' + re.escape(minimum_name) +
+        r'\s*)(?:=\s*[^;]*)?;'
+    )
+    source, count = decl.subn(r'\1= 0;', source, count=1)
+    if count != 1:
+        raise SystemExit(f"minimum declaration {minimum_name} not found exactly once")
 
 # Audit every non-protected scheduler table entry: no extra2 maximum survives.
 for match in list(re.finditer(r'\.procname\s*=\s*"([^"]+)"', source)):
