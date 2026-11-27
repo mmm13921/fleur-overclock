@@ -23,6 +23,8 @@ checks = {
     "CONFIG_CPU_FREQ_GOV_SUGOV_EXT=y": "CONFIG_CPU_FREQ_GOV_SUGOV_EXT=y" in config,
     "schedutil remains default": "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" in config,
     "independent governor registration": '.name' in ext and '"sugov_ext"' in ext,
+    "shared FPSGO notifier": "extern void (*cpufreq_notifier_fp)" in ext and
+        "EXPORT_SYMBOL(cpufreq_notifier_fp)" not in ext,
     "independent init/exit/start/stop/limits": all(x in ext for x in
         (".init", ".exit", ".start", ".stop", ".limits")),
     "target_load sysfs read/write": all(x in ext for x in
