@@ -1,5 +1,5 @@
 set -Eeuo pipefail
-SOURCE_REF="${1:-v12}"
+SOURCE_REF="${1:-lineage-24.0}"
 BUILD_PROFILE="${2:-meys-v12-android-data-sdcardfs}"
 BUILD_LABEL="${3:-}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
@@ -13,39 +13,39 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     EXPECTED_SOURCE_COMMIT="e2d900276a445fc9e31592c80df89a6f5e24175d"
     LOCALVERSION="-Meys-EEVDF"
     ;;
-  "v12:meys-v12-android-data-sdcardfs")
+  "lineage-24.0:meys-v12-android-data-sdcardfs")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-EEVDF-AndroidData"
     ;;
-  "v12:meys-v12-stability-no-sdcardfs")
+  "lineage-24.0:meys-v12-stability-no-sdcardfs")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-Stability-NoSDCardFS"
     ;;
-  "v12:meys-v12-capacity-margin-0")
+  "lineage-24.0:meys-v12-capacity-margin-0")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V2-CapacityMargin0"
     ;;
-  "v12:meys-v12-walt-mt6781")
+  "lineage-24.0:meys-v12-walt-mt6781")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-WALT-MT6781"
     ;;
-  "v12:meys-v12-hmp-hybrid-mt6781")
+  "lineage-24.0:meys-v12-hmp-hybrid-mt6781")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid"
     ;;
-  "v12:meys-v12-hmp-hybrid-capacity-freq-mt6781")
+  "lineage-24.0:meys-v12-hmp-hybrid-capacity-freq-mt6781")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq"
     ;;
-  "v12:meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781")
+  "lineage-24.0:meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Conservative"
     ;;
-  "v12:meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781")
+  "lineage-24.0:meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Conservative-UnlimitedSampling"
     ;;
-  "v12:meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781")
+  "lineage-24.0:meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781")
     EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
     LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Isolated"
     ;;
@@ -54,8 +54,8 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     exit 2
     ;;
 esac
-if [[ ( "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" ) && -n "$BUILD_LABEL" ]]; then
-  [[ "$BUILD_LABEL" =~ ^(CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD|LIMIT-)[0-9]+$ ]] || { echo "Invalid capacity/conservative build label: $BUILD_LABEL" >&2; exit 2; }
+if [[ -n "$BUILD_LABEL" ]]; then
+  [[ "$BUILD_LABEL" =~ ^MEYS-[0-9]+$ ]] || { echo "Invalid build label: $BUILD_LABEL (expected MEYS-N)" >&2; exit 2; }
   LOCALVERSION="-$BUILD_LABEL"
 fi
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
