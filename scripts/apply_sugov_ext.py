@@ -80,12 +80,28 @@ plus_anchor = 'int cpu = policy->cpu;'
 if plus_anchor not in plus_src:
     raise SystemExit("SUGOV_EXT: nonlinear OPP mapping anchor missing")
 plus_ext = plus_src.replace('struct sugov_policy', 'struct sugov_ext_policy')
-plus_ext = re.sub(r'\bget_next_freq\b', 'sugov_ext_get_next_freq', plus_ext)
 plus_ext = plus_ext.replace(plus_anchor, plus_anchor + '\n\tutil = min_t(unsigned long, (util * 100UL) / max_t(unsigned int, READ_ONCE(sg_policy->tunables->target_load), 1), max);', 1)
 # Use kernel 4.19-compatible sysfs_emit replacement.
 ext = ext.replace('sysfs_emit(buf, "%u\\n", tunables->target_load)', 'sprintf(buf, "%u\\n", tunables->target_load)')
 (root / "kernel/sched/cpufreq_sugov_ext.c").write_text(ext)
 (root / "kernel/sched/cpufreq_sugov_ext_plus.c").write_text(plus_ext)
+# Make EAS recognize the independent governor as a schedutil-compatible governor.
+base_text = main.read_text()
+callback_old = 'if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov) {'
+callback_new = '''#ifdef CONFIG_CPU_FREQ_GOV_SUGOV_EXT
+\tif (old_gov == &schedutil_gov || policy->governor == &schedutil_gov ||
+\t    old_gov == &sugov_ext_gov || policy->governor == &sugov_ext_gov) {
+#else
+\tif (old_gov == &schedutil_gov || policy->governor == &schedutil_gov) {
+#endif'''
+if callback_old not in base_text:
+    raise SystemExit("SUGOV_EXT: EAS governor-change callback anchor missing")
+base_text = base_text.replace(callback_old, callback_new, 1)
+extern_anchor = 'void sched_cpufreq_governor_change(struct cpufreq_policy *policy,'
+if extern_anchor not in base_text:
+    raise SystemExit("SUGOV_EXT: EAS governor callback declaration missing")
+base_text = base_text.replace(extern_anchor, '#ifdef CONFIG_CPU_FREQ_GOV_SUGOV_EXT\\nextern struct cpufreq_governor sugov_ext_gov;\\n#endif\\n\\n' + extern_anchor, 1)
+main.write_text(base_text)
 if 'config CPU_FREQ_GOV_SUGOV_EXT' not in kconfig.read_text():
     ks = kconfig.read_text()
     anchor = 'config SCHED_HMP\n'
