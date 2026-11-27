@@ -138,8 +138,8 @@ if "sysfs_emit(" in ext or "sysfs_emit(" in plus_ext:
     raise SystemExit("SUGOV_EXT: post-5.10 sysfs API leaked into 4.19 clone")
 if '.name' not in ext or '"sugov_ext"' not in ext:
     raise SystemExit("SUGOV_EXT: independent governor name was not cloned")
-if "EXPORT_SYMBOL(sugov_ext_notifier_fp)" not in ext:
-    raise SystemExit("SUGOV_EXT: notifier symbol was not independently renamed")
+if "extern void (*cpufreq_notifier_fp)" not in ext or "EXPORT_SYMBOL(cpufreq_notifier_fp)" in ext:
+    raise SystemExit("SUGOV_EXT: shared FPSGO notifier linkage is invalid")
 
 # Update the one EAS callback owned by schedutil to recognize either governor.
 callback_old = "if (old_gov == &schedutil_gov || policy->governor == &schedutil_gov) {"
@@ -196,7 +196,8 @@ written = (root / "kernel/sched/cpufreq_sugov_ext.c").read_text()
 written_plus = (root / "kernel/sched/cpufreq_sugov_ext_plus.c").read_text()
 checks = {
     "separate governor registration": '.name' in written and '"sugov_ext"' in written,
-    "separate notifier symbol": "EXPORT_SYMBOL(sugov_ext_notifier_fp)" in written,
+    "shared FPSGO notifier": "extern void (*cpufreq_notifier_fp)" in written and
+        "EXPORT_SYMBOL(cpufreq_notifier_fp)" not in written,
     "target_load sysfs": "&target_load.attr" in written and "target_load_store" in written,
     "target_load default": "tunables->target_load = 80;" in written,
     "target_load range": "value < 1 || value > 100" in written,
