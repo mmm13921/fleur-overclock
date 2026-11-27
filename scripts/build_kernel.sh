@@ -113,6 +113,11 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimi
   python3 "$WORKSPACE/scripts/patch_dbs_sampling_rate.py" "$SRC_DIR" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
 fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_tunable_limits.py"
+  python3 "$WORKSPACE/scripts/apply_tunable_limits.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
+fi
 git -C "$SRC_DIR" diff HEAD --check
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
@@ -223,6 +228,8 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "cpufreq_ondemand=Linux 4.19 native ondemand governor built-in; schedutil remains default"
     echo "dbs_sampling_rate=conservative and ondemand accept 0..UINT_MAX; no userspace minimum or artificial maximum"
     echo "dbs_sampling_rate_audit=dbs-sampling-rate-audit.txt"
+    echo "scheduler_vm_tunables=scheduler bounds relaxed with positive 1ns CFS granularity floor; selected VM min/max table bounds removed; IRQ threshold already unbounded"
+    echo "scheduler_vm_tunables_audit=scheduler-vm-tunable-limits-audit.txt"
   fi
   echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
   echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
@@ -238,5 +245,6 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/conservative-governor-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/conservative-governor-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"; fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
