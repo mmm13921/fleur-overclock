@@ -1,10 +1,10 @@
 name: Fleux V12 HMP WALT Capacity Conservative Ondemand Unlimited Sampling
-run-name: CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD53
+run-name: CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD54
 # Combined HMP/EAS/Hybrid, schedutil capacity isolation, and built-in Conservative test.
 on:
   push:
     branches:
-      - CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD53
+      - CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD54
     paths:
       - '.github/workflows/build-hmp-hybrid-mt6781.yml'
       - 'scripts/build_kernel.sh'
@@ -35,7 +35,7 @@ jobs:
     env:
       SOURCE_REF: v12
       BUILD_PROFILE: meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781
-      BUILD_LABEL: CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD53
+      BUILD_LABEL: CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD54
     steps:
       - name: Checkout builder
         uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
       - name: Upload build and audit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD53
+          name: CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD54
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
