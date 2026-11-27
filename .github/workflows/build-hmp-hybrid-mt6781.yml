@@ -14,7 +14,6 @@ on:
       - 'scripts/apply_schedutil_static_capacity.py'
       - 'scripts/audit_conservative_governor.py'
       - 'scripts/patch_dbs_sampling_rate.py'
-      - 'scripts/audit_dbs_sampling_rate.py scripts/apply_sugov_ext.py scripts/audit_sugov_ext.py'
       - 'scripts/apply_sugov_ext.py'
       - 'scripts/audit_sugov_ext.py'
       - 'docs/sugov-ext-port.md'
@@ -46,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/build_kernel.sh
-          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py scripts/audit_conservative_governor.py scripts/patch_dbs_sampling_rate.py scripts/audit_dbs_sampling_rate.py
+          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py scripts/audit_conservative_governor.py scripts/patch_dbs_sampling_rate.py scripts/audit_dbs_sampling_rate.py scripts/apply_sugov_ext.py scripts/audit_sugov_ext.py
       - name: Install build dependencies
         run: |
           sudo apt-get update
