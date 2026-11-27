@@ -1,5 +1,4 @@
 import pathlib
-import re
 import sys
 
 if len(sys.argv) != 3:
@@ -11,53 +10,39 @@ matches = [p for p in root.rglob("fair.c") if p.as_posix().endswith("/kernel/sch
 if len(matches) != 1:
     raise SystemExit(f"expected exactly one kernel/sched/fair.c, found {len(matches)}")
 path = matches[0]
-source = path.read_text()
-
-variable_pattern = re.compile(
-    r"(?m)^(?P<prefix>[ \\t]*unsigned[ \\t]+int[ \\t]+capacity_margin[ \\t]*=[ \\t]*)"
-    r"1280(?P<suffix>[ \\t]*;[ \\t]*)$"
-)
-macro_pattern = re.compile(
-    r"(?m)^(?P<prefix>[ \\t]*#define[ \\t]+fits_capacity[ \\t]*"
-    r"\\([ \\t]*cap[ \\t]*,[ \\t]*max[ \\t]*\\)[ \\t]*"
-    r"\\([ \\t]*\\([ \\t]*cap[ \\t]*\\)[ \\t]*\\*[ \\t]*)"
-    r"1280(?P<suffix>[ \\t]*<[ \\t]*\\([ \\t]*max[ \\t]*\\)[ \\t]*"
-    r"\\*[ \\t]*1024[ \\t]*\\)[ \\t]*)$"
-)
-
-updated, variable_count = variable_pattern.subn(
-    lambda m: m.group("prefix") + "10" + m.group("suffix"), source
-)
-updated, macro_count = macro_pattern.subn(
-    lambda m: m.group("prefix") + "10" + m.group("suffix"), updated
-)
-if variable_count != 1 or macro_count != 1:
+lines = path.read_text().splitlines()
+variable_hits = []
+macro_hits = []
+for index, line in enumerate(lines):
+    if "capacity_margin" in line and "unsigned int" in line and "= 1280;" in line:
+        variable_hits.append(index)
+    if line.lstrip().startswith("#define fits_capacity") and "* 1280 <" in line and "* 1024" in line:
+        macro_hits.append(index)
+if len(variable_hits) != 1 or len(macro_hits) != 1:
     raise SystemExit(
-        "expected exactly one EAS capacity_margin=1280 variable and one "
-        f"MTK fits_capacity 1280/1024 macro; found variable={variable_count}, "
-        f"macro={macro_count}; refusing unsafe patch"
+        "expected one EAS capacity_margin=1280 variable and one MTK "
+        f"fits_capacity 1280/1024 macro; found variable={len(variable_hits)}, "
+        f"macro={len(macro_hits)}; refusing unsafe patch"
     )
-
-if not re.search(r"(?m)^[ \\t]*unsigned[ \\t]+int[ \\t]+capacity_margin[ \\t]*=[ \\t]*10[ \\t]*;[ \\t]*$", updated):
+for index in variable_hits + macro_hits:
+    if lines[index].count("1280") != 1:
+        raise SystemExit(f"unexpected multiple margin literals on line {index + 1}")
+    lines[index] = lines[index].replace("1280", "10", 1)
+updated = "\n".join(lines) + "\n"
+if not any("capacity_margin" in line and "unsigned int" in line and "= 10;" in line for line in lines):
     raise SystemExit("capacity_margin=10 post-patch verification failed")
-if not re.search(
-    r"(?m)^[ \\t]*#define[ \\t]+fits_capacity[ \\t]*\\([ \\t]*cap[ \\t]*,[ \\t]*max[ \\t]*\\)"
-    r"[ \\t]*\\([ \\t]*\\([ \\t]*cap[ \\t]*\\)[ \\t]*\\*[ \\t]*10[ \\t]*"
-    r"<[ \\t]*\\([ \\t]*max[ \\t]*\\)[ \\t]*\\*[ \\t]*1024[ \\t]*\\)[ \\t]*$",
-    updated,
-):
+if not any(line.lstrip().startswith("#define fits_capacity") and "* 10 <" in line and "* 1024" in line for line in lines):
     raise SystemExit("MTK fits_capacity margin=10 post-patch verification failed")
-
 path.write_text(updated)
 audit.parent.mkdir(parents=True, exist_ok=True)
-audit.write_text(
-    "result=PASS\\n"
-    "file=kernel/sched/fair.c\\n"
-    "symbols=capacity_margin;fits_capacity(cap,max)\\n"
-    "original_margin=1280\\n"
-    "new_margin=10\\n"
-    "capacity_scale=1024\\n"
-    "hmp_margin=10 (verified separately by apply_hmp_mt6781.py)\\n"
-    "semantics=EAS and MTK task-fit capacity comparisons use margin 10; Fleur HMP native migration guard is set to the same margin\\n"
-)
+audit.write_text("\n".join([
+    "result=PASS",
+    "file=kernel/sched/fair.c",
+    "symbols=capacity_margin;fits_capacity(cap,max)",
+    "original_margin=1280",
+    "new_margin=10",
+    "capacity_scale=1024",
+    "hmp_margin=10 (verified separately by apply_hmp_mt6781.py)",
+    "semantics=EAS and MTK task-fit capacity comparisons use margin 10; Fleur HMP native migration guard is set to the same margin",
+]) + "\n")
 print(f"Applied EAS capacity margin 10 to scheduler variable and MTK helper in {path}")

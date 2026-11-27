@@ -4,7 +4,7 @@ run-name: LIMIT-58
 on:
   push:
     branches:
-      - LIMIT-58
+      - LIMIT-57
     paths:
       - '.github/workflows/build-hmp-hybrid-mt6781.yml'
       - 'scripts/build_kernel.sh'
