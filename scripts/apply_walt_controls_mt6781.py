@@ -250,7 +250,7 @@ for name, (minimum, maximum) in expected_bounds.items():
         raise SystemExit("WALT minimum bound mismatch: " + name)
     if ".extra2\t\t= " + maximum + "," not in entry:
         raise SystemExit("WALT maximum bound mismatch: " + name)
-    if ".mode\\t\\t= 0644," not in entry:
+    if ".mode\t\t= 0644," not in entry:
         raise SystemExit("WALT writable permission mismatch: " + name)
 
 print("result=PASS")
