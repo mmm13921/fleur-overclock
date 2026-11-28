@@ -15,6 +15,12 @@ source = path.read_text()
 # sysctl upper bound. Native C type limits and scheduler arithmetic still apply.
 SCHED_PROTECTED = {
     "sched_child_runs_first",
+    "sched_base_slice",
+    "sched_eevdf_place_lag",
+    "sched_eevdf_place_deadline_initial",
+    "sched_eevdf_place_rel_deadline",
+    "sched_eevdf_run_to_parity",
+    "sched_eevdf_preempt_short",
     "sched_tunable_scaling",
     "sched_schedstats",
     "sched_autogroup_enabled",
@@ -65,12 +71,7 @@ changed = []
 already_unbounded = []
 custom_handlers = []
 vm_changed = []
-granularity_names = {
-    "sched_min_granularity_ns",
-    "sched_latency_ns",
-    "sched_wakeup_granularity_ns",
-    "sched_shares_ratelimit",
-}
+granularity_names = {"sched_shares_ratelimit"}
 
 for match in matches:
     name = match.group(1)
@@ -194,7 +195,7 @@ for match in list(re.finditer(r'\.procname\s*=\s*"([^"]+)"', source)):
 
 if "static int sched_minimum_zero = 0;" not in source:
     raise SystemExit("signed scheduler zero value missing")
-for required in ('"sched_min_granularity_ns"', '"sched_walt_cpu_high_irqload"',
+for required in ('"sched_base_slice"', '"sched_walt_cpu_high_irqload"',
                  '"extfrag_threshold"', '"watermark_scale_factor"', '"swappiness"'):
     if required not in source:
         raise SystemExit(f"required tunable missing from sysctl.c: {required}")
@@ -209,7 +210,7 @@ audit.write_text(
     "scheduler_bounds_normalized=" + (",".join(sorted(changed)) or "none") + "\n"
     "scheduler_already_unbounded=" + (",".join(sorted(already_unbounded)) or "none") + "\n"
     "vm_bounds_removed=" + (",".join(sorted(vm_changed)) or "none") + "\n"
-    "granularity=sched_min_granularity_ns minimum exactly 0; sched_latency_ns and wakeup granularity minimums zero; no artificial maxima\n"
+    "eevdf_bounds=sched_base_slice remains 0..100000000 ns; EEVDF feature switches remain boolean 0..1\n"
     "sampling_rate=handled by existing DBS unlimited patch with overflow protection\n"
     "protected_semantics=" + ",".join(sorted(SCHED_PROTECTED)) + "\n"
     "custom_handlers_review=" + (",".join(sorted(custom_handlers)) or "none") + "\n"
