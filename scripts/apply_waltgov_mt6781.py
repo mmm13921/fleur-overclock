@@ -105,7 +105,7 @@ replacements = [
      "\tunsigned int\t\tdown_rate_limit_us;\n"
      "\tunsigned int\t\thispeed_load;\n"
      "\tunsigned int\t\thispeed_freq;\n"
-     "\tint\t\t\tboost;\n};"),
+     "\tint\t\t\tboost;\n\tunsigned int\t\twakeup_boost;\n\tunsigned int\t\twakeup_boost_duration_us;\n};"),
     ("struct sugov_policy", "struct waltgov_policy"),
     ("struct sugov_cpu", "struct waltgov_cpu"),
     ("sugov_", "waltgov_"),
