@@ -38,6 +38,56 @@ jobs:
           bash -n scripts/build_kernel.sh
           sh -n scripts/walt_runtime_check.sh
           python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py scripts/apply_hmp_mt6781.py scripts/apply_scheduler_modes.py
+      - name: Guard all previously successful Build 62 layers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p artifacts
+          BUILD=scripts/build_kernel.sh
+          test -s "$BUILD"
+          required=(
+            "apply_official_419191_fs_mount.py"
+            "apply_f2fs_projectid_compat.py"
+            "apply_modem_pm_compat.py"
+            "apply_fuse_passthrough_coherency.py"
+            "eevdf/patches/0001-eevdf-core-618.py"
+            "apply_scheduler_modes.py"
+            "apply_walt_mt6781.py"
+            "apply_hmp_mt6781.py"
+            "apply_walt_controls_mt6781.py"
+            "apply_waltgov_mt6781.py"
+            "apply_capacity_margin_1.py"
+            "apply_capacity_margin_stock.py"
+            "apply_schedutil_static_capacity.py"
+            "apply_schedutil_capacity_frequency.py"
+            "patch_dbs_sampling_rate.py"
+            "apply_tunable_limits.py"
+            "audit_conservative_governor.py"
+            "configure_cgroup_v2.sh"
+            "configure_hyperos_fs.sh"
+          )
+          for item in "${required[@]}"; do
+            if ! grep -Fq "$item" "$BUILD"; then
+              echo "FAIL: preserved layer missing from build chain: $item" >&2
+              exit 1
+            fi
+            echo "PASS: $item"
+          done | tee artifacts/preserved-layers-audit.txt
+          grep -Fq 'meys-v12-build62-walt-full-mt6781' "$BUILD"
+          grep -Fq '6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9' "$BUILD"
+          grep -Fq 'LOCALVERSION="-Meys-Build62-WALT-Full"' "$BUILD"
+          grep -Fq 'CONFIG_SCHED_WALT' "$BUILD"
+          grep -Fq 'CONFIG_SCHED_HMP' "$BUILD"
+          grep -Fq 'CONFIG_CPU_FREQ_GOV_WALT' "$BUILD"
+          grep -Fq 'CONFIG_CPU_FREQ_GOV_CONSERVATIVE' "$BUILD"
+          grep -Fq 'CONFIG_CPU_FREQ_GOV_ONDEMAND' "$BUILD"
+          {
+            echo "result=PASS"
+            echo "base=Build 62 / Fleux V12 pinned source"
+            echo "policy=additive-only; no successful patch implementation is replaced"
+            echo "checks=all prior patch invocations, required profile and scheduler/governor config guards"
+          } >> artifacts/preserved-layers-audit.txt
+          cat artifacts/preserved-layers-audit.txt
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -81,7 +131,7 @@ jobs:
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" \
               META-INF tools LICENSE README.md walt-proc-sysctl.md walt_runtime_check.sh \
-              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
+              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt preserved-layers-audit.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
@@ -104,6 +154,7 @@ jobs:
             artifacts/Image.gz-dtb
             artifacts/kernel.config
             artifacts/build-manifest.txt
+            artifacts/preserved-layers-audit.txt
             artifacts/walt-mt6781-audit.txt
             artifacts/hmp-mt6781-audit.txt
             artifacts/walt-controls-mt6781-audit.txt
