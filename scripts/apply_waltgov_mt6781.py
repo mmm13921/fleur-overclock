@@ -33,7 +33,7 @@ def add_walt_frequency_path(text, label):
     anchor = "\tstruct rq *rq = cpu_rq(cpu);\n"
     replacement = anchor + """#ifdef CONFIG_SCHED_WALT
 \tif (type == FREQUENCY_UTIL && !walt_disabled &&
-\t    sysctl_sched_use_walt_cpu_util) {
+\t    READ_ONCE(sysctl_sched_use_walt_cpu_util)) {
 \t\tutil = walt_cpu_freq_util(rq);
 #ifdef CONFIG_SCHED_TUNE
 \t\tutil += schedtune_cpu_margin_with(util, cpu, p);
