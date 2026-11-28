@@ -200,7 +200,7 @@ entries = '''
 \t\t.data\t\t= &walt_ravg_window,
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0444,
-\t\t.proc_handler\t= proc_dointvec,
+\t\t.proc_handler\t= proc_douintvec,
 \t},
 \t{
 \t\t.procname\t= "sched_walt_disabled",
