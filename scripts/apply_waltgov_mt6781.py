@@ -215,9 +215,14 @@ freq_anchor = re.compile(
 freq_block = """\tint boost = READ_ONCE(sg_policy->tunables->boost);
 \tunsigned int hispeed_load = READ_ONCE(sg_policy->tunables->hispeed_load);
 \tunsigned int hispeed_freq = READ_ONCE(sg_policy->tunables->hispeed_freq);
+\tunsigned long raw_util = util;
+
+\tif (boost)
+\t\tutil = min_t(unsigned long, max,
+\t\t\t     (util * (100 + boost)) / 100);
 
 \tif (hispeed_freq && max &&
-\t    util >= mult_frac(max, hispeed_load, 100)) {
+\t    raw_util >= mult_frac(max, hispeed_load, 100)) {
 \t\tunsigned int floor_freq = min(hispeed_freq, policy->max);
 \t\tunsigned int floor_base_freq = arch_scale_freq_invariant() ?
 \t\t\tpolicy->cpuinfo.max_freq : policy->cur;
@@ -229,10 +234,6 @@ freq_block = """\tint boost = READ_ONCE(sg_policy->tunables->boost);
 \t\t\tutil = max(util, floor_util);
 \t\t}
 \t}
-
-\tif (boost)
-\t\tutil = min_t(unsigned long, max,
-\t\t\t     (util * (100 + boost)) / 100);
 
 """
 su, n = freq_anchor.subn(r"\1" + freq_block, su, count=1)
