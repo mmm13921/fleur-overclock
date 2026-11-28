@@ -1,9 +1,9 @@
-name: Fleux V12 MT6781 WALT build
-run-name: Meys V12 WALT MT6781 build ${{ github.run_number }}
+name: Build 62 — Fleux V12 MT6781 Full WALT
+run-name: MEYS Build 62 Full WALT + Governor — ${{ github.run_number }}
 on:
   push:
     branches:
-      - meys-v12-walt-full-port
+      - meys-v12-build62-walt-full
     paths:
       - '.github/workflows/build-walt-mt6781.yml'
       - 'scripts/build_kernel.sh'
@@ -23,12 +23,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build-and-package:
-    name: Build MT6781 WALT kernel and AnyKernel3 ZIP
+    name: Build 62 MT6781 WALT engine, controls, governor and AnyKernel3 ZIP
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
       SOURCE_REF: v12
-      BUILD_PROFILE: meys-v12-walt-mt6781
+      BUILD_PROFILE: meys-v12-build62-walt-full-mt6781
     steps:
       - name: Check out builder
         uses: actions/checkout@v4
@@ -75,28 +75,28 @@ jobs:
           cp artifacts/walt-mt6781-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" \
               META-INF tools LICENSE README.md walt-proc-sysctl.md \
               anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
+          unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
       - name: Publish experimental WALT prerelease
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: meys-v12-walt-mt6781-${{ github.run_number }}
-          name: Meys V12 WALT MT6781 — build ${{ github.run_number }}
+          tag_name: meys-build62-walt-full-mt6781-${{ github.run_number }}
+          name: MEYS Build 62 Full WALT MT6781 — build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
-            Experimental Fleux V12 / Linux 4.19.325 kernel for Redmi Note 11S 4G / fleur / MT6781.
+            Experimental Build 62 base: Fleux V12 / Linux 4.19.325 for Redmi Note 11S 4G / fleur / MT6781. Preserves Build 62 HMP/Hybrid, capacity/frequency, conservative/ondemand and unlimited-sampling layers; adds the Fleur-native WALT accounting engine, bounded live controls, and a selectable MTK-policy-aware WALT CPUFreq governor. schedutil remains default. CI compilation and static audits do not prove bootability or runtime correctness; device validation is mandatory.
 
             Includes the Fleur-native 20 ms WALT engine and the Fleur 4.14 HMP cluster placement, active up-migration and idle-pull policy backported to Fleux V12. WALT task demand feeds HMP loadwop accounting, CFS enqueue/dequeue and WALT-aware CPU utilization. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; device validation remains required.
           files: |
-            artifacts/Meys-V12-WALT-MT6781-AnyKernel3.zip
+            artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip
             artifacts/Image.gz-dtb
             artifacts/kernel.config
             artifacts/build-manifest.txt
@@ -109,7 +109,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: meys-v12-walt-mt6781
+          name: meys-build62-walt-full-mt6781
           path: artifacts/
           if-no-files-found: warn
           retention-days: 30
