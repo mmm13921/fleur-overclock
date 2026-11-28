@@ -483,10 +483,10 @@ static unsigned int walt_sysctl_min_one = 1;
 static unsigned int walt_sysctl_max_irqload = 1000000000;
 static unsigned int walt_sysctl_max_hist = 5;
 static unsigned int walt_sysctl_max_policy = 3;
-#define WALT_UINT_CTL(_name, _data, _min, _max) { \
-\t.procname = (_name), .data = &(_data), .maxlen = sizeof(unsigned int), \
-\t.mode = 0644, .proc_handler = proc_douintvec_minmax, \
-\t.extra1 = &(_min), .extra2 = &(_max), \
+#define WALT_UINT_CTL(_name, _data, _min, _max) { \\
+\t.procname = (_name), .data = &(_data), .maxlen = sizeof(unsigned int), \\
+\t.mode = 0644, .proc_handler = proc_douintvec_minmax, \\
+\t.extra1 = &(_min), .extra2 = &(_max), \\
 }
 #endif
 """
