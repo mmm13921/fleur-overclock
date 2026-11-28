@@ -1,0 +1,42 @@
+name: Publish MEYS V5 Build 116
+run-name: Publish MEYS V5 — Build 116
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-meys-v5.yml
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified Build 116 package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download meys-build62-walt-full-mt6781-116 --repo "$GITHUB_REPOSITORY" --pattern "MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" --dir dist
+          ZIP="dist/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
+          test -s "$ZIP"
+          unzip -t "$ZIP"
+          (cd dist && sha256sum "$(basename "$ZIP")" > MEYS-BUILD116-SHA256.txt)
+      - name: Publish MEYS V5 and mark latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NOTES="MEYS V5 — Build 116 for Redmi Note 11S 4G (fleur / MT6781).
+
+          Base: Fleux V12 / Build 62 lineage.
+          Build 116 includes the accumulated kernel changes and frequency fix. GitHub Actions build completed successfully, and the device owner confirmed that Build 116 boots and that CPU frequencies are fixed.
+
+          Package: MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip
+          The AnyKernel3 ZIP is integrity-tested before publication. Keep a known-good boot image for recovery."
+          if gh release view meys-v5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload meys-v5 dist/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip dist/MEYS-BUILD116-SHA256.txt --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit meys-v5 --repo "$GITHUB_REPOSITORY" --title "MEYS V5 — BUILD 116" --notes "$NOTES" --target f74d9479dd03e6326c48bacbf78f9aca9d211f4b --latest
+          else
+            gh release create meys-v5 dist/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip dist/MEYS-BUILD116-SHA256.txt --repo "$GITHUB_REPOSITORY" --title "MEYS V5 — BUILD 116" --notes "$NOTES" --target f74d9479dd03e6326c48bacbf78f9aca9d211f4b --latest
+          fi
