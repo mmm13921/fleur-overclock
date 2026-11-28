@@ -156,7 +156,7 @@ jobs:
           cp scripts/walt_runtime_check.sh artifacts/walt_runtime_check.sh
           cp artifacts/walt_runtime_check.sh "$AK_DIR/"
           cp README.md docs/walt-proc-sysctl.md "$AK_DIR/"
-          cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
+          cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt artifacts/preserved-layers-audit.txt "$AK_DIR/"
           cp artifacts/walt-mt6781-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
@@ -164,8 +164,8 @@ jobs:
               META-INF tools LICENSE README.md walt-proc-sysctl.md walt_runtime_check.sh \
               anykernel.sh Image.gz-dtb kernel.config build-manifest.txt preserved-layers-audit.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
           )
-          unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" | tee artifacts/MEYS-V6-SHA256.txt
+          unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-V6-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-V6-AnyKernel3.zip" | tee artifacts/MEYS-V6-SHA256.txt
       - name: Publish experimental WALT prerelease
         continue-on-error: true
         uses: softprops/action-gh-release@v2
@@ -182,7 +182,7 @@ jobs:
 
             Includes the Fleur-native 20 ms WALT engine and the Fleur 4.14 HMP cluster placement, active up-migration and idle-pull policy backported to Fleux V12. WALT task demand feeds HMP loadwop accounting, CFS enqueue/dequeue and WALT-aware CPU utilization. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. The WALT governor also exposes per-policy hispeed_load (90%), hispeed_freq (0=disabled until configured), and bounded boost (-100..1000), all wired into frequency selection. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; the ZIP includes a read-only on-device diagnostic script for WALT/HMP/EEVDF and CPUFreq validation.
           files: |
-            artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip
+            artifacts/MEYS-V6-AnyKernel3.zip
             artifacts/Image.gz-dtb
             artifacts/kernel.config
             artifacts/build-manifest.txt
@@ -191,7 +191,7 @@ jobs:
             artifacts/hmp-mt6781-audit.txt
             artifacts/walt-controls-mt6781-audit.txt
             artifacts/waltgov-mt6781-audit.txt
-            artifacts/WALT-MT6781-SHA256.txt
+            artifacts/MEYS-V6-SHA256.txt
             artifacts/walt_runtime_check.sh
       - name: Upload build artifacts
         if: always()
