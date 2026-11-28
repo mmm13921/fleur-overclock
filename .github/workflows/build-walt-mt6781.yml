@@ -81,6 +81,11 @@ jobs:
           grep -Fq 'CONFIG_CPU_FREQ_GOV_WALT' "$BUILD"
           grep -Fq 'CONFIG_CPU_FREQ_GOV_CONSERVATIVE' "$BUILD"
           grep -Fq 'CONFIG_CPU_FREQ_GOV_ONDEMAND' "$BUILD"
+          GOV=scripts/apply_waltgov_mt6781.py
+          grep -Fq 'hispeed_load' "$GOV"
+          grep -Fq 'hispeed_freq' "$GOV"
+          grep -Fq 'boost_store' "$GOV"
+          grep -Fq 'floor_util' "$GOV"
           {
             echo "result=PASS"
             echo "base=Build 62 / Fleux V12 pinned source"
@@ -148,7 +153,7 @@ jobs:
           body: |
             Experimental Build 62 base: Fleux V12 / Linux 4.19.325 for Redmi Note 11S 4G / fleur / MT6781. Preserves Build 62 HMP/Hybrid, capacity/frequency, conservative/ondemand and unlimited-sampling layers; adds the Fleur-native WALT accounting engine, bounded live controls, and a selectable MTK-policy-aware WALT CPUFreq governor. schedutil remains default. CI compilation and static audits do not prove bootability or runtime correctness; device validation is mandatory.
 
-            Includes the Fleur-native 20 ms WALT engine and the Fleur 4.14 HMP cluster placement, active up-migration and idle-pull policy backported to Fleux V12. WALT task demand feeds HMP loadwop accounting, CFS enqueue/dequeue and WALT-aware CPU utilization. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; the ZIP includes a read-only on-device diagnostic script for WALT/HMP/EEVDF and CPUFreq validation.
+            Includes the Fleur-native 20 ms WALT engine and the Fleur 4.14 HMP cluster placement, active up-migration and idle-pull policy backported to Fleux V12. WALT task demand feeds HMP loadwop accounting, CFS enqueue/dequeue and WALT-aware CPU utilization. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. The WALT governor also exposes per-policy hispeed_load (90%), hispeed_freq (0=disabled until configured), and bounded boost (-100..1000), all wired into frequency selection. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; the ZIP includes a read-only on-device diagnostic script for WALT/HMP/EEVDF and CPUFreq validation.
           files: |
             artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip
             artifacts/Image.gz-dtb
