@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/build-walt-mt6781.yml'
       - 'scripts/build_kernel.sh'
+      - 'scripts/apply_eevdf_legacy_cleanup.py'
       - 'scripts/apply_walt_mt6781.py'
       - 'scripts/apply_hmp_mt6781.py'
       - 'vendor/hmp-fleur-4.14/**'
@@ -37,7 +38,7 @@ jobs:
         run: |
           bash -n scripts/build_kernel.sh
           sh -n scripts/walt_runtime_check.sh
-          python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py scripts/apply_hmp_mt6781.py scripts/apply_scheduler_modes.py
+          python3 -m py_compile scripts/apply_eevdf_legacy_cleanup.py scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py scripts/apply_hmp_mt6781.py scripts/apply_scheduler_modes.py
       - name: Guard all previously successful Build 62 layers
         shell: bash
         run: |
@@ -51,6 +52,7 @@ jobs:
             "apply_modem_pm_compat.py"
             "apply_fuse_passthrough_coherency.py"
             "eevdf/patches/0001-eevdf-core-618.py"
+            "apply_eevdf_legacy_cleanup.py"
             "apply_scheduler_modes.py"
             "apply_walt_mt6781.py"
             "apply_hmp_mt6781.py"
@@ -132,12 +134,12 @@ jobs:
           cp artifacts/walt_runtime_check.sh "$AK_DIR/"
           cp README.md docs/walt-proc-sysctl.md "$AK_DIR/"
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
-          cp artifacts/walt-mt6781-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt "$AK_DIR/"
+          cp artifacts/walt-mt6781-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt artifacts/eevdf-legacy-cleanup-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" \
               META-INF tools LICENSE README.md walt-proc-sysctl.md walt_runtime_check.sh \
-              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt preserved-layers-audit.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
+              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt preserved-layers-audit.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt eevdf-legacy-cleanup-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
           sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
@@ -165,6 +167,7 @@ jobs:
             artifacts/hmp-mt6781-audit.txt
             artifacts/walt-controls-mt6781-audit.txt
             artifacts/waltgov-mt6781-audit.txt
+            artifacts/eevdf-legacy-cleanup-audit.txt
             artifacts/WALT-MT6781-SHA256.txt
             artifacts/walt_runtime_check.sh
       - name: Upload build artifacts
