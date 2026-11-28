@@ -182,6 +182,37 @@ static ssize_t boost_store(struct gov_attr_set *attr_set,
 static struct governor_attr hispeed_load = __ATTR_RW(hispeed_load);
 static struct governor_attr hispeed_freq = __ATTR_RW(hispeed_freq);
 static struct governor_attr boost = __ATTR_RW(boost);
+
+static ssize_t wakeup_boost_show(struct gov_attr_set *attr_set, char *buf)
+{
+	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
+	return scnprintf(buf, PAGE_SIZE, "%u\\n", READ_ONCE(tunables->wakeup_boost));
+}
+static ssize_t wakeup_boost_store(struct gov_attr_set *attr_set, const char *buf, size_t count)
+{
+	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
+	unsigned int val;
+	if (kstrtouint(buf, 10, &val) || val > 200)
+		return -EINVAL;
+	WRITE_ONCE(tunables->wakeup_boost, val);
+	return count;
+}
+static struct governor_attr wakeup_boost = __ATTR_RW(wakeup_boost);
+static ssize_t wakeup_boost_duration_us_show(struct gov_attr_set *attr_set, char *buf)
+{
+	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
+	return scnprintf(buf, PAGE_SIZE, "%u\\n", READ_ONCE(tunables->wakeup_boost_duration_us));
+}
+static ssize_t wakeup_boost_duration_us_store(struct gov_attr_set *attr_set, const char *buf, size_t count)
+{
+	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
+	unsigned int val;
+	if (kstrtouint(buf, 10, &val) || val > 1000000)
+		return -EINVAL;
+	WRITE_ONCE(tunables->wakeup_boost_duration_us, val);
+	return count;
+}
+static struct governor_attr wakeup_boost_duration_us = __ATTR_RW(wakeup_boost_duration_us);
 """
 attrs_anchor = "static struct governor_attr up_rate_limit_us = __ATTR_RW(up_rate_limit_us);"
 if su.count(attrs_anchor) != 1:
@@ -194,7 +225,9 @@ if su.count(attrs_list_anchor) != 1:
 su = su.replace(attrs_list_anchor, attrs_list_anchor + """
 	&hispeed_load.attr,
 	&hispeed_freq.attr,
-	&boost.attr,""", 1)
+	&boost.attr,
+	&wakeup_boost.attr,
+	&wakeup_boost_duration_us.attr,""", 1)
 
 # Defaults follow the native WALT governor family: 90% threshold,
 # no forced hispeed floor until configured, and no utilization boost.
@@ -204,7 +237,9 @@ if su.count(init_anchor) != 1:
 su = su.replace(init_anchor, init_anchor + """
 		tunables->hispeed_load = 90;
 		tunables->hispeed_freq = 0;
-		tunables->boost = 0;""", 1)
+		tunables->boost = 0;
+		tunables->wakeup_boost = 20;
+		tunables->wakeup_boost_duration_us = 80000;""", 1)
 
 # Apply the tunables to the final WALT-derived utilization before the native
 # schedutil frequency mapping. The 80% factor compensates for 1.25 headroom.
@@ -213,6 +248,8 @@ freq_anchor = re.compile(
     r"\tstruct cpufreq_policy \*policy = sg_policy->policy;\n)"
 )
 freq_block = """\tint boost = READ_ONCE(sg_policy->tunables->boost);
+	unsigned int wakeup_boost = READ_ONCE(sg_policy->tunables->wakeup_boost);
+	unsigned int wakeup_boost_duration_us = READ_ONCE(sg_policy->tunables->wakeup_boost_duration_us);
 \tunsigned int hispeed_load = READ_ONCE(sg_policy->tunables->hispeed_load);
 \tunsigned int hispeed_freq = READ_ONCE(sg_policy->tunables->hispeed_freq);
 \tunsigned long raw_util = util;
@@ -220,6 +257,19 @@ freq_block = """\tint boost = READ_ONCE(sg_policy->tunables->boost);
 \tif (boost)
 \t\tutil = min_t(unsigned long, max,
 \t\t\t     (util * (100 + boost)) / 100);
+	if (wakeup_boost && wakeup_boost_duration_us) {
+		int wake_cpu;
+		u64 now = ktime_get_ns();
+		u64 duration = (u64)wakeup_boost_duration_us * NSEC_PER_USEC;
+		for_each_cpu(wake_cpu, policy->cpus) {
+			u64 last_wakeup = READ_ONCE(cpu_rq(wake_cpu)->walt_last_wakeup);
+			if (last_wakeup && now >= last_wakeup && now - last_wakeup < duration) {
+				util = min_t(unsigned long, max, util + mult_frac(util, wakeup_boost, 100));
+				break;
+			}
+		}
+	}
+
 
 \tif (hispeed_freq && max &&
 \t    raw_util >= mult_frac(max, hispeed_load, 100)) {
@@ -244,7 +294,8 @@ if "cpu_util_cfs(rq)" not in su:
     raise SystemExit("WALT governor lost its PELT fallback source")
 if ("walt_cpu_freq_util(rq)" not in su or '.name\t\t\t= "walt"' not in su
         or "hispeed_load" not in su or "hispeed_freq" not in su
-        or "boost_store" not in su or "floor_util" not in su):
+        or "boost_store" not in su or "floor_util" not in su
+        or "wakeup_boost_duration_us" not in su or "walt_last_wakeup" not in su):
     raise SystemExit("WALT governor post-transform audit failed")
 if "sched_cpufreq_governor_change" in su:
     raise SystemExit("duplicate schedutil energy-model governor callback was not removed")
