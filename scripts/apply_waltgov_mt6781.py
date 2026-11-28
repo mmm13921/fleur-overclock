@@ -20,6 +20,8 @@ for path in (kconfig, makefile, source):
 k = kconfig.read_text()
 mk = makefile.read_text()
 su = source.read_text()
+if "#include <linux/ktime.h>" not in su:
+    su = "#include <linux/ktime.h>\n" + su
 
 def replace_once(text, old, new, label, expected=1):
     found = text.count(old)
