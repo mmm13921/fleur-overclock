@@ -758,6 +758,9 @@ void walt_update_task_ravg(struct task_struct *p, struct rq *rq,
 
 	update_window_start(rq, wallclock);
 
+	if (event == TASK_WAKE)
+		WRITE_ONCE(rq->walt_last_wakeup, wallclock);
+
 	if (!p->ravg.mark_start)
 		goto done;
 
