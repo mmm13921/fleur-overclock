@@ -1,5 +1,5 @@
 name: Build 62 — Fleux V12 MT6781 Full WALT
-run-name: MEYS Build 62 Full WALT + Governor — ${{ github.run_number }}
+run-name: MEYS V6
 on:
   push:
     branches:
@@ -81,7 +81,7 @@ jobs:
           done | tee artifacts/preserved-layers-audit.txt
           grep -Fq 'meys-v12-build62-walt-full-mt6781' "$BUILD"
           grep -Fq '6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9' "$BUILD"
-          grep -Fq 'LOCALVERSION="-Meys-Build62-WALT-Full"' "$BUILD"
+          grep -Fq 'LOCALVERSION="-MEYS-V6"' "$BUILD"
           grep -Fq 'apply_eevdf_legacy_cleanup.py' "$BUILD"
           grep -Fq 'CONFIG_SCHED_WALT' "$BUILD"
           grep -Fq 'CONFIG_SCHED_HMP' "$BUILD"
@@ -138,7 +138,7 @@ jobs:
           echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
           echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
       - name: Build Fleux V12 with MT6781 WALT accounting
-        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE" "MEYS-V6"
       - name: Package AnyKernel3 test ZIP
         env:
           AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
@@ -159,20 +159,21 @@ jobs:
           cp artifacts/walt-mt6781-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
-            zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" \
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-V6-AnyKernel3.zip" \
               META-INF tools LICENSE README.md walt-proc-sysctl.md walt_runtime_check.sh \
               anykernel.sh Image.gz-dtb kernel.config build-manifest.txt preserved-layers-audit.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
-          sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
+          sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" | tee artifacts/MEYS-V6-SHA256.txt
       - name: Publish experimental WALT prerelease
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: meys-build62-walt-full-mt6781-${{ github.run_number }}
-          name: MEYS Build 62 Full WALT MT6781 — build ${{ github.run_number }}
+          tag_name: meys-v6
+          name: MEYS V6
           target_commitish: ${{ github.sha }}
-          prerelease: true
+          prerelease: false
+          make_latest: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
@@ -195,7 +196,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: meys-build62-walt-full-mt6781
+          name: MEYS-V6
           path: artifacts/
           if-no-files-found: warn
           retention-days: 30

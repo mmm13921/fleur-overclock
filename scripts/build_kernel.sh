@@ -59,7 +59,7 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     ;;
 esac
 if [[ ( "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ) && -n "$BUILD_LABEL" ]]; then
-  [[ "$BUILD_LABEL" =~ ^(CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD|LIMIT-)[0-9]+$ ]] || { echo "Invalid capacity/conservative build label: $BUILD_LABEL" >&2; exit 2; }
+  [[ "$BUILD_LABEL" == "MEYS-V6" || "$BUILD_LABEL" =~ ^(CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD|LIMIT-)[0-9]+$ ]] || { echo "Invalid capacity/conservative build label: $BUILD_LABEL" >&2; exit 2; }
   LOCALVERSION="-$BUILD_LABEL"
 fi
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
