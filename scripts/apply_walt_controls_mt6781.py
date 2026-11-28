@@ -109,7 +109,7 @@ extra = '''\t{
 \t\t.data\t\t= &sysctl_sched_walt_cpu_high_irqload,
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec_minmax,
+\t\t.proc_handler\t= proc_douintvec_minmax,
 \t\t.extra1\t\t= &walt_sysctl_zero,
 \t\t.extra2\t\t= &walt_sysctl_nsec_per_sec,
 \t},'''
@@ -141,8 +141,8 @@ def replace_entry(procname, old_handler, new_handler, low, high):
     data = data[:start] + block + data[end:]
 
 replace_entry("sched_use_walt_cpu_util", "proc_dointvec", "proc_douintvec_minmax", "zero", "&walt_sysctl_one")
-replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_dointvec_minmax", "zero", "&walt_sysctl_one")
-replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_dointvec_minmax", "zero", "&walt_sysctl_hundred")
+replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_douintvec_minmax", "zero", "&walt_sysctl_one")
+replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_douintvec_minmax", "zero", "&walt_sysctl_hundred")
 
 # Insert remaining native knobs immediately after the bounded IRQ entry.
 irq_end = data.find("\n\t},", data.find('.procname\t= "sched_walt_cpu_high_irqload"'))
@@ -155,7 +155,7 @@ entries = '''
 \t\t.data\t\t= &sysctl_sched_walt_ravg_hist_size,
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec_minmax,
+\t\t.proc_handler\t= proc_douintvec_minmax,
 \t\t.extra1\t\t= &walt_sysctl_one,
 \t\t.extra2\t\t= &walt_sysctl_five,
 \t},
@@ -164,7 +164,7 @@ entries = '''
 \t\t.data\t\t= &sysctl_sched_walt_window_stats_policy,
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec_minmax,
+\t\t.proc_handler\t= proc_douintvec_minmax,
 \t\t.extra1\t\t= &walt_sysctl_zero,
 \t\t.extra2\t\t= &walt_sysctl_three,
 \t},
@@ -173,7 +173,7 @@ entries = '''
 \t\t.data\t\t= &sysctl_sched_walt_account_wait_time,
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec_minmax,
+\t\t.proc_handler\t= proc_douintvec_minmax,
 \t\t.extra1\t\t= &walt_sysctl_zero,
 \t\t.extra2\t\t= &walt_sysctl_one,
 \t},
@@ -182,7 +182,7 @@ entries = '''
 \t\t.data\t\t= &sysctl_sched_walt_freq_account_wait_time,
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec_minmax,
+\t\t.proc_handler\t= proc_douintvec_minmax,
 \t\t.extra1\t\t= &walt_sysctl_zero,
 \t\t.extra2\t\t= &walt_sysctl_one,
 \t},
@@ -191,7 +191,7 @@ entries = '''
 \t\t.data\t\t= &sysctl_sched_walt_io_is_busy,
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec_minmax,
+\t\t.proc_handler\t= proc_douintvec_minmax,
 \t\t.extra1\t\t= &walt_sysctl_zero,
 \t\t.extra2\t\t= &walt_sysctl_one,
 \t},
