@@ -4,8 +4,8 @@ import sys
 
 root = pathlib.Path(sys.argv[1])
 audit = pathlib.Path(sys.argv[2])
-repo_root = pathlib.Path(__file__).resolve().parents[1]
-vendor = repo_root / "vendor" / "hmp-fleur-4.14"
+archive_root = pathlib.Path(__file__).resolve().parent
+vendor = archive_root / "reference"
 
 def replace_once(path, old, new, label, expected=1):
     p = root / path
