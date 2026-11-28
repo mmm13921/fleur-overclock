@@ -166,7 +166,7 @@ replace_once("kernel/sched/stop_task.c",
 # WALT-aware task and CPU utilization. PELT/util_est remain the fallback.
 replace_once("kernel/sched/fair.c",
     "const_debug unsigned int sysctl_sched_migration_cost\t= 500000UL;\n",
-    "const_debug unsigned int sysctl_sched_migration_cost\t= 500000UL;\n\n#ifdef CONFIG_SCHED_WALT\nunsigned int sysctl_sched_use_walt_cpu_util = 1;\nunsigned int sysctl_sched_use_walt_task_util = 1;\n__read_mostly unsigned int sysctl_sched_walt_cpu_high_irqload = 10 * NSEC_PER_MSEC;\n#endif\n",
+    "const_debug unsigned int sysctl_sched_migration_cost\t= 500000UL;\n\n#ifdef CONFIG_SCHED_WALT\nunsigned int sysctl_sched_use_walt_cpu_util = 0;\nunsigned int sysctl_sched_use_walt_task_util = 1;\n__read_mostly unsigned int sysctl_sched_walt_cpu_high_irqload = 10 * NSEC_PER_MSEC;\n#endif\n",
     "WALT scheduler tunables")
 replace_once("kernel/sched/fair.c",
     "static inline unsigned long task_util(struct task_struct *p)\n{\n\treturn READ_ONCE(p->se.avg.util_avg);\n}",
