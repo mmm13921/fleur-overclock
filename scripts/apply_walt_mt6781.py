@@ -475,7 +475,7 @@ replace_once("include/linux/sched.h",
     "WALT sysctl declarations")
 walt_sysctl = root / "kernel/sysctl.c"
 sysctl_data = walt_sysctl.read_text()
-walt_table = """#ifdef CONFIG_SCHED_WALT
+walt_helpers = """#ifdef CONFIG_SCHED_WALT
 static unsigned int walt_sysctl_min_zero = 0;
 static unsigned int walt_sysctl_max_one = 1;
 static unsigned int walt_sysctl_max_100 = 100;
@@ -488,6 +488,14 @@ static unsigned int walt_sysctl_max_policy = 3;
 \t.mode = 0644, .proc_handler = proc_douintvec_minmax, \
 \t.extra1 = &(_min), .extra2 = &(_max), \
 }
+#endif
+"""
+kern_table_marker = "static struct ctl_table kern_table[] = {"
+if sysctl_data.count(kern_table_marker) != 1:
+    raise SystemExit("WALT sysctl global helper insertion marker missing or ambiguous")
+sysctl_data = sysctl_data.replace(kern_table_marker, walt_helpers + "\\n" + kern_table_marker, 1)
+
+walt_table = """#ifdef CONFIG_SCHED_WALT
 \tWALT_UINT_CTL("sched_use_walt_cpu_util", sysctl_sched_use_walt_cpu_util, walt_sysctl_min_zero, walt_sysctl_max_one),
 \tWALT_UINT_CTL("sched_use_walt_task_util", sysctl_sched_use_walt_task_util, walt_sysctl_min_zero, walt_sysctl_max_one),
 \tWALT_UINT_CTL("sched_walt_init_task_load_pct", sysctl_sched_walt_init_task_load_pct, walt_sysctl_min_zero, walt_sysctl_max_100),
