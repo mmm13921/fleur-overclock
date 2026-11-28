@@ -145,7 +145,7 @@ replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_douintvec_minma
 replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_douintvec_minmax", "&walt_sysctl_hundred")
 
 # Insert remaining native knobs immediately after the bounded IRQ entry.
-irq_end = data.find("\n\t},", data.find('.procname\t= "sched_walt_cpu_high_irqload"'))
+    end = data.find("\n\t},", start)
 if irq_end < 0:
     raise SystemExit("could not locate end of WALT IRQ sysctl entry")
 entries = '''
@@ -240,15 +240,15 @@ expected_bounds = {
 }
 for name, (minimum, maximum) in expected_bounds.items():
     start = data.find('.procname\t= "' + name + '"')
-    end = data.find("\\n\\t},", start)
+    end = data.find("\n\t},", start)
     if start < 0 or end < 0:
         raise SystemExit("WALT bounds audit could not isolate " + name)
     entry = data[start:end]
-    if ".proc_handler\\t= proc_douintvec_minmax," not in entry:
+    if ".proc_handler\t= proc_douintvec_minmax," not in entry:
         raise SystemExit("WALT unsigned bounded handler missing: " + name)
-    if ".extra1\\t\\t= " + minimum + "," not in entry:
+    if ".extra1\t\t= " + minimum + "," not in entry:
         raise SystemExit("WALT minimum bound mismatch: " + name)
-    if ".extra2\\t\\t= " + maximum + "," not in entry:
+    if ".extra2\t\t= " + maximum + "," not in entry:
         raise SystemExit("WALT maximum bound mismatch: " + name)
     if ".mode\\t\\t= 0644," not in entry:
         raise SystemExit("WALT writable permission mismatch: " + name)
