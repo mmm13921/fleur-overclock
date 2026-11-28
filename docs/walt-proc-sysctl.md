@@ -93,6 +93,16 @@ The controls below are sourced from the pinned Fleur 4.14 implementation or are 
 | `sched_walt_ravg_window` | 20 ms | RO | Effective tick-adjusted WALT window; set at boot with `walt_ravg_window=`. |
 | `sched_walt_disabled` | 0 | RO | Reports whether invalid boot-time window configuration disabled WALT. |
 
+The dedicated WALT CPUFreq governor (separate from schedutil) exposes a per-policy tuning group at `/sys/devices/system/cpu/cpufreq/policyX/walt/`. In addition to the two rate-limit controls, the next build adds three real WALT governor tunables adapted from the native Qualcomm/Motorola WALT governor model:
+
+| Attribute | Default | Range | Effect |
+|---|---:|---:|---|
+| `hispeed_load` | 90 | 0–100 | Load percentage that activates the hispeed floor. |
+| `hispeed_freq` | 0 | 0–policy max (kHz) | Minimum requested frequency after the hispeed threshold is reached; 0 disables the floor until configured. |
+| `boost` | 0 | -100–1000 | Percentage adjustment to WALT utilization before frequency mapping; positive values increase requested frequency and negative values reduce it. |
+
+These are applied in the WALT governor's frequency-selection path, not just registered as sysfs files. `hispeed_freq` is clamped to the active policy maximum when consumed. The existing per-policy LITTLE and big frequency domains remain independent. Qualcomm-specific `rtg_boost_freq`, predictive-load (`pl`), and adaptive-frequency controls are not exposed because the corresponding RTG/predicted-load/adaptive backing paths are not part of this MT6781 port.
+
 The dedicated WALT CPUFreq governor (separate from schedutil) also inherits two live per-policy sysfs controls from Fleux schedutil: `/sys/devices/system/cpu/cpufreq/policyX/walt/up_rate_limit_us` and `/sys/devices/system/cpu/cpufreq/policyX/walt/down_rate_limit_us`. Both are in microseconds and control the minimum delay for frequency increases and decreases respectively; their initial values are taken from the MTK policy transition delay in the base governor, not hard-coded by this port. The governor uses each policy's own related-CPU mask, so LITTLE and big policies remain independent.\n\nThe five native internal Fleur tuning variables (history size, history policy, wait-time accounting, frequency wait-time accounting and I/O-busy accounting) are now exported with explicit bounds. The effective window is intentionally read-only: changing it live would invalidate task histories and per-runqueue window sums. The disabled flag is also read-only; exposing a writable global enable switch without synchronously resetting all task/runqueue accounting would be unsafe.
 
 Qualcomm-only names such as related-thread-group controls, user hints, core_ctl thresholds and Qualcomm cluster-frequency controls are not presented as supported MT6781 parameters. They require separate MTK implementations and are not part of this ABI.
