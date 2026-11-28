@@ -108,15 +108,17 @@ grep -qx "result=PASS" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py"
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$WORKSPACE/scripts/apply_walt_controls_mt6781.py"
   python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
+  # Apply bounded WALT sysctl controls to every profile that includes WALT,
+  # including HMP-only builds where WALT remains an internal load source.
+  python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" > "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
   if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-    python3 -m py_compile "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
-    python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" > "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
-    grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
+    python3 -m py_compile "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
     python3 "$WORKSPACE/scripts/apply_waltgov_mt6781.py" "$SRC_DIR" > "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
     grep -qx "result=PASS" "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
     cp "$ARTIFACT_DIR/walt-demand-engine-audit.txt" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
@@ -294,6 +296,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/conservative-governor-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/conservative-governor-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"; fi
-  if [[ -f "$ARTIFACT_DIR/walt-mt6781-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/walt-mt6781-audit.txt" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt" "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/walt-demand-engine-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/walt-demand-engine-audit.txt" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/waltgov-mt6781-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"; fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
 echo "Build completed; outputs are in $ARTIFACT_DIR"
