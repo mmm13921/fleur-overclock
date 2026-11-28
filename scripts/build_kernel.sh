@@ -1,327 +1,235 @@
-#!/usr/bin/env bash
 set -Eeuo pipefail
-
-SOURCE_REF="${1:-lineage-24.0}"
-BUILD_PROFILE="${2:-baseline}"
+SOURCE_REF="${1:-v12}"
+BUILD_PROFILE="${2:-meys-v12-android-data-sdcardfs}"
+BUILD_LABEL="${3:-}"
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
 SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
 OUT_DIR="${OUT_DIR:-$WORKSPACE/out}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$WORKSPACE/artifacts}"
 TOOLCHAIN_DIR="${TOOLCHAIN_DIR:-}"
-
-case "$SOURCE_REF" in
-  v∞) ;;
-  ""|-*|*..*|*//*|*[!A-Za-z0-9._/-]*)
-    echo "Invalid source ref: $SOURCE_REF" >&2
-    exit 2
+case "$SOURCE_REF:$BUILD_PROFILE" in
+  "v11:meys-projectid-30-eevdf-modem")
+    EXPECTED_SOURCE_COMMIT="e2d900276a445fc9e31592c80df89a6f5e24175d"
+    LOCALVERSION="-Meys-EEVDF"
     ;;
-esac
-
-case "$BUILD_PROFILE" in
-  baseline|oc1|oc2|oc3|hyperos-compat) ;;
+  "v12:meys-v12-android-data-sdcardfs")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-EEVDF-AndroidData"
+    ;;
+  "v12:meys-v12-stability-no-sdcardfs")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-Stability-NoSDCardFS"
+    ;;
+  "v12:meys-v12-capacity-margin-0")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V2-CapacityMargin0"
+    ;;
+  "v12:meys-v12-walt-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-WALT-MT6781"
+    ;;
+  "v12:meys-v12-hmp-hybrid-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid"
+    ;;
+  "v12:meys-v12-hmp-hybrid-capacity-freq-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq"
+    ;;
+  "v12:meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Conservative"
+    ;;
+  "v12:meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Conservative-UnlimitedSampling"
+    ;;
+  "v12:meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-V12-HMP-Hybrid-CapacityFreq-Isolated"
+    ;;
+  "v12:meys-v12-build62-walt-full-mt6781")
+    EXPECTED_SOURCE_COMMIT="6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9"
+    LOCALVERSION="-Meys-Build62-WALT-Full"
+    ;;
   *)
-    echo "Unsupported build profile: $BUILD_PROFILE" >&2
+    echo "Unsupported source/profile pair: $SOURCE_REF / $BUILD_PROFILE" >&2
     exit 2
     ;;
 esac
-
+if [[ ( "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ) && -n "$BUILD_LABEL" ]]; then
+  [[ "$BUILD_LABEL" =~ ^(CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD|LIMIT-)[0-9]+$ ]] || { echo "Invalid capacity/conservative build label: $BUILD_LABEL" >&2; exit 2; }
+  LOCALVERSION="-$BUILD_LABEL"
+fi
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
   echo "Set TOOLCHAIN_DIR to the extracted Android Clang r563880c directory." >&2
   exit 2
 fi
-
-if [[ -e "$SRC_DIR" ]]; then
-  echo "Source directory already exists: $SRC_DIR" >&2
+if [[ -e "$SRC_DIR" || -e "$OUT_DIR" ]]; then
+  echo "Source or output directory already exists; use a clean runner workspace." >&2
   exit 2
 fi
-
 mkdir -p "$(dirname "$SRC_DIR")" "$ARTIFACT_DIR"
+if [[ ! -s "$WORKSPACE/debug/README.md" ]]; then
+  echo "Persistent debug archive missing: $WORKSPACE/debug/README.md" >&2
+  exit 1
+fi
+cp "$WORKSPACE/debug/README.md" "$ARTIFACT_DIR/debug-archive.md"
 git clone --depth=1 --branch "$SOURCE_REF" "$SOURCE_URL" "$SRC_DIR"
 git -C "$SRC_DIR" submodule sync --recursive
 git -C "$SRC_DIR" submodule update --init --depth=1 --recursive
-
-case "$BUILD_PROFILE" in
-  oc1)
-    bash "$WORKSPACE/scripts/apply_oc1_2200.sh" "$SRC_DIR"
-    ;;
-  oc2)
-    bash "$WORKSPACE/scripts/apply_oc2_2200.sh" "$SRC_DIR"
-    ;;
-  oc3)
-    bash "$WORKSPACE/scripts/apply_oc3_2200.sh" "$SRC_DIR"
-    ;;
-  hyperos-compat)
-    python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR"
-    python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
-    ;;
-esac
-
+ACTUAL_SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
+if [[ "$ACTUAL_SOURCE_COMMIT" != "$EXPECTED_SOURCE_COMMIT" ]]; then
+  echo "Upstream ref $SOURCE_REF resolved to unexpected commit: $ACTUAL_SOURCE_COMMIT" >&2
+  echo "Expected pinned commit: $EXPECTED_SOURCE_COMMIT" >&2
+  exit 2
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
+  python3 "$WORKSPACE/scripts/apply_capacity_margin_zero.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
+fi
+python3 "$WORKSPACE/scripts/apply_official_419191_fs_mount.py" "$SRC_DIR" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
+python3 -m py_compile "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py"
+python3 "$WORKSPACE/patches/apply/0002-f2fs-projectid-metadata-compat.py" "$SRC_DIR" "$ARTIFACT_DIR/projectid-compatibility-audit.txt"
+python3 "$WORKSPACE/scripts/apply_f2fs_projectid_compat.py" "$SRC_DIR" "$ARTIFACT_DIR/storage-projectid-audit.txt"
+python3 "$WORKSPACE/scripts/apply_scheduler_modes.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+python3 "$WORKSPACE/scripts/apply_modem_pm_compat.py" "$SRC_DIR" > "$ARTIFACT_DIR/modem-pm-audit.txt"
+grep -q "Applied MT6781 DPMAIF syscore PM safety patch." "$ARTIFACT_DIR/modem-pm-audit.txt"
+python3 -m py_compile "$WORKSPACE/scripts/apply_fuse_passthrough_coherency.py"
+python3 "$WORKSPACE/scripts/apply_fuse_passthrough_coherency.py" "$SRC_DIR" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt"
+grep -q "^result=PASS$" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt"
+python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSPACE/eevdf/audit_eevdf_618.py"
+python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
+python3 -m py_compile "$WORKSPACE/scripts/apply_eevdf_legacy_cleanup.py"
+python3 "$WORKSPACE/scripts/apply_eevdf_legacy_cleanup.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt"
+python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
+grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_walt_mt6781.py" "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$WORKSPACE/scripts/apply_walt_controls_mt6781.py"
+  python3 "$WORKSPACE/scripts/apply_walt_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-demand-engine-audit.txt"
+  python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
+  # Apply bounded WALT sysctl controls to every profile that includes WALT,
+  # including HMP-only builds where WALT remains an internal load source.
+  python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" > "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
+  if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+    python3 -m py_compile "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
+    python3 "$WORKSPACE/scripts/apply_waltgov_mt6781.py" "$SRC_DIR" > "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
+    grep -qx "result=PASS" "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"
+    cp "$ARTIFACT_DIR/walt-demand-engine-audit.txt" "$ARTIFACT_DIR/walt-mt6781-audit.txt"
+  fi
+  python3 -m py_compile "$WORKSPACE/scripts/apply_capacity_margin_1.py" "$WORKSPACE/scripts/apply_capacity_margin_stock.py"
+  python3 "$WORKSPACE/scripts/apply_capacity_margin_1.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-trial-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-trial-audit.txt"
+  python3 "$WORKSPACE/scripts/apply_capacity_margin_stock.py" "$SRC_DIR" "$ARTIFACT_DIR/capacity-margin-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/capacity-margin-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_schedutil_static_capacity.py"
+  python3 "$WORKSPACE/scripts/apply_schedutil_static_capacity.py" "$SRC_DIR" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_schedutil_capacity_frequency.py"
+  python3 "$WORKSPACE/scripts/apply_schedutil_capacity_frequency.py" "$SRC_DIR" "$ARTIFACT_DIR/schedutil-capacity-frequency-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/schedutil-capacity-frequency-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/patch_dbs_sampling_rate.py"
+  python3 "$WORKSPACE/scripts/patch_dbs_sampling_rate.py" "$SRC_DIR" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-patch-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/apply_tunable_limits.py"
+  python3 "$WORKSPACE/scripts/apply_tunable_limits.py" "$SRC_DIR" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/scheduler-vm-tunable-limits-audit.txt"
+fi
 git -C "$SRC_DIR" diff HEAD --check
-
 export PATH="$TOOLCHAIN_DIR/bin:$PATH"
 export ARCH=arm64
 export SUBARCH=arm64
-export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-fleux-builder}"
+export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-Meys}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reproducible-runner}"
-
-make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig \
-  CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
-
-bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR"
+make -C "$SRC_DIR" O="$OUT_DIR" fleur_defconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
+"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --set-str LOCALVERSION "$LOCALVERSION"
+"$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_DEBUG
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_WALT
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_EXTENSION
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable MTK_SCHED_CPU_PREFER
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_HMP
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_HMP_PLUS
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable IRQ_TIME_ACCOUNTING
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_SCHEDUTIL
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_WALT
+  if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+    "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_WALT
+  fi
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_CONSERVATIVE
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_ONDEMAND
+fi
+make -C "$SRC_DIR" O="$OUT_DIR" olddefconfig CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1
+grep -qx "CONFIG_SCHED_DEBUG=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_DEBUG is unavailable; scheduler sysctl bounds cannot be patched safely." >&2; exit 1; }
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  grep -qx "CONFIG_SCHED_WALT=y" "$OUT_DIR/.config" || { echo "Native Fleur WALT demand accounting is required by HMP and did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_MTK_SCHED_EXTENSION=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_EXTENSION is required for native CPU isolation masks." >&2; exit 1; }
+  grep -qx "CONFIG_MTK_SCHED_CPU_PREFER=y" "$OUT_DIR/.config" || { echo "MTK_SCHED_CPU_PREFER is required to preserve MTK task preference hints." >&2; exit 1; }
+  grep -qx "CONFIG_SCHED_HMP=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP did not survive olddefconfig." >&2; exit 1; }
+  grep -qx "CONFIG_SCHED_HMP_PLUS=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP_PLUS did not survive olddefconfig; enhanced HMP migration is incomplete." >&2; exit 1; }
+  grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for native WALT demand accounting." >&2; exit 1; }
+  grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "EAS requires schedutil support." >&2; exit 1; }
+  grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain the default governor for the HMP/EAS baseline." >&2; exit 1; }
+  if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+    grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "Dedicated WALT governor did not survive olddefconfig." >&2; exit 1; }
+  fi
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  python3 -m py_compile "$WORKSPACE/scripts/audit_conservative_governor.py"
+  python3 "$WORKSPACE/scripts/audit_conservative_governor.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/conservative-governor-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/conservative-governor-audit.txt"
+fi
+if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  grep -qx "CONFIG_CPU_FREQ_GOV_ONDEMAND=y" "$OUT_DIR/.config"
+  python3 -m py_compile "$WORKSPACE/scripts/audit_dbs_sampling_rate.py"
+  python3 "$WORKSPACE/scripts/audit_dbs_sampling_rate.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
+  grep -qx "result=PASS" "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"
+fi
+bash "$WORKSPACE/scripts/configure_cgroup_v2.sh" "$SRC_DIR" "$OUT_DIR" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/cgroup-interface-audit.txt"
+cp "$WORKSPACE/scripts/check_cgroup_runtime.sh" "$ARTIFACT_DIR/check-cgroup-runtime.sh"
+cp "$WORKSPACE/scripts/cpuset_v2.sh" "$ARTIFACT_DIR/cpuset_v2.sh"
+cp "$WORKSPACE/docs/cpuset-v2-runtime.md" "$ARTIFACT_DIR/cpuset-v2-runtime.md"
 bash "$WORKSPACE/scripts/configure_hyperos_fs.sh" "$SRC_DIR" "$OUT_DIR"
-
-make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" \
-  CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 \
-  CLANG_TRIPLE=aarch64-linux-gnu- \
-  CROSS_COMPILE=aarch64-linux-gnu- \
-  CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-
+python3 "$WORKSPACE/scripts/audit_android_storage.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/android-storage-audit.txt"
+grep -qx "CONFIG_QUOTA=y" "$OUT_DIR/.config"
+grep -qx "CONFIG_F2FS_FS=y" "$OUT_DIR/.config"
+grep -qx "CONFIG_F2FS_FS_XATTR=y" "$OUT_DIR/.config"
+grep -qx "CONFIG_F2FS_FS_ENCRYPTION=y" "$OUT_DIR/.config"
+grep -q "^result=PASS$" "$ARTIFACT_DIR/storage-projectid-audit.txt"
+grep -q "^result=PASS$" "$ARTIFACT_DIR/scheduler-modes-audit.txt"
+make -C "$SRC_DIR" -j"$(nproc)" O="$OUT_DIR" CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
 if [[ ! -s "$IMAGE" ]]; then
   echo "Expected output missing or empty: $IMAGE" >&2
   find "$OUT_DIR/arch/arm64/boot" -maxdepth 2 -type f -printf '%p\n' || true
   exit 1
 fi
-
 cp "$IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
-if [[ "$BUILD_PROFILE" == "baseline" ]]; then
-  PATCHED_IMAGE="$ARTIFACT_DIR/Image.gz-dtb.patched"
-  python3 "$WORKSPACE/patches/mods_all.py" \
-    "$ARTIFACT_DIR/Image.gz-dtb" "$PATCHED_IMAGE" \
-    --sched-u32 --od-rate0 --cap-percpu --cap-max --sysctl-all --ged-all \
-    2>&1 | tee "$ARTIFACT_DIR/mods-all-patch.log"
-  if [[ ! -s "$PATCHED_IMAGE" ]]; then
-    echo "mods_all.py did not produce a patched kernel image" >&2
-    exit 1
-  fi
-  python3 - "$PATCHED_IMAGE" <<'PY'
-from pathlib import Path
-import sys
-import zlib
-p = Path(sys.argv[1])
-raw = p.read_bytes()
-if raw[:2] != b"\x1f\x8b":
-    raise SystemExit("Patched image is not gzip-compressed")
-d = zlib.decompressobj(31)
-kernel = d.decompress(raw)
-if not kernel or not d.unused_data.startswith(b"\xd0\x0d\xfe\xed"):
-    raise SystemExit("Patched image failed gzip/DTB structural validation")
-print(f"Patched image validated: kernel={len(kernel)} bytes, appended_dtb={len(d.unused_data)} bytes")
-PY
-  mv "$PATCHED_IMAGE" "$ARTIFACT_DIR/Image.gz-dtb"
-else
-  echo "Skipping mods_all.py for non-baseline profile: $BUILD_PROFILE"
-fi
 cp "$OUT_DIR/.config" "$ARTIFACT_DIR/kernel.config"
 cp "$OUT_DIR/hyperos-filesystem-audit.txt" "$ARTIFACT_DIR/hyperos-filesystem-audit.txt"
-if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-  python3 "$WORKSPACE/scripts/audit_hyperos_compat.py" \
-    --image "$ARTIFACT_DIR/Image.gz-dtb" \
-    --config "$ARTIFACT_DIR/kernel.config" \
-    --source "$SRC_DIR" \
-    --report "$ARTIFACT_DIR/hyperos-compat-audit.txt"
-fi
-if [[ "$BUILD_PROFILE" == "oc2" ]]; then
-  python3 "$WORKSPACE/scripts/audit_oc2_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
-elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
-  python3 "$WORKSPACE/scripts/audit_oc3_image.py" "$ARTIFACT_DIR/Image.gz-dtb"
-fi
-if [[ "$BUILD_PROFILE" == "oc1" ]]; then
-  python3 - "$ARTIFACT_DIR/Image.gz-dtb" <<'PY'
-from pathlib import Path
-import struct
-import sys
-import zlib
-
-image_path = Path(sys.argv[1])
-raw = image_path.read_bytes()
-if raw[:2] != b"\x1f\x8b":
-    raise SystemExit("OC1 image audit: Image.gz-dtb does not start with gzip")
-
-decoder = zlib.decompressobj(31)
-kernel = decoder.decompress(raw)
-dtb_tail = decoder.unused_data
-if not kernel or not dtb_tail:
-    raise SystemExit("OC1 image audit: missing kernel payload or appended DTB")
-
-# Match the actual 16-entry CPU DVFS runs used by the user's table dump.
-words = memoryview(kernel)[:len(kernel) // 4 * 4].cast("I")
-runs = []
-i = 0
-while i < len(words) - 32:
-    freq = words[i]
-    if freq % 1000 == 0 and 400000 <= freq <= 3500000:
-        j = i
-        count = 0
-        previous = 1 << 30
-        while j + 2 <= len(words):
-            f = words[j]
-            v = words[j + 1]
-            if (
-                f % 1000 == 0
-                and 400000 <= f < previous
-                and 50000 <= v <= 130000
-                and v % 625 == 0
-            ):
-                previous = f
-                count += 1
-                j += 2
-            else:
-                break
-        if count >= 12:
-            runs.append((i, count))
-            i = j
-            continue
-    i += 1
-words.release()
-
-if len(runs) != 9 or any(count != 16 for _, count in runs):
-    raise SystemExit(
-        f"OC1 image audit: expected 9 complete 16-entry CPU DVFS runs, got "
-        f"{[(hex(pos * 4), count) for pos, count in runs]}"
-    )
-big_top = struct.unpack_from("<2I", kernel, runs[3][0] * 4)
-if big_top != (2200000, 115625):
-    raise SystemExit(
-        f"OC1 image audit: CPU6/CPU7 kernel OPP top is {big_top}, "
-        "expected (2200000, 115625)"
-    )
-
-# The SSPM PVT table stores the big-cluster top OPP as MHz / PMIC code /
-# post-divider / clock-divider.
-pvt_row = struct.pack("<4I", 2200, 105, 1, 1)
-if kernel.count(pvt_row) < 1:
-    raise SystemExit("OC1 image audit: 2200/105 SSPM PVT row is absent")
-
-FDT_MAGIC = b"\xd0\x0d\xfe\xed"
-
-def parse_fdt(blob, offset):
-    if blob[offset:offset + 4] != FDT_MAGIC or offset + 40 > len(blob):
-        return None
-    header = struct.unpack_from(">10I", blob, offset)
-    total = header[1]
-    off_struct = header[2]
-    off_strings = header[3]
-    size_strings = header[8]
-    size_struct = header[9]
-    if (
-        total < 40
-        or offset + total > len(blob)
-        or off_struct + size_struct > total
-        or off_strings + size_strings > total
-    ):
-        return None
-
-    strings = blob[offset + off_strings:offset + off_strings + size_strings]
-    pos = offset + off_struct
-    struct_end = pos + size_struct
-    stack = []
-    found = None
-
-    while pos + 4 <= struct_end:
-        token = struct.unpack_from(">I", blob, pos)[0]
-        pos += 4
-        if token == 1:  # FDT_BEGIN_NODE
-            end = blob.find(b"\0", pos, struct_end)
-            if end < 0:
-                raise SystemExit("OC1 image audit: malformed FDT node name")
-            name = blob[pos:end].decode("ascii", errors="replace")
-            pos = (end + 1 + 3) & ~3
-            stack.append(name)
-        elif token == 2:  # FDT_END_NODE
-            if stack:
-                stack.pop()
-        elif token == 3:  # FDT_PROP
-            if pos + 8 > struct_end:
-                raise SystemExit("OC1 image audit: truncated FDT property")
-            length, nameoff = struct.unpack_from(">II", blob, pos)
-            pos += 8
-            if pos + length > struct_end or nameoff >= len(strings):
-                raise SystemExit("OC1 image audit: invalid FDT property bounds")
-            name_end = strings.find(b"\0", nameoff)
-            if name_end < 0:
-                raise SystemExit("OC1 image audit: invalid FDT property name")
-            prop_name = strings[nameoff:name_end].decode("ascii", errors="replace")
-            value = blob[pos:pos + length]
-            if stack and stack[-1] == "dvfsp@0011bc00":
-                if found is None:
-                    found = {}
-                if prop_name in ("change_flag", "B-table"):
-                    found[prop_name] = value
-            pos = (pos + length + 3) & ~3
-        elif token == 4:  # FDT_NOP
-            continue
-        elif token == 9:  # FDT_END
-            break
-        else:
-            raise SystemExit(
-                f"OC1 image audit: unknown FDT token 0x{token:x}"
-            )
-
-    if found is not None:
-        found["_total_size"] = total
-    return found
-
-dvfsp = None
-offset = 0
-while True:
-    offset = dtb_tail.find(FDT_MAGIC, offset)
-    if offset < 0:
-        break
-    parsed = parse_fdt(dtb_tail, offset)
-    if parsed is not None and parsed.get("change_flag") is not None:
-        dvfsp = parsed
-        break
-    offset += 4
-
-if dvfsp is None:
-    raise SystemExit("OC1 image audit: MT6781 DVFSP node was not found in appended DTB")
-flag = dvfsp["change_flag"]
-if len(flag) != 4 or struct.unpack(">I", flag)[0] != 1:
-    got = struct.unpack(">I", flag)[0] if len(flag) == 4 else flag.hex()
-    raise SystemExit(
-        f"OC1 image audit: DTB DOE change_flag is {got}, expected 1"
-    )
-
-b_table = dvfsp.get("B-table")
-if b_table is None or len(b_table) != 16 * 4 * 4:
-    raise SystemExit("OC1 image audit: DTB DOE B-table is missing or not 16 rows")
-cells = struct.unpack(">64I", b_table)
-rows = [tuple(cells[i:i + 4]) for i in range(0, 64, 4)]
-if rows[0] != (2200, 105, 1, 1):
-    raise SystemExit(
-        f"OC1 image audit: DTB DOE B-table top row is {rows[0]}, "
-        "expected (2200, 105, 1, 1)"
-    )
-if any(a[0] <= b[0] for a, b in zip(rows, rows[1:])):
-    raise SystemExit("OC1 image audit: DTB DOE B-table is not strictly descending")
-
-print("OC1 IMAGE AUDIT PASSED")
-print("Kernel CPU_LEVEL_0 big-cluster top OPP: 2200000 kHz / 115625 (10-uV units)")
-print("Embedded SSPM PVT top row: 2200 MHz / PMIC code 105")
-print("Appended DTB DOE node: change_flag=1; complete 16-row B-table starts 2200/105")
-PY
-fi
-
+git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/hmp-hybrid-source.patch"
 SOURCE_COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD)"
 CLANG_VERSION="$(clang --version | head -n 1)"
-
-case "$BUILD_PROFILE" in
-  oc1)
-    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/oc1-source.patch"
-    ;;
-  oc2)
-    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/oc2-source.patch"
-    ;;
-  oc3)
-    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/oc3-source.patch"
-    ;;
-  hyperos-compat)
-    git -C "$SRC_DIR" diff HEAD --binary > "$ARTIFACT_DIR/hyperos-compat-source.patch"
-    ;;
-esac
-
 {
   echo "source_url=$SOURCE_URL"
   echo "source_ref=$SOURCE_REF"
@@ -329,57 +237,65 @@ esac
   echo "device_config=fleur_defconfig"
   echo "arch=arm64"
   echo "build_profile=$BUILD_PROFILE"
-  echo "filesystem_profile=hyperos-safe"
-  echo "filesystem_reference=MiCode/Xiaomi_Kernel_OpenSource@sea-t-oss (official 4.19.191)"
-  echo "filesystem_interceptors=nomount disabled; susfs feature flags disabled; inline hook retained"
-  if [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-    echo "modem_pm_compatibility=MT6781 DPMAIF syscore suspend/resume path hardened"
-    echo "modem_pm_state_guard=GATED,WAITING_TO_STOP,INVALID skipped on resume"
-    echo "hardware_validation=required; CI performs structural checks only"
+  [[ -z "$BUILD_LABEL" ]] || echo "kernel_name=$BUILD_LABEL"
+  echo "debug_archive=debug-archive.md; historical and unresolved device issues included; see status labels in archive"
+  echo "modem_dpmaif_pm=MT6781 DPMAIF syscore resume only in READY/EXCEPTION; null-safe suspend/resume; no full 4.14 driver port"
+  echo "fuse_passthrough=Android FUSE writeback/cache-coherency backport for Linux 4.19"
+  echo "eevdf=Linux 6.18 semantic backport layer 1; DELAY_DEQUEUE and DELAY_ZERO not implemented"
+  echo "kernel_version=4.19.325${LOCALVERSION}"
+  if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
+    echo "capacity_margin=0 in scheduler variable and MTK fits_capacity helper; capacity-based misfit/overutilized thresholds disabled"
   fi
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
-    echo "target_big_cluster_cpus=6,7"
-    echo "target_big_cluster_max_hz=2200000000"
-    echo "target_big_cluster_max_vproc_uv=1156250"
-    echo "target_big_cluster_software_vproc_ceiling_uv=1156250"
-    echo "target_big_cluster_software_vsram_ceiling_uv=1256250"
-    echo "target_big_cluster_pmic_code=105"
-    echo "dvfs_doe_change_flag=1"
-    echo "thermal_and_watchdog_protections=unchanged"
-    echo "vendor_sspm_firmware_binary=unchanged"
-    echo "pmic_physical_regulator_ceilings=unchanged"
-    if [[ "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" ]]; then
-      echo "eem_big_cluster_base_khz=2200000"
-      echo "active_opp_validation=kernel+eem+sspm_pvt+appended_dtb"
+  echo "capacity_margin=1280 stock default in EAS capacity_margin, MTK fits_capacity, and Fleur HMP native capacity guard"
+  echo "cgroup_v2=source-verified core, CPU, CPUSET, IO, memory and PID interfaces; see cgroup-interface-audit.txt"
+  echo "cpuset_v2_runtime=explicit helper included as cpuset_v2.sh; supports status, enable, create, set, attach, show and remove; no boot-time changes"
+  echo "scheduler_modes=Fleur 4.14 native HMP + existing Fleux EAS; runtime selector supports HMP/EAS/Hybrid"
+  echo "scheduler_mode_default=0"
+  echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+    echo "hmp_load_source=Fleur-native WALT runnable-demand accounting retained internally because the 4.14 MTK HMP engine consumes loadwop_avg"
+    echo "walt_standalone_controls=bounded native Fleur controls exposed through kernel sysctl in every WALT-enabled profile"
+    echo "walt_controls_audit=walt-controls-mt6781-audit.txt"
+    if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+      echo "walt_governor=MTK-policy-aware dedicated governor built-in and selectable; schedutil remains default"
+      echo "walt_governor_audit=waltgov-mt6781-audit.txt"
     else
-      echo "active_opp_validation=kernel+sspm_pvt+appended_dtb"
+      echo "walt_governor=not enabled; schedutil remains default for EAS"
     fi
+    echo "walt_irq_accounting=CONFIG_IRQ_TIME_ACCOUNTING=y; native HMP demand accounting requires IRQ tracking"
+    echo "hmp_audit=hmp-mt6781-audit.txt;walt-demand-engine-audit.txt"
+    echo "hmp_limitations=MTK HMP policies are adapted to Fleux 4.19 APIs; runtime mode and migration behavior require device validation"
   fi
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+    echo "schedutil_static_capacity=per-CPU reference latched at sugov_start; no dynamic capacity refresh in sugov_get_util"
+    echo "schedutil_capacity_audit=schedutil-static-capacity-audit.txt"
+    echo "schedutil_capacity_frequency_audit=schedutil-capacity-frequency-audit.txt; capacity_margin excluded from linear and nonlinear schedutil mapping"
+  fi
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+    echo "cpufreq_conservative=Linux 4.19 native conservative governor built-in; schedutil remains default"
+    echo "conservative_audit=conservative-governor-audit.txt"
+  fi
+  if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+    echo "cpufreq_ondemand=Linux 4.19 native ondemand governor built-in; schedutil remains default"
+    echo "dbs_sampling_rate=conservative and ondemand accept 0..UINT_MAX; no userspace minimum or artificial maximum"
+    echo "dbs_sampling_rate_audit=dbs-sampling-rate-audit.txt"
+  fi
+  echo "f2fs_projectid=unmodified Xiaomi sea-t-oss 4.19.191 native F2FS project-ID implementation"
+  echo "f2fs_project_quota=real quota transfer and inode persistence; requires on-disk EXTRA_ATTR and PRJQUOTA"
+  echo "android13_mediaprovider_bridge=not built or included in this kernel-only stability test"
   echo "toolchain=Android LLVM clang-r563880c"
   echo "compiler=$CLANG_VERSION"
-  echo "cgroup_mode=unified_v2_kernel_support"
-  echo "cgroup_v2_controllers=cpu,io,memory,pids,rdma"
-  echo "cgroup_v2_bpf=enabled"
-  echo "cgroup_v2_cpuset=not_registered_by_this_4.19_tree"
-  echo "cgroup_v2_mount=requires_android_init_configuration"
   echo "kernel_image=Image.gz-dtb"
-  if [[ "$BUILD_PROFILE" == "oc1" || "$BUILD_PROFILE" == "oc2" || "$BUILD_PROFILE" == "oc3" || "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-    echo "flashable_zip=AnyKernel3"
-  else
-    echo "flashable_zip=false"
-  fi
+  echo "flashable_zip=AnyKernel3"
   echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
-  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config"
-  if [[ "$BUILD_PROFILE" == "oc1" ]]; then
-    sha256sum "$ARTIFACT_DIR/oc1-source.patch"
-  elif [[ "$BUILD_PROFILE" == "oc2" ]]; then
-    sha256sum "$ARTIFACT_DIR/oc2-source.patch"
-  elif [[ "$BUILD_PROFILE" == "oc3" ]]; then
-    sha256sum "$ARTIFACT_DIR/oc3-source.patch"
-  elif [[ "$BUILD_PROFILE" == "hyperos-compat" ]]; then
-    sha256sum "$ARTIFACT_DIR/hyperos-compat-source.patch" "$ARTIFACT_DIR/hyperos-compat-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt"
-  fi
+  if [[ -f "$ARTIFACT_DIR/capacity-margin-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/capacity-margin-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then echo "schedutil_static_capacity_audit=schedutil-static-capacity-audit.txt"; fi
+  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md" "$ARTIFACT_DIR/cgroup-interface-audit.txt" "$ARTIFACT_DIR/capacity-margin-audit.txt" "$ARTIFACT_DIR/check-cgroup-runtime.sh" "$ARTIFACT_DIR/cpuset_v2.sh" "$ARTIFACT_DIR/cpuset-v2-runtime.md"
+  if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/conservative-governor-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/conservative-governor-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/walt-demand-engine-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/walt-demand-engine-audit.txt" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"; fi
+  if [[ -f "$ARTIFACT_DIR/waltgov-mt6781-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/waltgov-mt6781-audit.txt"; fi
 } | tee "$ARTIFACT_DIR/build-manifest.txt"
-
 echo "Build completed; outputs are in $ARTIFACT_DIR"

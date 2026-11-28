@@ -1,0 +1,135 @@
+name: Fleux V12 stability isolation compatibility test
+run-name: Fleux V12 stability isolation (${{ github.event_name }})
+on:
+  push:
+    branches:
+      - meys-v12-stability-no-sdcardfs
+    paths:
+      - '.github/workflows/build-v12-stability.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/configure_hyperos_fs.sh'
+      - 'scripts/audit_android_storage.py'
+      - 'scripts/apply_official_419191_fs_mount.py'
+      - 'scripts/apply_f2fs_projectid_compat.py'
+      - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/apply_modem_pm_compat.py'
+      - 'scripts/apply_fuse_passthrough_coherency.py'
+      - 'eevdf/**'
+      - 'scripts/anykernel_meys_v12_stability.sh'
+      - 'docs/v12-stability-no-sdcardfs-test.md'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: meys-v12-stability-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build-and-package:
+    name: Build Fleux V12 stability isolation kernel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: v12
+      BUILD_PROFILE: meys-v12-stability-no-sdcardfs
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+      - name: Check builder syntax
+        run: |
+          bash -n scripts/build_kernel.sh
+          bash -n scripts/configure_hyperos_fs.sh
+          python3 -m py_compile scripts/audit_android_storage.py
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Build Fleux V12 with sdcardfs disabled
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
+      - name: Package AnyKernel3 test ZIP
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
+          cp README.md docs/v12-stability-no-sdcardfs-test.md "$AK_DIR/"
+          cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
+          cp artifacts/hmp-storage-projectid-source.patch artifacts/storage-projectid-audit.txt "$AK_DIR/"
+          cp artifacts/projectid-compatibility-audit.txt artifacts/scheduler-modes-audit.txt "$AK_DIR/"
+          cp artifacts/official-4.19.191-fs-mount-audit.txt artifacts/android-storage-audit.txt artifacts/hyperos-filesystem-audit.txt "$AK_DIR/"
+          cp artifacts/modem-pm-audit.txt artifacts/fuse-passthrough-cache-audit.txt "$AK_DIR/"
+          cp artifacts/eevdf-layer1-audit.txt artifacts/eevdf-audit.txt "$AK_DIR/"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip" \
+              META-INF tools LICENSE README.md v12-stability-no-sdcardfs-test.md \
+              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt \
+              hmp-storage-projectid-source.patch storage-projectid-audit.txt \
+              projectid-compatibility-audit.txt scheduler-modes-audit.txt \
+              official-4.19.191-fs-mount-audit.txt android-storage-audit.txt hyperos-filesystem-audit.txt \
+              modem-pm-audit.txt fuse-passthrough-cache-audit.txt eevdf-layer1-audit.txt eevdf-audit.txt
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip" | tee artifacts/MEYS-V12-STABILITY-SHA256.txt
+      - name: Publish experimental V12 prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: meys-v12-stability-no-sdcardfs-${{ github.run_number }}
+          name: Meys V12 stability isolation — build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Experimental Fleux V12 / Linux 4.19.325 kernel for Redmi Note 11S 4G / fleur / MT6781.
+
+            Keeps CONFIG_CONFIGFS_FS enabled and explicitly disables CONFIG_SDCARD_FS to isolate the lock-screen freeze observed in the prior test. The pinned V12 source and existing FUSE passthrough, F2FS, Project ID, EEVDF, scheduler and modem layers are retained.
+
+            Expected device result: this diagnostic build boots with sdcardfs disabled. It does not fix Android/data; it isolates whether the prior sdcardfs enablement contributed to the freeze.
+
+            No fstab, vold, userdata, F2FS superblock, permissions or SELinux labels are modified. No userdata reformat is performed. Keep a known-good boot image and recovery path.
+          files: |
+            artifacts/Meys-V12-Stability-NoSDCardFS-AnyKernel3.zip
+            artifacts/Image.gz-dtb
+            artifacts/kernel.config
+            artifacts/build-manifest.txt
+            artifacts/hmp-storage-projectid-source.patch
+            artifacts/storage-projectid-audit.txt
+            artifacts/projectid-compatibility-audit.txt
+            artifacts/scheduler-modes-audit.txt
+            artifacts/official-4.19.191-fs-mount-audit.txt
+            artifacts/android-storage-audit.txt
+            artifacts/hyperos-filesystem-audit.txt
+            artifacts/modem-pm-audit.txt
+            artifacts/fuse-passthrough-cache-audit.txt
+            artifacts/eevdf-layer1-audit.txt
+            artifacts/eevdf-audit.txt
+            artifacts/MEYS-V12-STABILITY-SHA256.txt
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-v12-stability-no-sdcardfs-mt6781
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30

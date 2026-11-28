@@ -1,0 +1,84 @@
+name: Fleux V12 MT6781 modem resume test
+run-name: Meys modem resume test build ${{ github.run_number }}
+on:
+  push:
+    branches:
+      - meys-v12-modem-resume-guard
+    paths:
+      - '.github/workflows/build-modem-resume-test.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/apply_modem_pm_compat.py'
+      - 'scripts/anykernel_modem_resume_test.sh'
+      - 'docs/modem-resume-comparison.md'
+permissions:
+  contents: read
+concurrency:
+  group: fleux-modem-resume-test-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build-and-package:
+    name: Build MT6781 modem resume test and AnyKernel3 ZIP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: v12
+      BUILD_PROFILE: meys-v12-stability-no-sdcardfs
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Build pinned Fleux V12 stability profile
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
+      - name: Fetch pinned upstream AnyKernel3 framework
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_modem_resume_test.sh "$AK_DIR/anykernel.sh"
+          cp artifacts/Image.gz-dtb "$AK_DIR/Image.gz-dtb"
+          cp artifacts/kernel.config "$AK_DIR/kernel.config"
+          cp artifacts/build-manifest.txt "$AK_DIR/build-manifest.txt"
+          cp artifacts/modem-pm-audit.txt "$AK_DIR/modem-pm-audit.txt"
+          cp docs/modem-resume-comparison.md "$AK_DIR/modem-resume-comparison.md"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/Meys-V12-Modem-Resume-Guard.zip" \
+              META-INF tools LICENSE anykernel.sh Image.gz-dtb \
+              kernel.config build-manifest.txt modem-pm-audit.txt \
+              modem-resume-comparison.md
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/Meys-V12-Modem-Resume-Guard.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/Meys-V12-Modem-Resume-Guard.zip" \
+            | tee artifacts/MODEM-RESUME-SHA256.txt
+      - name: Upload kernel image, flashable ZIP, and comparison evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-v12-modem-resume-guard
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30

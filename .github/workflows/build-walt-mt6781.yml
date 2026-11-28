@@ -1,0 +1,201 @@
+name: Build 62 — Fleux V12 MT6781 Full WALT
+run-name: MEYS Build 62 Full WALT + Governor — ${{ github.run_number }}
+on:
+  push:
+    branches:
+      - meys-v12-build62-walt-full
+      - meys-v116-eevdf-cleanup
+      - GOV
+    paths:
+      - '.github/workflows/build-walt-mt6781.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/apply_eevdf_legacy_cleanup.py'
+      - 'scripts/apply_tunable_limits.py'
+      - 'eevdf/patches/0001-eevdf-core-618.py'
+      - 'scripts/apply_walt_mt6781.py'
+      - 'scripts/apply_hmp_mt6781.py'
+      - 'vendor/hmp-fleur-4.14/**'
+      - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/apply_walt_controls_mt6781.py'
+      - 'scripts/apply_waltgov_mt6781.py'
+      - 'scripts/walt_runtime_check.sh'
+      - 'docs/walt-proc-sysctl.md'
+      - 'vendor/walt-fleur-4.14/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: meys-v12-walt-full-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build-and-package:
+    name: Build 62 MT6781 WALT engine, controls, governor and AnyKernel3 ZIP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: v12
+      BUILD_PROFILE: meys-v12-build62-walt-full-mt6781
+    steps:
+      - name: Check out builder
+        uses: actions/checkout@v4
+      - name: Check builder syntax
+        run: |
+          bash -n scripts/build_kernel.sh
+          sh -n scripts/walt_runtime_check.sh
+          python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py scripts/apply_hmp_mt6781.py scripts/apply_scheduler_modes.py
+      - name: Guard all previously successful Build 62 layers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p artifacts
+          BUILD=scripts/build_kernel.sh
+          test -s "$BUILD"
+          required=(
+            "apply_official_419191_fs_mount.py"
+            "apply_f2fs_projectid_compat.py"
+            "apply_modem_pm_compat.py"
+            "apply_fuse_passthrough_coherency.py"
+            "eevdf/patches/0001-eevdf-core-618.py"
+            "apply_eevdf_legacy_cleanup.py"
+            "apply_scheduler_modes.py"
+            "apply_walt_mt6781.py"
+            "apply_hmp_mt6781.py"
+            "apply_walt_controls_mt6781.py"
+            "apply_waltgov_mt6781.py"
+            "apply_capacity_margin_1.py"
+            "apply_capacity_margin_stock.py"
+            "apply_schedutil_static_capacity.py"
+            "apply_schedutil_capacity_frequency.py"
+            "patch_dbs_sampling_rate.py"
+            "apply_tunable_limits.py"
+            "audit_conservative_governor.py"
+            "configure_cgroup_v2.sh"
+            "configure_hyperos_fs.sh"
+          )
+          for item in "${required[@]}"; do
+            if ! grep -Fq "$item" "$BUILD"; then
+              echo "FAIL: preserved layer missing from build chain: $item" >&2
+              exit 1
+            fi
+            echo "PASS: $item"
+          done | tee artifacts/preserved-layers-audit.txt
+          grep -Fq 'meys-v12-build62-walt-full-mt6781' "$BUILD"
+          grep -Fq '6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9' "$BUILD"
+          grep -Fq 'LOCALVERSION="-Meys-Build62-WALT-Full"' "$BUILD"
+          grep -Fq 'apply_eevdf_legacy_cleanup.py' "$BUILD"
+          grep -Fq 'CONFIG_SCHED_WALT' "$BUILD"
+          grep -Fq 'CONFIG_SCHED_HMP' "$BUILD"
+          grep -Fq 'CONFIG_CPU_FREQ_GOV_WALT' "$BUILD"
+          grep -Fq 'CPU_FREQ_GOV_CONSERVATIVE' "$BUILD"
+          grep -Fq 'CONFIG_CPU_FREQ_GOV_ONDEMAND' "$BUILD"
+          grep -Fq 'unsigned int sysctl_sched_use_walt_cpu_util = 0;' scripts/apply_walt_mt6781.py
+          grep -Fq 'READ_ONCE(sysctl_sched_use_walt_cpu_util)' scripts/apply_walt_mt6781.py
+          grep -Fq '!READ_ONCE(cpu_rq(cpu)->nr_running)' scripts/apply_walt_mt6781.py
+          grep -Fq '!READ_ONCE(rq->nr_running)' scripts/apply_walt_mt6781.py
+          grep -Fq '!READ_ONCE(rq->nr_running)' scripts/apply_waltgov_mt6781.py
+          grep -Fq 'READ_ONCE(sysctl_sched_use_walt_cpu_util)' scripts/apply_waltgov_mt6781.py
+          grep -Fq 'proc_douintvec_minmax' scripts/apply_walt_controls_mt6781.py
+          grep -Fq 'expected_bounds' scripts/apply_walt_controls_mt6781.py
+          grep -Fq 'Apply bounded WALT sysctl controls to every profile' "$BUILD"
+          GOV=scripts/apply_waltgov_mt6781.py
+          grep -Fq 'hispeed_load' "$GOV"
+          grep -Fq 'hispeed_freq' "$GOV"
+          grep -Fq 'hispeed_freq_table' "$GOV"
+          grep -Fq 'waltgov_freq_is_available' "$GOV"
+          grep -Fq '2000000, 1933000, 1866000, 1800000' "$GOV"
+          grep -Fq '975000, 875000, 774000, 500000' "$GOV"
+          grep -Fq 'waltgov_freq_is_available(val)' "$GOV"
+          ! grep -Fq '"%u\\n", READ_ONCE(tunables->wakeup_boost)' "$GOV"
+          grep -Fq 'boost_store' "$GOV"
+          grep -Fq 'floor_util' "$GOV"
+          grep -Fq 'wakeup_boost_duration_us' "$GOV"
+          grep -Fq 'wakeup_boost_duration_us' "$GOV"
+          grep -Fq 'walt_last_wakeup' "$GOV"
+          {
+            echo "result=PASS"
+            echo "base=Build 62 / Fleux V12 pinned source"
+            echo "policy=additive-only; no successful patch implementation is replaced"
+            echo "checks=all prior patch invocations, required profile and scheduler/governor config guards"
+          } >> artifacts/preserved-layers-audit.txt
+          cat artifacts/preserved-layers-audit.txt
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex git \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev \
+            libssl-dev lld make python3 python3-pip dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL \
+            "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" \
+            -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Build Fleux V12 with MT6781 WALT accounting
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE"
+      - name: Package AnyKernel3 test ZIP
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
+          cp scripts/walt_runtime_check.sh artifacts/walt_runtime_check.sh
+          cp artifacts/walt_runtime_check.sh "$AK_DIR/"
+          cp README.md docs/walt-proc-sysctl.md "$AK_DIR/"
+          cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
+          cp artifacts/walt-mt6781-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt "$AK_DIR/"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" \
+              META-INF tools LICENSE README.md walt-proc-sysctl.md walt_runtime_check.sh \
+              anykernel.sh Image.gz-dtb kernel.config build-manifest.txt preserved-layers-audit.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" | tee artifacts/WALT-MT6781-SHA256.txt
+      - name: Publish experimental WALT prerelease
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: meys-build62-walt-full-mt6781-${{ github.run_number }}
+          name: MEYS Build 62 Full WALT MT6781 — build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Experimental Build 62 base: Fleux V12 / Linux 4.19.325 for Redmi Note 11S 4G / fleur / MT6781. Preserves Build 62 HMP/Hybrid, capacity/frequency, conservative/ondemand and unlimited-sampling layers; adds the Fleur-native WALT accounting engine, bounded live controls, and a selectable MTK-policy-aware WALT CPUFreq governor. schedutil remains default. CI compilation and static audits do not prove bootability or runtime correctness; device validation is mandatory.
+
+            Includes the Fleur-native 20 ms WALT engine and the Fleur 4.14 HMP cluster placement, active up-migration and idle-pull policy backported to Fleux V12. WALT task demand feeds HMP loadwop accounting, CFS enqueue/dequeue and WALT-aware CPU utilization. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. The WALT governor also exposes per-policy hispeed_load (90%), hispeed_freq (0=disabled until configured), and bounded boost (-100..1000), all wired into frequency selection. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; the ZIP includes a read-only on-device diagnostic script for WALT/HMP/EEVDF and CPUFreq validation.
+          files: |
+            artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip
+            artifacts/Image.gz-dtb
+            artifacts/kernel.config
+            artifacts/build-manifest.txt
+            artifacts/preserved-layers-audit.txt
+            artifacts/walt-mt6781-audit.txt
+            artifacts/hmp-mt6781-audit.txt
+            artifacts/walt-controls-mt6781-audit.txt
+            artifacts/waltgov-mt6781-audit.txt
+            artifacts/WALT-MT6781-SHA256.txt
+            artifacts/walt_runtime_check.sh
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meys-build62-walt-full-mt6781
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30

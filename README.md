@@ -50,3 +50,25 @@ Based on [Fleux Kernel](https://github.com/daliboss/Fleux) by [daliboss](https:/
 ## Project Knowledge Base
 
 The project-wide history, modem/DPMAIF work, app-data and filesystem issues, HMP/EAS, EEVDF backport status, build failures, and mandatory pre-build checklist are maintained in [`knowledge/`](knowledge/README.md). Read [`knowledge/preflight.md`](knowledge/preflight.md) before starting a new build.
+
+## Current Development
+
+- Active development branch: `GOV` (Build 168 CI passed; device boot is not yet confirmed).
+- Build 168 workflow: [GitHub Actions](https://github.com/mmm13921/fleur-overclock/actions/runs/46150602352).
+- Patch archive: [`patches/`](patches/README.md), organized by subsystem.
+- EEVDF Linux 6.18 research/backport notes: [`eevdf-6.18/`](eevdf-6.18/README.md) and [`eevdf/`](eevdf/README.md).
+- Build history and technical decisions: [`knowledge/`](knowledge/README.md).
+- Diagnostic files and archive rules: [`debug/`](debug/README.md).
+
+## Repository Layout
+
+| Directory | Purpose |
+|---|---|
+| `.github/workflows/` | CI build, audit, and release workflows |
+| `scripts/` | Active patch application, build, audit, and runtime scripts |
+| `patches/` | Versioned subsystem patch archive; not every archived variant is enabled |
+| `docs/` | Test procedures, subsystem notes, and changelogs |
+| `knowledge/` | Long-term project history, baselines, and preflight checks |
+| `debug/` | Original device logs and diagnostic artifacts |
+| `vendor/` | Reference scheduler source snapshots used by patchers |
+| `research/` | Separate Android/framework compatibility research |

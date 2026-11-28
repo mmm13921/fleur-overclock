@@ -1,0 +1,99 @@
+name: LIMIT-62
+run-name: LIMIT-62
+# Combined HMP/EAS/Hybrid, schedutil capacity isolation, and built-in Conservative test.
+on:
+  push:
+    branches:
+      - LIMIT-62
+    paths:
+      - '.github/workflows/build-hmp-hybrid-mt6781.yml'
+      - 'scripts/build_kernel.sh'
+      - 'scripts/apply_scheduler_modes.py'
+      - 'scripts/apply_hmp_mt6781.py'
+      - 'scripts/apply_capacity_margin_1.py'
+      - 'scripts/apply_capacity_margin_stock.py'
+      - 'scripts/apply_schedutil_capacity_frequency.py'
+      - 'scripts/configure_cgroup_v2.sh'
+      - 'scripts/audit_cgroup_interfaces.py'
+      - 'scripts/check_cgroup_runtime.sh'
+      - 'scripts/cpuset_v2.sh'
+      - 'docs/cpuset-v2-runtime.md'
+      - 'scripts/apply_walt_mt6781.py'
+      - 'scripts/apply_schedutil_static_capacity.py'
+      - 'scripts/audit_conservative_governor.py'
+      - 'scripts/patch_dbs_sampling_rate.py'
+      - 'scripts/audit_dbs_sampling_rate.py'
+      - 'scripts/apply_tunable_limits.py'
+      - 'docs/dbs-sampling-rate-unlimited.md'
+      - 'docs/conservative-governor.md'
+      - 'docs/schedutil-static-capacity-test.md'
+      - 'vendor/hmp-fleur-4.14/**'
+      - 'vendor/walt-fleur-4.14/**'
+      - 'docs/scheduler-modes-port.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: limit-62-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-and-package:
+    name: LIMIT-62
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SOURCE_REF: v12
+      BUILD_PROFILE: meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781
+      BUILD_LABEL: LIMIT-62
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v4
+      - name: Validate patcher and shell syntax
+        run: |
+          set -euo pipefail
+          bash -n scripts/build_kernel.sh scripts/configure_cgroup_v2.sh scripts/check_cgroup_runtime.sh scripts/cpuset_v2.sh
+          python3 -m py_compile scripts/apply_scheduler_modes.py scripts/apply_hmp_mt6781.py scripts/apply_capacity_margin_1.py scripts/apply_capacity_margin_stock.py scripts/apply_schedutil_capacity_frequency.py scripts/apply_walt_mt6781.py scripts/apply_schedutil_static_capacity.py scripts/audit_conservative_governor.py scripts/patch_dbs_sampling_rate.py scripts/audit_dbs_sampling_rate.py scripts/apply_tunable_limits.py scripts/audit_cgroup_interfaces.py
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bc bison build-essential ca-certificates curl flex git gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libelf-dev libssl-dev lld make python3 dwarves zip unzip
+      - name: Install checksum-verified Android Clang r563880c
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clang-r563880c"
+          curl --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 -fL "https://github.com/SA9990/Toolchain/releases/download/clang-r563880c/clang-r563880c.tar.gz" -o "$RUNNER_TEMP/clang-r563880c.tar.gz"
+          echo "57b456636aa9c3f5e159bc1dd6eddd7c6de654281cad84376e408a5d35f91bab  $RUNNER_TEMP/clang-r563880c.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/clang-r563880c.tar.gz" -C "$RUNNER_TEMP/clang-r563880c"
+          test -x "$RUNNER_TEMP/clang-r563880c/bin/clang"
+          echo "$RUNNER_TEMP/clang-r563880c/bin" >> "$GITHUB_PATH"
+          echo "TOOLCHAIN_DIR=$RUNNER_TEMP/clang-r563880c" >> "$GITHUB_ENV"
+      - name: Build LIMIT-62 Kernel
+        run: bash scripts/build_kernel.sh "$SOURCE_REF" "$BUILD_PROFILE" "$BUILD_LABEL"
+      - name: Package flashable AnyKernel3 ZIP
+        env:
+          AK3_COMMIT: 41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+        run: |
+          set -euo pipefail
+          AK_DIR="$RUNNER_TEMP/AnyKernel3"
+          mkdir -p "$AK_DIR"
+          git -C "$AK_DIR" init
+          git -C "$AK_DIR" remote add origin https://github.com/osm0sis/AnyKernel3.git
+          git -C "$AK_DIR" fetch --depth=1 origin "$AK3_COMMIT"
+          git -C "$AK_DIR" checkout --detach FETCH_HEAD
+          rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
+          cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
+          sed -i "s/kernel.string=HMP-BUILD$/kernel.string=$BUILD_LABEL/; s/Kernel: HMP-BUILD$/Kernel: 4.19.325-$BUILD_LABEL/" "$AK_DIR/anykernel.sh"
+          cp README.md docs/scheduler-modes-port.md docs/schedutil-static-capacity-test.md docs/conservative-governor.md docs/dbs-sampling-rate-unlimited.md artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-demand-engine-audit.txt artifacts/schedutil-static-capacity-audit.txt artifacts/conservative-governor-audit.txt artifacts/dbs-sampling-rate-audit.txt artifacts/scheduler-vm-tunable-limits-audit.txt artifacts/capacity-margin-audit.txt artifacts/schedutil-capacity-frequency-audit.txt artifacts/cgroup-interface-audit.txt artifacts/check-cgroup-runtime.sh scripts/cpuset_v2.sh docs/cpuset-v2-runtime.md "$AK_DIR/"
+          (
+            cd "$AK_DIR"
+            zip -r9 "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip" META-INF tools LICENSE anykernel.sh README.md scheduler-modes-port.md schedutil-static-capacity-test.md conservative-governor.md Image.gz-dtb kernel.config build-manifest.txt hmp-mt6781-audit.txt walt-demand-engine-audit.txt schedutil-static-capacity-audit.txt conservative-governor-audit.txt dbs-sampling-rate-audit.txt scheduler-vm-tunable-limits-audit.txt capacity-margin-audit.txt schedutil-capacity-frequency-audit.txt cgroup-interface-audit.txt check-cgroup-runtime.sh cpuset_v2.sh cpuset-v2-runtime.md dbs-sampling-rate-unlimited.md
+          )
+          unzip -t "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/${BUILD_LABEL}.zip" | tee "artifacts/${BUILD_LABEL}-SHA256.txt"
+      - name: Upload build and audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LIMIT-62
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
