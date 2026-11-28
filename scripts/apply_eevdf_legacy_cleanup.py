@@ -30,8 +30,11 @@ targets = (
 edits = []
 for name in targets:
     matches = list(re.finditer(r'\.procname\s*=\s*"' + re.escape(name) + r'"', source))
+    if len(matches) == 0:
+        # The EEVDF backport may already have removed this legacy interface.
+        continue
     if len(matches) != 1:
-        raise SystemExit(f"{name}: expected exactly one sysctl entry, found {len(matches)}")
+        raise SystemExit(f"{name}: expected at most one sysctl entry, found {len(matches)}")
     start = source.rfind("{", 0, matches[0].start())
     if start < 0:
         raise SystemExit(f"{name}: entry start not found")
