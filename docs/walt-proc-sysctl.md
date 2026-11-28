@@ -79,6 +79,8 @@ Do not flash until the CI build succeeds and the resulting config/audit are insp
 
 The controls below are sourced from the pinned Fleur 4.14 implementation or are explicit MT6781 integration switches. They are exposed only after a real backing variable and code path exist. Writable integer controls use bounded sysctl handlers; read-only values cannot be changed at runtime.
 
+The GOV branch registers all nine writable controls in kernel/sysctl.c using the Linux 4.19 proc_douintvec_minmax handler. Writes outside the documented bounds are rejected instead of silently wrapping or storing an invalid value. The five native Fleur tuning variables (ravg_hist_size, window_stats_policy, account_wait_time, freq_account_wait_time, and io_is_busy) are no longer file-local; their runtime readers use READ_ONCE() snapshots where values affect accounting. sched_walt_ravg_window and sched_walt_disabled remain read-only by design: the window is selected at boot with walt_ravg_window=, and the disabled flag reports invalid boot-time configuration.
+
 | Path under `/proc/sys/kernel/` | Default | Range / access | Effect |
 |---|---:|---|---|
 | `sched_use_walt_cpu_util` | 0 | 0–1, RW | Defaults to PELT for CPU-frequency requests and CPU placement; set to 1 only for explicit WALT-util testing. |
