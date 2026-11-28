@@ -116,15 +116,6 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-  fi
-    if [[ "$DEFAULT_CPUFREQ_GOVERNOR" == "walt" ]]; then
-      "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_WALT
-    else
-      "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
-    fi
-  else
-    "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
-  fi
     python3 -m py_compile "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
     python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" > "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
     grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
