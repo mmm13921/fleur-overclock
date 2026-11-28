@@ -33,12 +33,12 @@
 
 #define EXITING_TASK_MARKER	0xdeaddead
 
-static __read_mostly unsigned int walt_ravg_hist_size = 5;
-static __read_mostly unsigned int walt_window_stats_policy =
+__read_mostly unsigned int walt_ravg_hist_size = 5;
+__read_mostly unsigned int walt_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
-static __read_mostly unsigned int walt_account_wait_time = 1;
-static __read_mostly unsigned int walt_freq_account_wait_time = 0;
-static __read_mostly unsigned int walt_io_is_busy = 0;
+__read_mostly unsigned int walt_account_wait_time = 1;
+__read_mostly unsigned int walt_freq_account_wait_time = 0;
+__read_mostly unsigned int walt_io_is_busy = 0;
 
 unsigned int sysctl_sched_walt_init_task_load_pct = 15;
 
@@ -240,7 +240,7 @@ static u64 scale_exec_time(u64 delta, struct rq *rq)
 
 static int cpu_is_waiting_on_io(struct rq *rq)
 {
-	if (!walt_io_is_busy)
+	if (!READ_ONCE(walt_io_is_busy))
 		return 0;
 
 	return atomic_read(&rq->nr_iowait);
@@ -331,7 +331,7 @@ static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 		return 1;
 
 	/* Only TASK_MIGRATE && PICK_NEXT_TASK left */
-	return walt_freq_account_wait_time;
+	return READ_ONCE(walt_freq_account_wait_time);
 }
 
 /*
@@ -552,7 +552,7 @@ static int account_busy_for_task_demand(struct task_struct *p, int event)
 	 * time. Likewise, if wait time is not treated as busy time, then
 	 * when a task begins to run or is migrated, it is not running and
 	 * is completing a segment of non-busy time. */
-	if (event == TASK_WAKE || (!walt_account_wait_time &&
+	if (event == TASK_WAKE || (!READ_ONCE(walt_account_wait_time) &&
 			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
 		return 0;
 
@@ -571,6 +571,8 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	u32 *hist = &p->ravg.sum_history[0];
 	int ridx, widx;
 	u32 max = 0, avg, demand;
+	u32 hist_size = READ_ONCE(walt_ravg_hist_size);
+	u32 stats_policy = READ_ONCE(walt_window_stats_policy);
 	u64 sum = 0;
 
 	/* Ignore windows where task had no activity */
@@ -578,7 +580,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 			goto done;
 
 	/* Push new 'runtime' value onto stack */
-	widx = walt_ravg_hist_size - 1;
+	widx = hist_size - 1;
 	ridx = widx - samples;
 	for (; ridx >= 0; --widx, --ridx) {
 		hist[widx] = hist[ridx];
@@ -587,7 +589,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 			max = hist[widx];
 	}
 
-	for (widx = 0; widx < samples && widx < walt_ravg_hist_size; widx++) {
+	for (widx = 0; widx < samples && widx < hist_size; widx++) {
 		hist[widx] = runtime;
 		sum += hist[widx];
 		if (hist[widx] > max)
@@ -596,13 +598,13 @@ static void update_history(struct rq *rq, struct task_struct *p,
 
 	p->ravg.sum = 0;
 
-	if (walt_window_stats_policy == WINDOW_STATS_RECENT) {
+	if (stats_policy == WINDOW_STATS_RECENT) {
 		demand = runtime;
-	} else if (walt_window_stats_policy == WINDOW_STATS_MAX) {
+	} else if (stats_policy == WINDOW_STATS_MAX) {
 		demand = max;
 	} else {
-		avg = div64_u64(sum, walt_ravg_hist_size);
-		if (walt_window_stats_policy == WINDOW_STATS_AVG)
+		avg = div64_u64(sum, hist_size);
+		if (stats_policy == WINDOW_STATS_AVG)
 			demand = avg;
 		else
 			demand = max(avg, runtime);
