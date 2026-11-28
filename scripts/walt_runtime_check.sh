@@ -20,8 +20,8 @@ say "=== MEYS Build62 WALT runtime check (read-only) ==="
 KREL=$(uname -r 2>/dev/null)
 say "kernel_release=$KREL"
 case "$KREL" in
-  *4.19.325-Meys-Build62-WALT-Full*) say "PASS | expected Build62 WALT kernel"; PASS=$((PASS + 1));;
-  *) say "WARN | kernel release does not match Build62 WALT"; WARN=$((WARN + 1));;
+  *4.19.325-BUILD*-WALT-DEFAULT*) say "PASS | expected Build 123 based WALT-default kernel"; PASS=$((PASS + 1));;
+  *) say "WARN | kernel release does not match Build 123 WALT-default profile"; WARN=$((WARN + 1));;
 esac
 for n in sched_walt_ravg_window sched_walt_disabled sched_use_walt_cpu_util sched_use_walt_task_util sched_walt_init_task_load_pct sched_walt_cpu_high_irqload sched_walt_ravg_hist_size sched_walt_window_stats_policy sched_walt_account_wait_time sched_walt_freq_account_wait_time sched_walt_io_is_busy; do
   check_file "$n" "/proc/sys/kernel/$n"
@@ -44,6 +44,10 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
   FOUND_POLICY=1
   say "policy=$(basename "$p")"
   check_file "scaling_governor $(basename "$p")" "$p/scaling_governor"
+  if [ -r "$p/scaling_governor" ]; then
+    GOV=$(cat "$p/scaling_governor" 2>/dev/null)
+    if [ "$GOV" = "walt" ]; then say "PASS | WALT is active default on $(basename "$p")"; PASS=$((PASS + 1)); else say "FAIL | expected WALT default on $(basename "$p"), got $GOV"; FAIL=$((FAIL + 1)); fi
+  fi
   check_file "scaling_available_governors $(basename "$p")" "$p/scaling_available_governors"
   check_file "related_cpus $(basename "$p")" "$p/related_cpus"
   check_file "cpuinfo_cur_freq $(basename "$p")" "$p/cpuinfo_cur_freq"
