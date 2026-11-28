@@ -81,6 +81,7 @@ jobs:
           grep -Fq 'CONFIG_CPU_FREQ_GOV_WALT' "$BUILD"
           grep -Fq 'CONFIG_CPU_FREQ_GOV_CONSERVATIVE' "$BUILD"
           grep -Fq 'CONFIG_CPU_FREQ_GOV_ONDEMAND' "$BUILD"
+          grep -Fq 'unsigned int sysctl_sched_use_walt_cpu_util = 0;' scripts/apply_walt_mt6781.py
           GOV=scripts/apply_waltgov_mt6781.py
           grep -Fq 'hispeed_load' "$GOV"
           grep -Fq 'hispeed_freq' "$GOV"
