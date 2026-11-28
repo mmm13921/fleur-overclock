@@ -13,6 +13,7 @@ on:
       - 'scripts/apply_scheduler_modes.py'
       - 'scripts/apply_walt_controls_mt6781.py'
       - 'scripts/apply_waltgov_mt6781.py'
+      - 'scripts/walt_runtime_check.sh'
       - 'docs/walt-proc-sysctl.md'
       - 'vendor/walt-fleur-4.14/**'
   workflow_dispatch:
@@ -35,6 +36,7 @@ jobs:
       - name: Check builder syntax
         run: |
           bash -n scripts/build_kernel.sh
+          sh -n scripts/walt_runtime_check.sh
           python3 -m py_compile scripts/apply_walt_mt6781.py scripts/apply_walt_controls_mt6781.py scripts/apply_waltgov_mt6781.py scripts/apply_hmp_mt6781.py scripts/apply_scheduler_modes.py
       - name: Install build dependencies
         run: |
@@ -70,13 +72,15 @@ jobs:
           git -C "$AK_DIR" checkout --detach FETCH_HEAD
           rm -rf "$AK_DIR/.git" "$AK_DIR/.github"
           cp scripts/anykernel_meys_v12_stability.sh "$AK_DIR/anykernel.sh"
+          cp scripts/walt_runtime_check.sh artifacts/walt_runtime_check.sh
+          cp artifacts/walt_runtime_check.sh "$AK_DIR/"
           cp README.md docs/walt-proc-sysctl.md "$AK_DIR/"
           cp artifacts/Image.gz-dtb artifacts/kernel.config artifacts/build-manifest.txt "$AK_DIR/"
           cp artifacts/walt-mt6781-audit.txt artifacts/hmp-mt6781-audit.txt artifacts/walt-controls-mt6781-audit.txt artifacts/waltgov-mt6781-audit.txt "$AK_DIR/"
           (
             cd "$AK_DIR"
             zip -r9 "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip" \
-              META-INF tools LICENSE README.md walt-proc-sysctl.md \
+              META-INF tools LICENSE README.md walt-proc-sysctl.md walt_runtime_check.sh \
               anykernel.sh Image.gz-dtb kernel.config build-manifest.txt walt-mt6781-audit.txt hmp-mt6781-audit.txt walt-controls-mt6781-audit.txt waltgov-mt6781-audit.txt
           )
           unzip -t "$GITHUB_WORKSPACE/artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip"
@@ -94,7 +98,7 @@ jobs:
           body: |
             Experimental Build 62 base: Fleux V12 / Linux 4.19.325 for Redmi Note 11S 4G / fleur / MT6781. Preserves Build 62 HMP/Hybrid, capacity/frequency, conservative/ondemand and unlimited-sampling layers; adds the Fleur-native WALT accounting engine, bounded live controls, and a selectable MTK-policy-aware WALT CPUFreq governor. schedutil remains default. CI compilation and static audits do not prove bootability or runtime correctness; device validation is mandatory.
 
-            Includes the Fleur-native 20 ms WALT engine and the Fleur 4.14 HMP cluster placement, active up-migration and idle-pull policy backported to Fleux V12. WALT task demand feeds HMP loadwop accounting, CFS enqueue/dequeue and WALT-aware CPU utilization. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; device validation remains required.
+            Includes the Fleur-native 20 ms WALT engine and the Fleur 4.14 HMP cluster placement, active up-migration and idle-pull policy backported to Fleux V12. WALT task demand feeds HMP loadwop accounting, CFS enqueue/dequeue and WALT-aware CPU utilization. Exposes bounded controls for utilization sources, initial task load, IRQ threshold, history size, demand policy, wait-time accounting, I/O-busy accounting, and read-only window/disabled state. Qualcomm-only core_ctl, related-thread groups and user hints are intentionally excluded because MT6781 uses native MTK policy domains. Compilation and structural audits do not establish runtime correctness; the ZIP includes a read-only on-device diagnostic script for WALT/HMP/EEVDF and CPUFreq validation.
           files: |
             artifacts/MEYS-BUILD62-WALT-FULL-MT6781-AnyKernel3.zip
             artifacts/Image.gz-dtb
@@ -105,6 +109,7 @@ jobs:
             artifacts/walt-controls-mt6781-audit.txt
             artifacts/waltgov-mt6781-audit.txt
             artifacts/WALT-MT6781-SHA256.txt
+            artifacts/walt_runtime_check.sh
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
