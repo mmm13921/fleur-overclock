@@ -899,7 +899,7 @@ void walt_init_new_task_load(struct task_struct *p)
 {
 	int i;
 	u32 init_load_windows =
-			div64_u64((u64)sysctl_sched_walt_init_task_load_pct *
+			div64_u64((u64)READ_ONCE(sysctl_sched_walt_init_task_load_pct) *
                           (u64)walt_ravg_window, 100);
 	u32 init_load_pct = current->init_load_pct;
 
