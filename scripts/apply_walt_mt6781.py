@@ -471,39 +471,32 @@ replace_once("include/linux/sched.h",
     "task timestamp ABI check")
 replace_once("include/linux/sched.h",
     "#define TASK_COMM_LEN\t\t\t16\n",
-    "#define TASK_COMM_LEN\t\t\t16\n#ifdef CONFIG_SCHED_WALT\nextern unsigned int sysctl_sched_use_walt_cpu_util;\nextern unsigned int sysctl_sched_use_walt_task_util;\nextern unsigned int sysctl_sched_walt_init_task_load_pct;\nextern unsigned int sysctl_sched_walt_cpu_high_irqload;\n#endif\n",
+    "#define TASK_COMM_LEN\t\t\t16\n#ifdef CONFIG_SCHED_WALT\nextern unsigned int sysctl_sched_use_walt_cpu_util;\nextern unsigned int sysctl_sched_use_walt_task_util;\nextern unsigned int sysctl_sched_walt_init_task_load_pct;\nextern unsigned int sysctl_sched_walt_cpu_high_irqload;\nextern unsigned int walt_ravg_hist_size;\nextern unsigned int walt_window_stats_policy;\nextern unsigned int walt_account_wait_time;\nextern unsigned int walt_freq_account_wait_time;\nextern unsigned int walt_io_is_busy;\n#endif\n",
     "WALT sysctl declarations")
 walt_sysctl = root / "kernel/sysctl.c"
 sysctl_data = walt_sysctl.read_text()
 walt_table = """#ifdef CONFIG_SCHED_WALT
-\t{
-\t\t.procname\t= "sched_use_walt_cpu_util",
-\t\t.data\t\t= &sysctl_sched_use_walt_cpu_util,
-\t\t.maxlen\t\t= sizeof(unsigned int),
-\t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec,
-\t},
-\t{
-\t\t.procname\t= "sched_use_walt_task_util",
-\t\t.data\t\t= &sysctl_sched_use_walt_task_util,
-\t\t.maxlen\t\t= sizeof(unsigned int),
-\t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec,
-\t},
-\t{
-\t\t.procname\t= "sched_walt_init_task_load_pct",
-\t\t.data\t\t= &sysctl_sched_walt_init_task_load_pct,
-\t\t.maxlen\t\t= sizeof(unsigned int),
-\t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec,
-\t},
-\t{
-\t\t.procname\t= "sched_walt_cpu_high_irqload",
-\t\t.data\t\t= &sysctl_sched_walt_cpu_high_irqload,
-\t\t.maxlen\t\t= sizeof(unsigned int),
-\t\t.mode\t\t= 0644,
-\t\t.proc_handler\t= proc_dointvec,
-\t},
+static unsigned int walt_sysctl_min_zero = 0;
+static unsigned int walt_sysctl_max_one = 1;
+static unsigned int walt_sysctl_max_100 = 100;
+static unsigned int walt_sysctl_min_one = 1;
+static unsigned int walt_sysctl_max_irqload = 1000000000;
+static unsigned int walt_sysctl_max_hist = 5;
+static unsigned int walt_sysctl_max_policy = 3;
+#define WALT_UINT_CTL(_name, _data, _min, _max) { \
+\t.procname = (_name), .data = &(_data), .maxlen = sizeof(unsigned int), \
+\t.mode = 0644, .proc_handler = proc_douintvec_minmax, \
+\t.extra1 = &(_min), .extra2 = &(_max), \
+}
+\tWALT_UINT_CTL("sched_use_walt_cpu_util", sysctl_sched_use_walt_cpu_util, walt_sysctl_min_zero, walt_sysctl_max_one),
+\tWALT_UINT_CTL("sched_use_walt_task_util", sysctl_sched_use_walt_task_util, walt_sysctl_min_zero, walt_sysctl_max_one),
+\tWALT_UINT_CTL("sched_walt_init_task_load_pct", sysctl_sched_walt_init_task_load_pct, walt_sysctl_min_zero, walt_sysctl_max_100),
+\tWALT_UINT_CTL("sched_walt_cpu_high_irqload", sysctl_sched_walt_cpu_high_irqload, walt_sysctl_min_one, walt_sysctl_max_irqload),
+\tWALT_UINT_CTL("sched_walt_ravg_hist_size", walt_ravg_hist_size, walt_sysctl_min_one, walt_sysctl_max_hist),
+\tWALT_UINT_CTL("sched_walt_window_stats_policy", walt_window_stats_policy, walt_sysctl_min_zero, walt_sysctl_max_policy),
+\tWALT_UINT_CTL("sched_walt_account_wait_time", walt_account_wait_time, walt_sysctl_min_zero, walt_sysctl_max_one),
+\tWALT_UINT_CTL("sched_walt_freq_account_wait_time", walt_freq_account_wait_time, walt_sysctl_min_zero, walt_sysctl_max_one),
+\tWALT_UINT_CTL("sched_walt_io_is_busy", walt_io_is_busy, walt_sysctl_min_zero, walt_sysctl_max_one),
 #endif
 """
 marker = "#ifdef CONFIG_PROVE_LOCKING"
@@ -522,7 +515,7 @@ checks = {
     "kernel/sched/deadline.c": ["fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg", "walt_inc_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se))", "walt_dec_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se))"],
     "kernel/sched/stop_task.c": ["fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg", "walt_inc_cumulative_runnable_avg(rq, p)", "walt_dec_cumulative_runnable_avg(rq, p)"],
     "kernel/sched/cputime.c": ["wallclock = sched_clock_cpu(cpu);", "walt_account_irqtime(cpu, curr, delta, wallclock);"],
-    "kernel/sysctl.c": ['"sched_use_walt_cpu_util"', '"sched_use_walt_task_util"', '"sched_walt_cpu_high_irqload"'],
+    "kernel/sysctl.c": ['"sched_use_walt_cpu_util"', '"sched_use_walt_task_util"', '"sched_walt_cpu_high_irqload"', '"sched_walt_ravg_hist_size"', '"sched_walt_window_stats_policy"', '"sched_walt_account_wait_time"', '"sched_walt_freq_account_wait_time"', '"sched_walt_io_is_busy"', 'proc_douintvec_minmax'],
 }
 for rel, needles in checks.items():
     source = (root / rel).read_text()
