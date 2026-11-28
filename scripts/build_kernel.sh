@@ -102,6 +102,9 @@ python3 "$WORKSPACE/scripts/apply_fuse_passthrough_coherency.py" "$SRC_DIR" "$AR
 grep -q "^result=PASS$" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt"
 python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSPACE/eevdf/audit_eevdf_618.py"
 python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
+python3 -m py_compile "$WORKSPACE/scripts/apply_eevdf_legacy_cleanup.py"
+python3 "$WORKSPACE/scripts/apply_eevdf_legacy_cleanup.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
@@ -236,7 +239,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "debug_archive=debug-archive.md; historical and unresolved device issues included; see status labels in archive"
   echo "modem_dpmaif_pm=MT6781 DPMAIF syscore resume only in READY/EXCEPTION; null-safe suspend/resume; no full 4.14 driver port"
   echo "fuse_passthrough=Android FUSE writeback/cache-coherency backport for Linux 4.19"
-  echo "eevdf=Linux 6.18 semantic backport layer 1; DELAY_DEQUEUE and DELAY_ZERO not implemented"
+  echo "eevdf=Linux 6.18 semantic backport layer 1; legacy CFS timing sysctls removed; sched_base_slice retained; DELAY_DEQUEUE and DELAY_ZERO not implemented"
   echo "kernel_version=4.19.325${LOCALVERSION}"
   if [[ "$BUILD_PROFILE" == "meys-v12-capacity-margin-0" ]]; then
     echo "capacity_margin=0 in scheduler variable and MTK fits_capacity helper; capacity-based misfit/overutilized thresholds disabled"
@@ -287,7 +290,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo
   if [[ -f "$ARTIFACT_DIR/capacity-margin-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/capacity-margin-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then echo "schedutil_static_capacity_audit=schedutil-static-capacity-audit.txt"; fi
-  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/debug-archive.md" "$ARTIFACT_DIR/cgroup-interface-audit.txt" "$ARTIFACT_DIR/capacity-margin-audit.txt" "$ARTIFACT_DIR/check-cgroup-runtime.sh" "$ARTIFACT_DIR/cpuset_v2.sh" "$ARTIFACT_DIR/cpuset-v2-runtime.md"
+  sha256sum "$ARTIFACT_DIR/Image.gz-dtb" "$ARTIFACT_DIR/kernel.config" "$ARTIFACT_DIR/hmp-hybrid-source.patch" "$ARTIFACT_DIR/storage-projectid-audit.txt" "$ARTIFACT_DIR/scheduler-modes-audit.txt" "$ARTIFACT_DIR/official-4.19.191-fs-mount-audit.txt" "$ARTIFACT_DIR/android-storage-audit.txt" "$ARTIFACT_DIR/modem-pm-audit.txt" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt" "$ARTIFACT_DIR/eevdf-layer1-audit.txt" "$ARTIFACT_DIR/eevdf-audit.txt" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt" "$ARTIFACT_DIR/debug-archive.md" "$ARTIFACT_DIR/cgroup-interface-audit.txt" "$ARTIFACT_DIR/capacity-margin-audit.txt" "$ARTIFACT_DIR/check-cgroup-runtime.sh" "$ARTIFACT_DIR/cpuset_v2.sh" "$ARTIFACT_DIR/cpuset-v2-runtime.md"
   if [[ -f "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/schedutil-static-capacity-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/conservative-governor-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/conservative-governor-audit.txt"; fi
   if [[ -f "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt" ]]; then sha256sum "$ARTIFACT_DIR/dbs-sampling-rate-audit.txt"; fi
