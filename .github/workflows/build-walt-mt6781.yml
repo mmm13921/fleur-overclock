@@ -81,7 +81,8 @@ jobs:
           done | tee artifacts/preserved-layers-audit.txt
           grep -Fq 'meys-v12-build62-walt-full-mt6781' "$BUILD"
           grep -Fq '6f0f7bc23999e9d16a61cff0e22d39a2c3cbe4d9' "$BUILD"
-          grep -Fq 'LOCALVERSION="-MEYS-V6"' "$BUILD"
+          grep -Fq 'LOCALVERSION="-$BUILD_LABEL"' "$BUILD"
+          grep -Fq '"MEYS-V6"' .github/workflows/build-walt-mt6781.yml
           grep -Fq 'apply_eevdf_legacy_cleanup.py' "$BUILD"
           grep -Fq 'CONFIG_SCHED_WALT' "$BUILD"
           grep -Fq 'CONFIG_SCHED_HMP' "$BUILD"
