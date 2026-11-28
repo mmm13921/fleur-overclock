@@ -101,11 +101,11 @@ if removed != 1:
 
 replacements = [
     ("struct sugov_tunables", "struct waltgov_tunables"),
-    ("\\tunsigned int\\t\\tdown_rate_limit_us;\\n};",
-     "\\tunsigned int\\t\\tdown_rate_limit_us;\\n"
-     "\\tunsigned int\\t\\thispeed_load;\\n"
-     "\\tunsigned int\\t\\thispeed_freq;\\n"
-     "\\tint\\t\\t\\tboost;\\n};"),
+    ("\tunsigned int\t\tdown_rate_limit_us;\n};",
+     "\tunsigned int\t\tdown_rate_limit_us;\n"
+     "\tunsigned int\t\thispeed_load;\n"
+     "\tunsigned int\t\thispeed_freq;\n"
+     "\tint\t\t\tboost;\n};"),
     ("struct sugov_policy", "struct waltgov_policy"),
     ("struct sugov_cpu", "struct waltgov_cpu"),
     ("sugov_", "waltgov_"),
@@ -128,7 +128,7 @@ walt_tunable_functions = r"""
 static ssize_t hispeed_load_show(struct gov_attr_set *attr_set, char *buf)
 {
 	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
-	return scnprintf(buf, PAGE_SIZE, "%u\\n", READ_ONCE(tunables->hispeed_load));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", READ_ONCE(tunables->hispeed_load));
 }
 
 static ssize_t hispeed_load_store(struct gov_attr_set *attr_set,
@@ -146,7 +146,7 @@ static ssize_t hispeed_load_store(struct gov_attr_set *attr_set,
 static ssize_t hispeed_freq_show(struct gov_attr_set *attr_set, char *buf)
 {
 	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
-	return scnprintf(buf, PAGE_SIZE, "%u\\n", READ_ONCE(tunables->hispeed_freq));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", READ_ONCE(tunables->hispeed_freq));
 }
 
 static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
@@ -164,7 +164,7 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 static ssize_t boost_show(struct gov_attr_set *attr_set, char *buf)
 {
 	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
-	return scnprintf(buf, PAGE_SIZE, "%d\\n", READ_ONCE(tunables->boost));
+	return scnprintf(buf, PAGE_SIZE, "%d\n", READ_ONCE(tunables->boost));
 }
 
 static ssize_t boost_store(struct gov_attr_set *attr_set,
@@ -186,9 +186,9 @@ static struct governor_attr boost = __ATTR_RW(boost);
 attrs_anchor = "static struct governor_attr up_rate_limit_us = __ATTR_RW(up_rate_limit_us);"
 if su.count(attrs_anchor) != 1:
     raise SystemExit("WALT governor sysfs attribute anchor missing or duplicated")
-su = su.replace(attrs_anchor, walt_tunable_functions + "\\n" + attrs_anchor, 1)
+su = su.replace(attrs_anchor, walt_tunable_functions + "\n" + attrs_anchor, 1)
 
-attrs_list_anchor = "\\t&down_rate_limit_us.attr,"
+attrs_list_anchor = "\t&down_rate_limit_us.attr,"
 if su.count(attrs_list_anchor) != 1:
     raise SystemExit("WALT governor attribute group anchor missing or duplicated")
 su = su.replace(attrs_list_anchor, attrs_list_anchor + """
@@ -209,8 +209,8 @@ su = su.replace(init_anchor, init_anchor + """
 # Apply the tunables to the final WALT-derived utilization before the native
 # schedutil frequency mapping. The 80% factor compensates for 1.25 headroom.
 freq_anchor = re.compile(
-    r"(static unsigned int get_next_freq\\([\\s\\S]*?\\n\\{\\n"
-    r"\\tstruct cpufreq_policy \\*policy = sg_policy->policy;\\n)"
+    r"(static unsigned int get_next_freq\([\s\S]*?\n\{\n"
+    r"\tstruct cpufreq_policy \*policy = sg_policy->policy;\n)"
 )
 freq_block = """	int boost = READ_ONCE(sg_policy->tunables->boost);
 	unsigned int hispeed_load = READ_ONCE(sg_policy->tunables->hispeed_load);
@@ -231,7 +231,7 @@ freq_block = """	int boost = READ_ONCE(sg_policy->tunables->boost);
 	}
 
 """
-su, n = freq_anchor.subn(r"\\1" + freq_block, su, count=1)
+su, n = freq_anchor.subn(r"\1" + freq_block, su, count=1)
 if n != 1:
     raise SystemExit("WALT governor get_next_freq insertion anchor missing or duplicated")
 
