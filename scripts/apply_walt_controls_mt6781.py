@@ -123,7 +123,7 @@ if include_anchor not in data:
 data = data.replace(include_anchor, include_anchor + "\nstatic unsigned int walt_sysctl_zero = 0;\nstatic unsigned int walt_sysctl_one = 1;\nstatic unsigned int walt_sysctl_three = 3;\nstatic unsigned int walt_sysctl_five = 5;\nstatic unsigned int walt_sysctl_hundred = 100;\nstatic unsigned int walt_sysctl_nsec_per_sec = 1000000000;\n", 1)
 
 # Existing WALT entries are converted to bounded handlers.
-def replace_entry(procname, old_handler, new_handler, low, high):
+def replace_entry(procname, old_handler, new_handler, high):
     global data
     start = data.find('.procname\t= "' + procname + '"')
     if start < 0:
@@ -140,9 +140,9 @@ def replace_entry(procname, old_handler, new_handler, low, high):
     block += "\n\t.extra2\t\t= " + high + ","
     data = data[:start] + block + data[end:]
 
-replace_entry("sched_use_walt_cpu_util", "proc_dointvec", "proc_douintvec_minmax", "zero", "&walt_sysctl_one")
-replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_douintvec_minmax", "zero", "&walt_sysctl_one")
-replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_douintvec_minmax", "zero", "&walt_sysctl_hundred")
+replace_entry("sched_use_walt_cpu_util", "proc_dointvec", "proc_douintvec_minmax", "&walt_sysctl_one")
+replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_douintvec_minmax", "&walt_sysctl_one")
+replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_douintvec_minmax", "&walt_sysctl_hundred")
 
 # Insert remaining native knobs immediately after the bounded IRQ entry.
 irq_end = data.find("\n\t},", data.find('.procname\t= "sched_walt_cpu_high_irqload"'))
@@ -224,6 +224,34 @@ required = [
 for name in required:
     if data.count('.procname\t= "' + name + '"') != 1:
         raise SystemExit("WALT sysctl registration audit failed: " + name)
+
+# Verify each writable unsigned control is connected to the correct bounded
+# handler. A name-only audit would miss the original non-writable/mis-typed bug.
+expected_bounds = {
+    "sched_use_walt_cpu_util": ("&walt_sysctl_zero", "&walt_sysctl_one"),
+    "sched_use_walt_task_util": ("&walt_sysctl_zero", "&walt_sysctl_one"),
+    "sched_walt_init_task_load_pct": ("&walt_sysctl_zero", "&walt_sysctl_hundred"),
+    "sched_walt_cpu_high_irqload": ("&walt_sysctl_one", "&walt_sysctl_nsec_per_sec"),
+    "sched_walt_ravg_hist_size": ("&walt_sysctl_one", "&walt_sysctl_five"),
+    "sched_walt_window_stats_policy": ("&walt_sysctl_zero", "&walt_sysctl_three"),
+    "sched_walt_account_wait_time": ("&walt_sysctl_zero", "&walt_sysctl_one"),
+    "sched_walt_freq_account_wait_time": ("&walt_sysctl_zero", "&walt_sysctl_one"),
+    "sched_walt_io_is_busy": ("&walt_sysctl_zero", "&walt_sysctl_one"),
+}
+for name, (minimum, maximum) in expected_bounds.items():
+    start = data.find('.procname\t= "' + name + '"')
+    end = data.find("\\n\\t},", start)
+    if start < 0 or end < 0:
+        raise SystemExit("WALT bounds audit could not isolate " + name)
+    entry = data[start:end]
+    if ".proc_handler\\t= proc_douintvec_minmax," not in entry:
+        raise SystemExit("WALT unsigned bounded handler missing: " + name)
+    if ".extra1\\t\\t= " + minimum + "," not in entry:
+        raise SystemExit("WALT minimum bound mismatch: " + name)
+    if ".extra2\\t\\t= " + maximum + "," not in entry:
+        raise SystemExit("WALT maximum bound mismatch: " + name)
+    if ".mode\\t\\t= 0644," not in entry:
+        raise SystemExit("WALT writable permission mismatch: " + name)
 
 print("result=PASS")
 print("walt_controls=" + ",".join(required))
