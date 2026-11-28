@@ -9,7 +9,7 @@ if len(sys.argv) != 3:
 
 root = Path(sys.argv[1])
 audit = Path(sys.argv[2])
-workspace = Path(__file__).resolve().parents[1]
+workspace = Path(__file__).resolve().parent
 changes = []
 
 def replace_once(rel, old, new, label, count=1):
@@ -40,7 +40,7 @@ def replace_region(rel, start, end, old, new, label, count=1):
 # callsites are ported into the Fleux scheduler trace ABI.
 sched_dir = root / "kernel/sched"
 for name in ("walt.c", "walt.h"):
-    source = workspace / "vendor/walt-fleur-4.14" / name
+    source = workspace / "reference" / name
     if not source.is_file():
         raise SystemExit(f"missing pinned Fleur WALT reference: {source}")
     text = source.read_text()
