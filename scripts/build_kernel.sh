@@ -254,14 +254,13 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   echo "scheduler_hmp_port=Fleur-native MT6781 HMP engine; fork/wake placement, active up/down migration, idle pull, periodic migration and CPU hotplug hooks; WALT demand is internal HMP load input only"
   if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
     echo "hmp_load_source=Fleur-native WALT runnable-demand accounting retained internally because the 4.14 MTK HMP engine consumes loadwop_avg"
+    echo "walt_standalone_controls=bounded native Fleur controls exposed through kernel sysctl in every WALT-enabled profile"
+    echo "walt_controls_audit=walt-controls-mt6781-audit.txt"
     if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
       echo "walt_governor=MTK-policy-aware dedicated governor built-in and selectable; schedutil remains default"
-      echo "walt_standalone_controls=bounded native Fleur controls exposed through kernel sysctl"
       echo "walt_governor_audit=waltgov-mt6781-audit.txt"
-      echo "walt_controls_audit=walt-controls-mt6781-audit.txt"
     else
       echo "walt_governor=not enabled; schedutil remains default for EAS"
-      echo "walt_standalone_controls=not included; WALT accounting is an internal HMP dependency only"
     fi
     echo "walt_irq_accounting=CONFIG_IRQ_TIME_ACCOUNTING=y; native HMP demand accounting requires IRQ tracking"
     echo "hmp_audit=hmp-mt6781-audit.txt;walt-demand-engine-audit.txt"
