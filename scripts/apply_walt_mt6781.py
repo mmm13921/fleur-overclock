@@ -109,7 +109,7 @@ replace_once("kernel/sched/sched.h",
     "CFS WALT cumulative runnable accounting")
 replace_once("kernel/sched/sched.h",
     "\tu64\t\t\tavg_idle;\n",
-    "\tu64\t\t\tavg_idle;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\tcumulative_runnable_avg;\n\tu64\t\t\twindow_start;\n\tu64\t\t\tcurr_runnable_sum;\n\tu64\t\t\tprev_runnable_sum;\n\tu64\t\t\tnt_curr_runnable_sum;\n\tu64\t\t\tnt_prev_runnable_sum;\n\tu64\t\t\tcur_irqload;\n\tu64\t\t\tavg_irqload;\n\tu64\t\t\tirqload_ts;\n\tu64\t\t\tcum_window_demand;\n#endif\n",
+    "\tu64\t\t\tavg_idle;\n#ifdef CONFIG_SCHED_WALT\n\tu64\t\t\tcumulative_runnable_avg;\n\tu64\t\t\twindow_start;\n\tu64\t\t\twalt_last_wakeup;\n\tu64\t\t\tcurr_runnable_sum;\n\tu64\t\t\tprev_runnable_sum;\n\tu64\t\t\tnt_curr_runnable_sum;\n\tu64\t\t\tnt_prev_runnable_sum;\n\tu64\t\t\tcur_irqload;\n\tu64\t\t\tavg_irqload;\n\tu64\t\t\tirqload_ts;\n\tu64\t\t\tcum_window_demand;\n#endif\n",
     "runqueue WALT accounting fields")
 replace_once("kernel/sched/sched.h",
     "\tvoid (*update_curr)(struct rq *rq);\n",
