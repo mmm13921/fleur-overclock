@@ -5,6 +5,7 @@ on:
     branches:
       - meys-v12-build62-walt-full
       - meys-v116-eevdf-cleanup
+      - GOV
     paths:
       - '.github/workflows/build-walt-mt6781.yml'
       - 'scripts/build_kernel.sh'
@@ -93,6 +94,8 @@ jobs:
           grep -Fq 'hispeed_freq' "$GOV"
           grep -Fq 'boost_store' "$GOV"
           grep -Fq 'floor_util' "$GOV"
+          grep -Fq 'wakeup_boost_duration_us' "$GOV"
+          grep -Fq 'walt_last_wakeup' "$GOV"
           {
             echo "result=PASS"
             echo "base=Build 62 / Fleux V12 pinned source"
