@@ -97,6 +97,9 @@ jobs:
           GOV=scripts/apply_waltgov_mt6781.py
           grep -Fq 'hispeed_load' "$GOV"
           grep -Fq 'hispeed_freq' "$GOV"
+          grep -Fq 'hispeed_freq_table' "$GOV"
+          grep -Fq 'waltgov_freq_is_available' "$GOV"
+          grep -Fq 'cpufreq_for_each_entry' "$GOV"
           grep -Fq 'boost_store' "$GOV"
           grep -Fq 'floor_util' "$GOV"
           grep -Fq 'wakeup_boost_duration_us' "$GOV"
