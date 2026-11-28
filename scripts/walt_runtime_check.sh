@@ -31,7 +31,11 @@ if [ -r /proc/sys/kernel/sched_use_walt_cpu_util ]; then
   if [ "$WALT_CPU_UTIL" = "0" ]; then say "PASS | safe CPUFreq default | WALT CPU util disabled; PELT frequency input active"; PASS=$((PASS + 1)); else say "WARN | safe CPUFreq default | expected sched_use_walt_cpu_util=0, got $WALT_CPU_UTIL"; WARN=$((WARN + 1)); fi
 fi
 check_file sched_cpu_mode /proc/sys/kernel/sched_cpu_mode
-for n in sched_base_slice sched_eevdf_place_lag sched_eevdf_place_deadline_initial sched_eevdf_place_rel_deadline sched_eevdf_run_to_parity sched_eevdf_preempt_short; do
+check_file sched_base_slice /proc/sys/kernel/sched_base_slice
+for n in sched_latency_ns sched_min_granularity_ns sched_wakeup_granularity_ns; do
+  if [ -e "/proc/sys/kernel/$n" ]; then say "WARN | obsolete EEVDF timing control remains | $n"; WARN=$((WARN + 1)); else say "PASS | obsolete EEVDF timing control removed | $n"; PASS=$((PASS + 1)); fi
+done
+for n in sched_eevdf_place_lag sched_eevdf_place_deadline_initial sched_eevdf_place_rel_deadline sched_eevdf_run_to_parity sched_eevdf_preempt_short; do
   check_file "$n" "/proc/sys/kernel/$n"
 done
 say "=== CPUFreq policies ==="
