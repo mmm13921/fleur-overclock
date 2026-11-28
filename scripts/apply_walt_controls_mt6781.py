@@ -110,7 +110,7 @@ extra = '''\t{
 \t\t.maxlen\t\t= sizeof(unsigned int),
 \t\t.mode\t\t= 0644,
 \t\t.proc_handler\t= proc_douintvec_minmax,
-\t\t.extra1\t\t= &walt_sysctl_zero,
+\t\t.extra1\t\t= &walt_sysctl_one,
 \t\t.extra2\t\t= &walt_sysctl_nsec_per_sec,
 \t},'''
 if data.count(anchor) != 1:
