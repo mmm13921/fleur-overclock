@@ -206,6 +206,7 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   else
     grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain default for the HMP/EAS baseline." >&2; exit 1; }
   fi
+fi
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/audit_conservative_governor.py"
   python3 "$WORKSPACE/scripts/audit_conservative_governor.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/conservative-governor-audit.txt"
