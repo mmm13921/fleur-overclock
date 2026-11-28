@@ -8,6 +8,9 @@ on:
     paths:
       - '.github/workflows/build-walt-mt6781.yml'
       - 'scripts/build_kernel.sh'
+      - 'scripts/apply_eevdf_legacy_cleanup.py'
+      - 'scripts/apply_tunable_limits.py'
+      - 'eevdf/patches/0001-eevdf-core-618.py'
       - 'scripts/apply_walt_mt6781.py'
       - 'scripts/apply_hmp_mt6781.py'
       - 'vendor/hmp-fleur-4.14/**'
