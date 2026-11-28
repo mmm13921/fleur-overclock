@@ -151,6 +151,35 @@ static ssize_t hispeed_freq_show(struct gov_attr_set *attr_set, char *buf)
 	return scnprintf(buf, PAGE_SIZE, "%u\n", READ_ONCE(tunables->hispeed_freq));
 }
 
+static bool waltgov_freq_is_available(struct gov_attr_set *attr_set,
+					       unsigned int freq)
+{
+	struct waltgov_policy *sg_policy;
+	struct cpufreq_frequency_table *pos;
+	bool found_policy = false;
+
+	if (!freq)
+		return true;
+	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
+		bool found = false;
+
+		if (!sg_policy->policy->freq_table)
+			return false;
+		cpufreq_for_each_entry(pos, sg_policy->policy->freq_table) {
+			if (pos->frequency == CPUFREQ_ENTRY_INVALID)
+				continue;
+			if (pos->frequency == freq) {
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			return false;
+		found_policy = true;
+	}
+	return found_policy;
+}
+
 static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 				  const char *buf, size_t count)
 {
@@ -159,8 +188,38 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 
 	if (kstrtouint(buf, 10, &val))
 		return -EINVAL;
+	if (!waltgov_freq_is_available(attr_set, val))
+		return -EINVAL;
 	WRITE_ONCE(tunables->hispeed_freq, val);
 	return count;
+}
+
+static ssize_t hispeed_freq_table_show(struct gov_attr_set *attr_set, char *buf)
+{
+	struct waltgov_policy *sg_policy;
+	struct cpufreq_frequency_table *pos;
+	unsigned int len = 0;
+	bool found_policy = false;
+
+	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
+		if (!sg_policy->policy->freq_table)
+			continue;
+		found_policy = true;
+		cpufreq_for_each_entry(pos, sg_policy->policy->freq_table) {
+			if (pos->frequency == CPUFREQ_ENTRY_INVALID)
+				continue;
+			if (len >= PAGE_SIZE - 16)
+				return -E2BIG;
+			len += scnprintf(buf + len, PAGE_SIZE - len, "%u ", pos->frequency);
+		}
+	}
+	if (!found_policy)
+		return -EINVAL;
+	if (len && buf[len - 1] == ' ')
+		buf[len - 1] = '\n';
+	else
+		buf[len++] = '\n';
+	return len;
 }
 
 static ssize_t boost_show(struct gov_attr_set *attr_set, char *buf)
@@ -183,6 +242,10 @@ static ssize_t boost_store(struct gov_attr_set *attr_set,
 
 static struct governor_attr hispeed_load = __ATTR_RW(hispeed_load);
 static struct governor_attr hispeed_freq = __ATTR_RW(hispeed_freq);
+static struct governor_attr hispeed_freq_table = {
+	.attr = { .name = "hispeed_freq_table", .mode = 0444 },
+	.show = hispeed_freq_table_show,
+};
 static struct governor_attr boost = __ATTR_RW(boost);
 
 static ssize_t wakeup_boost_show(struct gov_attr_set *attr_set, char *buf)
@@ -227,6 +290,7 @@ if su.count(attrs_list_anchor) != 1:
 su = su.replace(attrs_list_anchor, attrs_list_anchor + """
 	&hispeed_load.attr,
 	&hispeed_freq.attr,
+	&hispeed_freq_table.attr,
 	&boost.attr,
 	&wakeup_boost.attr,
 	&wakeup_boost_duration_us.attr,""", 1)
@@ -295,7 +359,8 @@ if n != 1:
 if "cpu_util_cfs(rq)" not in su:
     raise SystemExit("WALT governor lost its PELT fallback source")
 if ("walt_cpu_freq_util(rq)" not in su or '.name\t\t\t= "walt"' not in su
-        or "hispeed_load" not in su or "hispeed_freq" not in su
+        or "hispeed_load" not in su or "hispeed_freq" not in su or "hispeed_freq_table" not in su
+        or "waltgov_freq_is_available" not in su
         or "boost_store" not in su or "floor_util" not in su
         or "wakeup_boost_duration_us" not in su or "walt_last_wakeup" not in su):
     raise SystemExit("WALT governor post-transform audit failed")
@@ -330,7 +395,7 @@ print(
     "utilization=current/previous WALT execution-window busy time plus RT/DL/IRQ/uclamp accounting\n"
     "policies=dynamic cpufreq policy masks; LITTLE and big policies handled independently\n"
     "frequency_tables=unchanged; existing MTK cpufreq driver and OPP tables retained\n"
-    "tunables=up_rate_limit_us,down_rate_limit_us,hispeed_load,hispeed_freq,boost\n"
+    "tunables=up_rate_limit_us,down_rate_limit_us,hispeed_load,hispeed_freq,hispeed_freq_table,boost\n"
     "tunables_defaults=hispeed_load:90;hispeed_freq:0(disabled);boost:0\n"
     "tunables_effect=hispeed threshold/frequency floor and bounded utilization percentage boost\n"
 
