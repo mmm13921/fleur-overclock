@@ -26,6 +26,14 @@ esac
 for n in sched_walt_ravg_window sched_walt_disabled sched_use_walt_cpu_util sched_use_walt_task_util sched_walt_init_task_load_pct sched_walt_cpu_high_irqload sched_walt_ravg_hist_size sched_walt_window_stats_policy sched_walt_account_wait_time sched_walt_freq_account_wait_time sched_walt_io_is_busy; do
   check_file "$n" "/proc/sys/kernel/$n"
 done
+for n in sched_use_walt_cpu_util sched_use_walt_task_util sched_walt_init_task_load_pct sched_walt_cpu_high_irqload sched_walt_ravg_hist_size sched_walt_window_stats_policy sched_walt_account_wait_time sched_walt_freq_account_wait_time sched_walt_io_is_busy; do
+  p="/proc/sys/kernel/$n"
+  if [ -e "$p" ] && [ -w "$p" ]; then say "PASS | writable WALT sysctl | $n"; PASS=$((PASS + 1)); elif [ -e "$p" ]; then say "FAIL | WALT sysctl not writable | $n"; FAIL=$((FAIL + 1)); else say "WARN | WALT sysctl missing | $n"; WARN=$((WARN + 1)); fi
+done
+for n in sched_walt_ravg_window sched_walt_disabled; do
+  p="/proc/sys/kernel/$n"
+  if [ -e "$p" ] && [ ! -w "$p" ]; then say "PASS | intentionally read-only WALT sysctl | $n"; PASS=$((PASS + 1)); elif [ -e "$p" ]; then say "WARN | expected read-only WALT sysctl is writable | $n"; WARN=$((WARN + 1)); fi
+done
 if [ -r /proc/sys/kernel/sched_use_walt_cpu_util ]; then
   WALT_CPU_UTIL=$(cat /proc/sys/kernel/sched_use_walt_cpu_util 2>/dev/null)
   if [ "$WALT_CPU_UTIL" = "0" ]; then say "PASS | safe CPUFreq default | WALT CPU util disabled; PELT frequency input active"; PASS=$((PASS + 1)); else say "WARN | safe CPUFreq default | expected sched_use_walt_cpu_util=0, got $WALT_CPU_UTIL"; WARN=$((WARN + 1)); fi
