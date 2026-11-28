@@ -174,7 +174,7 @@ replace_once("kernel/sched/fair.c",
     "WALT task utilization")
 replace_once("kernel/sched/fair.c",
     "unsigned long task_util_est(struct task_struct *p)\n{\n\treturn max(task_util(p), _task_util_est(p));\n}",
-    "unsigned long task_util_est(struct task_struct *p)\n{\n#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_task_util && walt_ravg_window))\n\t\treturn p->ravg.demand / (walt_ravg_window >> SCHED_CAPACITY_SHIFT);\n#endif\n\treturn max(task_util(p), _task_util_est(p));\n}",
+    "unsigned long task_util_est(struct task_struct *p)\n{\n#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && READ_ONCE(sysctl_sched_use_walt_task_util) && walt_ravg_window))\n\t\treturn p->ravg.demand / (walt_ravg_window >> SCHED_CAPACITY_SHIFT);\n#endif\n\treturn max(task_util(p), _task_util_est(p));\n}",
     "WALT task utilization estimate")
 replace_once("kernel/sched/fair.c",
     "static inline unsigned long cpu_util(int cpu)\n{\n\tstruct cfs_rq *cfs_rq;\n\tunsigned int util;\n\n\tcfs_rq = &cpu_rq(cpu)->cfs;",
@@ -183,7 +183,7 @@ replace_once("kernel/sched/fair.c",
 replace_region("kernel/sched/fair.c",
     "static unsigned long cpu_util_without(", "unsigned long capacity_curr_of(",
     "\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
-    "#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util && walt_ravg_window))\n\t\t{\n\t\t\tunsigned long walt_util = cpu_util(cpu);\n\t\t\tif (task_cpu(p) == cpu && p->on_rq) {\n\t\t\t\tunsigned long task = p->ravg.demand / (walt_ravg_window >> SCHED_CAPACITY_SHIFT);\n\t\t\t\twalt_util = walt_util > task ? walt_util - task : 0;\n\t\t\t}\n\t\t\treturn walt_util;\n\t\t}\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
+    "#ifdef CONFIG_SCHED_WALT\n\tif (likely(!walt_disabled && READ_ONCE(sysctl_sched_use_walt_cpu_util) && walt_ravg_window))\n\t\t{\n\t\t\tunsigned long walt_util = cpu_util(cpu);\n\t\t\tif (task_cpu(p) == cpu && p->on_rq) {\n\t\t\t\tunsigned long task = p->ravg.demand / (walt_ravg_window >> SCHED_CAPACITY_SHIFT);\n\t\t\t\twalt_util = walt_util > task ? walt_util - task : 0;\n\t\t\t}\n\t\t\treturn walt_util;\n\t\t}\n#endif\n\tcfs_rq = &cpu_rq(cpu)->cfs;\n\tutil = READ_ONCE(cfs_rq->avg.util_avg);\n\n\t/* Discount task's util from CPU's util */",
     "WALT cpu_util_without")
 replace_region("kernel/sched/fair.c",
     "enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)", "static void set_next_buddy(",
@@ -295,8 +295,8 @@ replace_once("kernel/sched/walt.c",
 
 # Export WALT execution-window utilization for the dedicated CPUFreq governor.
 replace_once("kernel/sched/walt.c",
-    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= READ_ONCE(sysctl_sched_walt_cpu_high_irqload);\n}\n",
-    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !READ_ONCE(sysctl_sched_use_walt_cpu_util) || !walt_ravg_window)\n\t\treturn READ_ONCE(rq->cfs.avg.util_avg);\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= sysctl_sched_walt_cpu_high_irqload;\n}\n",
+    "int walt_cpu_high_irqload(int cpu) {\n\treturn walt_irqload(cpu) >= READ_ONCE(sysctl_sched_walt_cpu_high_irqload);\n}\n\nunsigned long walt_cpu_freq_util(struct rq *rq)\n{\n\tu64 util;\n\tunsigned long capacity = READ_ONCE(rq->cpu_capacity_orig);\n\n\tif (walt_disabled || !READ_ONCE(sysctl_sched_use_walt_cpu_util) || !walt_ravg_window)\n\t\treturn READ_ONCE(rq->cfs.avg.util_avg);\n\tutil = max(READ_ONCE(rq->curr_runnable_sum),\n\t\t   READ_ONCE(rq->prev_runnable_sum));\n\tutil <<= SCHED_CAPACITY_SHIFT;\n\tdo_div(util, walt_ravg_window);\n\tif (!capacity)\n\t\tcapacity = SCHED_CAPACITY_SCALE;\n\treturn min_t(unsigned long, util, capacity);\n}\n",
     "WALT execution-window CPUFreq utilization export")
 replace_once("kernel/sched/core.c",
     "\tdequeue_task(rq, p, DEQUEUE_NOCLOCK);\n\tset_task_cpu(p, new_cpu);",
