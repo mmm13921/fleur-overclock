@@ -209,7 +209,7 @@ audit.write_text(
     "scheduler_bounds_normalized=" + (",".join(sorted(changed)) or "none") + "\n"
     "scheduler_already_unbounded=" + (",".join(sorted(already_unbounded)) or "none") + "\n"
     "vm_bounds_removed=" + (",".join(sorted(vm_changed)) or "none") + "\n"
-    "granularity=sched_min_granularity_ns minimum exactly 0; sched_latency_ns and wakeup granularity minimums zero; no artificial maxima\n"
+    "granularity=legacy CFS granularity sysctl interfaces removed by EEVDF cleanup; sched_base_slice is the active fair request control\\n"
     "sampling_rate=handled by existing DBS unlimited patch with overflow protection\n"
     "protected_semantics=" + ",".join(sorted(SCHED_PROTECTED)) + "\n"
     "custom_handlers_review=" + (",".join(sorted(custom_handlers)) or "none") + "\n"
