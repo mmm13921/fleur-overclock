@@ -36,8 +36,8 @@ def replace_region(rel, start, end, old, new, label, count=1):
     changes.append(label)
 
 # Install the full device-native WALT accounting implementation, not the
-# earlier experimental accounting stub. Tracepoints absent from Fleux are
-# deliberately compiled as no-ops; accounting and scheduler hooks remain live.
+# earlier experimental accounting stub. Fleur-specific trace events and their
+# callsites are ported into the Fleux scheduler trace ABI.
 sched_dir = root / "kernel/sched"
 for name in ("walt.c", "walt.h"):
     source = workspace / "vendor/walt-fleur-4.14" / name
@@ -542,7 +542,7 @@ audit.write_text(
     "hooks=wakeup, local wakeup, fork, task start, context switch, scheduler tick, migration, CPU hotplug\n"
     "utilization=WALT cumulative task demand for placement with candidate subtraction; dedicated WALT governor consumes current/previous execution-window sums; PELT fallback retained\n"
     "controls=/proc/sys/kernel/sched_use_walt_cpu_util,sched_use_walt_task_util,sched_walt_init_task_load_pct,sched_walt_cpu_high_irqload\n"
-    "tracepoints=optional Fleur-only WALT tracepoints compiled as no-op on Fleux\n"
+    "tracepoints=Fleur-specific task-ravg, history and migration events with live callsites; verify tracefs exposure on-device\n"
     "not_included=Qualcomm related-thread groups/core_ctl cluster-frequency ABI; native MTK HMP active migration is a separate integration layer\n"
     + "".join("patched=" + item + "\n" for item in changes)
 )
