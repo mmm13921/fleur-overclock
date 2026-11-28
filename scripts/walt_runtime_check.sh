@@ -43,6 +43,9 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
   if [ -d "$p/walt" ]; then
     check_file "walt up_rate_limit_us $(basename "$p")" "$p/walt/up_rate_limit_us"
     check_file "walt down_rate_limit_us $(basename "$p")" "$p/walt/down_rate_limit_us"
+    check_file "walt hispeed_load $(basename "$p")" "$p/walt/hispeed_load"
+    check_file "walt hispeed_freq $(basename "$p")" "$p/walt/hispeed_freq"
+    check_file "walt boost $(basename "$p")" "$p/walt/boost"
   else
     say "WARN | WALT rate-limit directory missing for $(basename "$p")"
     WARN=$((WARN + 1))
