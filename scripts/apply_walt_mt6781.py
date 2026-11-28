@@ -493,7 +493,7 @@ static unsigned int walt_sysctl_max_policy = 3;
 kern_table_marker = "static struct ctl_table kern_table[] = {"
 if sysctl_data.count(kern_table_marker) != 1:
     raise SystemExit("WALT sysctl global helper insertion marker missing or ambiguous")
-sysctl_data = sysctl_data.replace(kern_table_marker, walt_helpers + "\\n" + kern_table_marker, 1)
+sysctl_data = sysctl_data.replace(kern_table_marker, walt_helpers + "\n" + kern_table_marker, 1)
 
 walt_table = """#ifdef CONFIG_SCHED_WALT
 \tWALT_UINT_CTL("sched_use_walt_cpu_util", sysctl_sched_use_walt_cpu_util, walt_sysctl_min_zero, walt_sysctl_max_one),
