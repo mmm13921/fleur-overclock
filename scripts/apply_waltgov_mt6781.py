@@ -212,23 +212,27 @@ freq_anchor = re.compile(
     r"(static unsigned int get_next_freq\([\s\S]*?\n\{\n"
     r"\tstruct cpufreq_policy \*policy = sg_policy->policy;\n)"
 )
-freq_block = """	int boost = READ_ONCE(sg_policy->tunables->boost);
-	unsigned int hispeed_load = READ_ONCE(sg_policy->tunables->hispeed_load);
-	unsigned int hispeed_freq = READ_ONCE(sg_policy->tunables->hispeed_freq);
+freq_block = """\tint boost = READ_ONCE(sg_policy->tunables->boost);
+\tunsigned int hispeed_load = READ_ONCE(sg_policy->tunables->hispeed_load);
+\tunsigned int hispeed_freq = READ_ONCE(sg_policy->tunables->hispeed_freq);
 
-	if (boost)
-		util = min_t(unsigned long, max,
-			     (util * (100 + boost)) / 100);
+\tif (hispeed_freq && max &&
+\t    util >= mult_frac(max, hispeed_load, 100)) {
+\t\tunsigned int floor_freq = min(hispeed_freq, policy->max);
+\t\tunsigned int floor_base_freq = arch_scale_freq_invariant() ?
+\t\t\tpolicy->cpuinfo.max_freq : policy->cur;
+\t\tunsigned long floor_util;
 
-	if (hispeed_freq && max &&
-	    util >= mult_frac(max, hispeed_load, 100)) {
-		unsigned int floor_freq = min(hispeed_freq, policy->max);
-		unsigned long floor_util;
+\t\tif (floor_base_freq) {
+\t\t\tfloor_util = mult_frac(max, floor_freq, floor_base_freq);
+\t\t\tfloor_util = mult_frac(floor_util, 80U, 100U);
+\t\t\tutil = max(util, floor_util);
+\t\t}
+\t}
 
-		floor_util = mult_frac(max, floor_freq, policy->cpuinfo.max_freq);
-		floor_util = mult_frac(floor_util, 80U, 100U);
-		util = max(util, floor_util);
-	}
+\tif (boost)
+\t\tutil = min_t(unsigned long, max,
+\t\t\t     (util * (100 + boost)) / 100);
 
 """
 su, n = freq_anchor.subn(r"\1" + freq_block, su, count=1)
