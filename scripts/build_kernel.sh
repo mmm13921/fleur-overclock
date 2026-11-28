@@ -2,6 +2,8 @@ set -Eeuo pipefail
 SOURCE_REF="${1:-v12}"
 BUILD_PROFILE="${2:-meys-v12-android-data-sdcardfs}"
 BUILD_LABEL="${3:-}"
+DEFAULT_CPUFREQ_GOVERNOR="${DEFAULT_CPUFREQ_GOVERNOR:-schedutil}"
+[[ "$DEFAULT_CPUFREQ_GOVERNOR" == "schedutil" || "$DEFAULT_CPUFREQ_GOVERNOR" == "walt" ]] || { echo "Unsupported default CPUFreq governor: $DEFAULT_CPUFREQ_GOVERNOR" >&2; exit 2; }
 SOURCE_URL="https://gitlab.com/daliboss/fleux.git"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
 SRC_DIR="${SRC_DIR:-$WORKSPACE/kernel-src}"
@@ -59,7 +61,7 @@ case "$SOURCE_REF:$BUILD_PROFILE" in
     ;;
 esac
 if [[ ( "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ) && -n "$BUILD_LABEL" ]]; then
-  [[ "$BUILD_LABEL" =~ ^(CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD|LIMIT-)[0-9]+$ ]] || { echo "Invalid capacity/conservative build label: $BUILD_LABEL" >&2; exit 2; }
+  [[ "$BUILD_LABEL" =~ ^((CAPACITY-FREQ-CONSERVATIVE-UNLIMITED-SAMPLING-BUILD|LIMIT-)[0-9]+|BUILD[0-9]+-WALT-DEFAULT)$ ]] || { echo "Invalid capacity/conservative/WALT-default build label: $BUILD_LABEL" >&2; exit 2; }
   LOCALVERSION="-$BUILD_LABEL"
 fi
 if [[ -z "$TOOLCHAIN_DIR" || ! -x "$TOOLCHAIN_DIR/bin/clang" ]]; then
@@ -114,6 +116,15 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   python3 "$WORKSPACE/scripts/apply_hmp_mt6781.py" "$SRC_DIR" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   grep -qx "result=PASS" "$ARTIFACT_DIR/hmp-mt6781-audit.txt"
   if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  fi
+    if [[ "$DEFAULT_CPUFREQ_GOVERNOR" == "walt" ]]; then
+      "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_WALT
+    else
+      "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+    fi
+  else
+    "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  fi
     python3 -m py_compile "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$WORKSPACE/scripts/apply_waltgov_mt6781.py"
     python3 "$WORKSPACE/scripts/apply_walt_controls_mt6781.py" "$SRC_DIR" > "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
     grep -qx "result=PASS" "$ARTIFACT_DIR/walt-controls-mt6781-audit.txt"
@@ -164,7 +175,7 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable SCHED_HMP_PLUS
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable IRQ_TIME_ACCOUNTING
   "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_SCHEDUTIL
-  "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
   "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_WALT
   if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
     "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_WALT
@@ -186,7 +197,17 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   grep -qx "CONFIG_SCHED_HMP_PLUS=y" "$OUT_DIR/.config" || { echo "CONFIG_SCHED_HMP_PLUS did not survive olddefconfig; enhanced HMP migration is incomplete." >&2; exit 1; }
   grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for native WALT demand accounting." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "EAS requires schedutil support." >&2; exit 1; }
-  grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain the default governor for the HMP/EAS baseline." >&2; exit 1; }
+  if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
+  fi
+    if [[ "$DEFAULT_CPUFREQ_GOVERNOR" == "walt" ]]; then
+      grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_WALT=y" "$OUT_DIR/.config" || { echo "WALT default governor did not survive olddefconfig." >&2; exit 1; }
+      ! grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil unexpectedly remains default." >&2; exit 1; }
+    else
+      grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil default missing." >&2; exit 1; }
+    fi
+  else
+    grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain default for the HMP/EAS baseline." >&2; exit 1; }
+  fi
   if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
     grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "Dedicated WALT governor did not survive olddefconfig." >&2; exit 1; }
   fi
@@ -253,7 +274,7 @@ CLANG_VERSION="$(clang --version | head -n 1)"
   if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
     echo "hmp_load_source=Fleur-native WALT runnable-demand accounting retained internally because the 4.14 MTK HMP engine consumes loadwop_avg"
     if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-      echo "walt_governor=MTK-policy-aware dedicated governor built-in and selectable; schedutil remains default"
+      echo "walt_governor=MTK-policy-aware dedicated governor built-in; default=$DEFAULT_CPUFREQ_GOVERNOR"
       echo "walt_standalone_controls=bounded native Fleur controls exposed through kernel sysctl"
       echo "walt_governor_audit=waltgov-mt6781-audit.txt"
       echo "walt_controls_audit=walt-controls-mt6781-audit.txt"
@@ -271,11 +292,11 @@ CLANG_VERSION="$(clang --version | head -n 1)"
     echo "schedutil_capacity_frequency_audit=schedutil-capacity-frequency-audit.txt; capacity_margin excluded from linear and nonlinear schedutil mapping"
   fi
   if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-    echo "cpufreq_conservative=Linux 4.19 native conservative governor built-in; schedutil remains default"
+    echo "cpufreq_conservative=Linux 4.19 native conservative governor built-in; default=$DEFAULT_CPUFREQ_GOVERNOR"
     echo "conservative_audit=conservative-governor-audit.txt"
   fi
   if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-    echo "cpufreq_ondemand=Linux 4.19 native ondemand governor built-in; schedutil remains default"
+    echo "cpufreq_ondemand=Linux 4.19 native ondemand governor built-in; default=$DEFAULT_CPUFREQ_GOVERNOR"
     echo "dbs_sampling_rate=conservative and ondemand accept 0..UINT_MAX; no userspace minimum or artificial maximum"
     echo "dbs_sampling_rate_audit=dbs-sampling-rate-audit.txt"
   fi
