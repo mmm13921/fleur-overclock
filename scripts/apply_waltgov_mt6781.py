@@ -34,7 +34,7 @@ def add_walt_frequency_path(text, label):
     replacement = anchor + """#ifdef CONFIG_SCHED_WALT
 \tif (type == FREQUENCY_UTIL && !walt_disabled &&
 \t    READ_ONCE(sysctl_sched_use_walt_cpu_util)) {
-\t\tutil = walt_cpu_freq_util(rq);
+\t\t/* Never retain a high WALT frequency request on an idle policy CPU. */\n\t\tif (!READ_ONCE(rq->nr_running))\n\t\t\treturn 0;\n\t\tutil = walt_cpu_freq_util(rq);
 #ifdef CONFIG_SCHED_TUNE
 \t\tutil += schedtune_cpu_margin_with(util, cpu, p);
 #else
