@@ -34,6 +34,9 @@ check_file sched_cpu_mode /proc/sys/kernel/sched_cpu_mode
 for n in sched_base_slice sched_eevdf_place_lag sched_eevdf_place_deadline_initial sched_eevdf_place_rel_deadline sched_eevdf_run_to_parity sched_eevdf_preempt_short; do
   check_file "$n" "/proc/sys/kernel/$n"
 done
+for n in sched_latency_ns sched_min_granularity_ns sched_wakeup_granularity_ns; do
+  if [ -e "/proc/sys/kernel/$n" ]; then say "FAIL | obsolete EEVDF-conflicting sysctl remains | $n"; FAIL=$((FAIL + 1)); else say "PASS | obsolete CFS sysctl removed | $n"; PASS=$((PASS + 1)); fi
+done
 say "=== CPUFreq policies ==="
 FOUND_POLICY=0
 for p in /sys/devices/system/cpu/cpufreq/policy*; do
