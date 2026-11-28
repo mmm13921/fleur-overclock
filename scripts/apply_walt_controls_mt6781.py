@@ -145,7 +145,7 @@ replace_entry("sched_use_walt_task_util", "proc_dointvec", "proc_douintvec_minma
 replace_entry("sched_walt_init_task_load_pct", "proc_dointvec", "proc_douintvec_minmax", "&walt_sysctl_hundred")
 
 # Insert remaining native knobs immediately after the bounded IRQ entry.
-    end = data.find("\n\t},", start)
+irq_end = data.find("\n\t},", data.find('.procname\t= "sched_walt_cpu_high_irqload"'))
 if irq_end < 0:
     raise SystemExit("could not locate end of WALT IRQ sysctl entry")
 entries = '''
