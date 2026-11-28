@@ -44,8 +44,10 @@ Header v2, kernel `gzip -9n`, sha1 id recomputed, ramdisk untouched (unless Magi
 - `--sched-u32`: same but max = 4294967295 (~4.29 s): the `bl proc_dointvec_minmax` inside sched_proc_update_handler is retargeted to `proc_douintvec_minmax` and the shared max variables set to 4294967295. If the handler patch cannot be applied the max stays 2147483647.
 - `--vm-bounds`: vm.extfrag_threshold max 1000 -> 2147483647 (min is bss 0). HyperOS 4.19 offset 0x1a06b68.
 - `--od-rate0`: removes the ondemand governor sampling_rate minimum check (store function rejects < 8000 us via lsr #6 / cmp #125 / b.cs -> unconditional branch; b.lo variant for Fleux -> nop). No min_sampling_rate file exists in these kernels; default governor stays schedutil. He runs ondemand with up_threshold 99 and sampling_rate 1 on policy0/policy6.
+- `--dbs-rate0` (planned source-level patch): remove the shared DBS `sampling_rate` lower-bound check for both `ondemand` and `conservative`, accepting `0..UINT_MAX` microseconds (`0..4294967295`). `0` means sampling on every eligible update-util callback and may increase CPU/workqueue overhead. The source implementation must make `sampling_rate * rate_mult` overflow-safe. This is a separate source patch, not yet implemented; the existing binary `--od-rate0` remains ondemand-specific.
 - `--cap-percpu`: cpu_capacity_store writes only the target CPU instead of the whole cluster (so cpu5=1024 and the other little cores 427 is possible). Several layouts: 4.14 original, 4.19 fx (Fleux), stock-hyper @0x69bc04, PortROM "ba" (cap2).
 - `--cap-max`: removes the 1024 limit on cpu_capacity (`cmp x8,#1024` -> `cmp x8,x8`; fx layout: b.ls -> b) so capacity can be set to 1 billion+. Default little capacity is 427; capacity is only a ratio for the scheduler.
+- **Fleux V12 source patch — `capacity_margin=0` (HMP/EAS/Hybrid build):** sets `unsigned int capacity_margin = 0` in `kernel/sched/fair.c` and changes the MTK `fits_capacity(cap, max)` helper's margin multiplier to 0. This is a source-level scheduler patch, not a boot.img binary flag. It removes the configured capacity headroom and changes `task_fits_capacity()` / misfit classification behavior; it does not directly force tasks onto big CPUs. Current status: build/device validation must be tracked separately; successful compilation alone does not establish correct CPU placement or performance.
 - `--cpuset-empty` (Capmax_cpuset.img): validate_change -ENOSPC check removed so every cpuset cpus/mems can be empty (HyperOS 5143 boot).
 - Swap_cg.img: root (global) cpuset `cpus` -EACCES removed plus a code-cave hook in update_cpumasks_hier so root has no NULL parent; validate_change -EBUSY/-EINVAL checks removed; cpu.uclamp.min/max shown on the cpuctl root; cpu.shares on root returns 0 instead of -EINVAL. (Only on the HyperOS 5143 kernel; not ported to PortROM "ba".)
 - `--swap-max`: vm.swappiness max 200 -> 2147483647 (min already 0).
@@ -890,7 +892,7 @@ def main():
 if __name__=='__main__':
     main()```
 
-Usage: `python3 port_mods.py IN.img OUT.img [--dry] [--cci MHz --cci-volt V] [--cpu MHz --cpu-volt V] [--gpu a,b,c,d] [--gpu-volt V] [--min-big MHz] [--min-little MHz] [--kernel Image.gz-dtb] [--magisk REF_MAGISK_BOOT] [--sched-bounds|--sched-u32] [--vm-bounds] [--od-rate0] [--cap-percpu] [--cap-max]`. Input may also be a raw Image.gz-dtb (kernel and appended dtbs patched).
+Usage: `python3 port_mods.py IN.img OUT.img [--dry] [--cci MHz --cci-volt V] [--cpu MHz --cpu-volt V] [--gpu a,b,c,d] [--gpu-volt V] [--min-big MHz] [--min-little MHz] [--kernel Image.gz-dtb] [--magisk REF_MAGISK_BOOT] [--sched-bounds|--sched-u32] [--vm-bounds] [--od-rate0] [--dbs-rate0 (planned source patch)] [--cap-percpu] [--cap-max]`. Input may also be a raw Image.gz-dtb (kernel and appended dtbs patched).
 
 ## Appendix B — disp_oc.py (needs port_mods.py in the same folder)
 
