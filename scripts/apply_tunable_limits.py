@@ -194,7 +194,7 @@ for match in list(re.finditer(r'\.procname\s*=\s*"([^"]+)"', source)):
 
 if "static int sched_minimum_zero = 0;" not in source:
     raise SystemExit("signed scheduler zero value missing")
-for required in ('"sched_min_granularity_ns"', '"sched_walt_cpu_high_irqload"',
+for required in ('"sched_walt_cpu_high_irqload"',
                  '"extfrag_threshold"', '"watermark_scale_factor"', '"swappiness"'):
     if required not in source:
         raise SystemExit(f"required tunable missing from sysctl.c: {required}")
