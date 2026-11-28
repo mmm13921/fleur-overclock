@@ -102,6 +102,9 @@ python3 "$WORKSPACE/scripts/apply_fuse_passthrough_coherency.py" "$SRC_DIR" "$AR
 grep -q "^result=PASS$" "$ARTIFACT_DIR/fuse-passthrough-cache-audit.txt"
 python3 -m py_compile "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$WORKSPACE/eevdf/audit_eevdf_618.py"
 python3 "$WORKSPACE/eevdf/patches/0001-eevdf-core-618.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-layer1-audit.txt"
+python3 -m py_compile "$WORKSPACE/scripts/apply_eevdf_legacy_cleanup.py"
+python3 "$WORKSPACE/scripts/apply_eevdf_legacy_cleanup.py" "$SRC_DIR" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt"
+grep -qx "result=PASS" "$ARTIFACT_DIR/eevdf-legacy-cleanup-audit.txt"
 python3 "$WORKSPACE/eevdf/audit_eevdf_618.py" "$SRC_DIR" > "$ARTIFACT_DIR/eevdf-audit.txt"
 grep -q "^eevdf_layer1=PASS$" "$ARTIFACT_DIR/eevdf-audit.txt"
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
