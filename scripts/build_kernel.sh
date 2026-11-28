@@ -179,6 +179,13 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   "$SRC_DIR/scripts/config" --disable CPU_FREQ_DEFAULT_GOV_WALT
   if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
     "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_GOV_WALT
+    if [[ "$DEFAULT_CPUFREQ_GOVERNOR" == "walt" ]]; then
+      "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_WALT
+    else
+      "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+    fi
+  else
+    "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" --enable CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
   fi
 fi
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
@@ -198,7 +205,7 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   grep -qx "CONFIG_IRQ_TIME_ACCOUNTING=y" "$OUT_DIR/.config" || { echo "CONFIG_IRQ_TIME_ACCOUNTING is required for native WALT demand accounting." >&2; exit 1; }
   grep -qx "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "EAS requires schedutil support." >&2; exit 1; }
   if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-  fi
+    grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "Dedicated WALT governor did not survive olddefconfig." >&2; exit 1; }
     if [[ "$DEFAULT_CPUFREQ_GOVERNOR" == "walt" ]]; then
       grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_WALT=y" "$OUT_DIR/.config" || { echo "WALT default governor did not survive olddefconfig." >&2; exit 1; }
       ! grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil unexpectedly remains default." >&2; exit 1; }
@@ -208,10 +215,6 @@ if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-mt6781" || "$BUILD_PROFILE" == "m
   else
     grep -qx "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" "$OUT_DIR/.config" || { echo "schedutil must remain default for the HMP/EAS baseline." >&2; exit 1; }
   fi
-  if [[ "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
-    grep -qx "CONFIG_CPU_FREQ_GOV_WALT=y" "$OUT_DIR/.config" || { echo "Dedicated WALT governor did not survive olddefconfig." >&2; exit 1; }
-  fi
-fi
 if [[ "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-conservative-unlimited-sampling-mt6781" || "$BUILD_PROFILE" == "meys-v12-hmp-hybrid-capacity-freq-isolated-mt6781" || "$BUILD_PROFILE" == "meys-v12-build62-walt-full-mt6781" ]]; then
   python3 -m py_compile "$WORKSPACE/scripts/audit_conservative_governor.py"
   python3 "$WORKSPACE/scripts/audit_conservative_governor.py" "$SRC_DIR" "$OUT_DIR/.config" "$ARTIFACT_DIR/conservative-governor-audit.txt"
