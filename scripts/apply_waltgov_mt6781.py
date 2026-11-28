@@ -151,33 +151,22 @@ static ssize_t hispeed_freq_show(struct gov_attr_set *attr_set, char *buf)
 	return scnprintf(buf, PAGE_SIZE, "%u\n", READ_ONCE(tunables->hispeed_freq));
 }
 
-static bool waltgov_freq_is_available(struct gov_attr_set *attr_set,
-					       unsigned int freq)
+static const unsigned int waltgov_hispeed_freqs[] = {
+	2000000, 1933000, 1866000, 1800000,
+	1733000, 1666000, 1618000, 1500000,
+	1375000, 1275000, 1175000, 1075000,
+	975000, 875000, 774000, 500000,
+};
+
+static bool waltgov_freq_is_available(unsigned int freq)
 {
-	struct waltgov_policy *sg_policy;
-	struct cpufreq_frequency_table *pos;
-	bool found_policy = false;
+	unsigned int i;
 
-	if (!freq)
-		return true;
-	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
-		bool found = false;
-
-		if (!sg_policy->policy->freq_table)
-			return false;
-		cpufreq_for_each_entry(pos, sg_policy->policy->freq_table) {
-			if (pos->frequency == CPUFREQ_ENTRY_INVALID)
-				continue;
-			if (pos->frequency == freq) {
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-			return false;
-		found_policy = true;
+	for (i = 0; i < ARRAY_SIZE(waltgov_hispeed_freqs); i++) {
+		if (waltgov_hispeed_freqs[i] == freq)
+			return true;
 	}
-	return found_policy;
+	return false;
 }
 
 static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
@@ -188,7 +177,7 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 
 	if (kstrtouint(buf, 10, &val))
 		return -EINVAL;
-	if (!waltgov_freq_is_available(attr_set, val))
+	if (!waltgov_freq_is_available(val))
 		return -EINVAL;
 	WRITE_ONCE(tunables->hispeed_freq, val);
 	return count;
@@ -196,29 +185,17 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 
 static ssize_t hispeed_freq_table_show(struct gov_attr_set *attr_set, char *buf)
 {
-	struct waltgov_policy *sg_policy;
-	struct cpufreq_frequency_table *pos;
+	unsigned int i;
 	unsigned int len = 0;
-	bool found_policy = false;
 
-	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
-		if (!sg_policy->policy->freq_table)
-			continue;
-		found_policy = true;
-		cpufreq_for_each_entry(pos, sg_policy->policy->freq_table) {
-			if (pos->frequency == CPUFREQ_ENTRY_INVALID)
-				continue;
-			if (len >= PAGE_SIZE - 16)
-				return -E2BIG;
-			len += scnprintf(buf + len, PAGE_SIZE - len, "%u ", pos->frequency);
-		}
+	for (i = 0; i < ARRAY_SIZE(waltgov_hispeed_freqs); i++) {
+		if (len >= PAGE_SIZE - 16)
+			return -E2BIG;
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%u%s",
+				 waltgov_hispeed_freqs[i],
+				 i + 1 == ARRAY_SIZE(waltgov_hispeed_freqs) ? "" : " ");
 	}
-	if (!found_policy)
-		return -EINVAL;
-	if (len && buf[len - 1] == ' ')
-		buf[len - 1] = '\n';
-	else
-		buf[len++] = '\n';
+	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
 	return len;
 }
 
@@ -251,7 +228,7 @@ static struct governor_attr boost = __ATTR_RW(boost);
 static ssize_t wakeup_boost_show(struct gov_attr_set *attr_set, char *buf)
 {
 	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
-	return scnprintf(buf, PAGE_SIZE, "%u\\n", READ_ONCE(tunables->wakeup_boost));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", READ_ONCE(tunables->wakeup_boost));
 }
 static ssize_t wakeup_boost_store(struct gov_attr_set *attr_set, const char *buf, size_t count)
 {
@@ -266,7 +243,7 @@ static struct governor_attr wakeup_boost = __ATTR_RW(wakeup_boost);
 static ssize_t wakeup_boost_duration_us_show(struct gov_attr_set *attr_set, char *buf)
 {
 	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
-	return scnprintf(buf, PAGE_SIZE, "%u\\n", READ_ONCE(tunables->wakeup_boost_duration_us));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", READ_ONCE(tunables->wakeup_boost_duration_us));
 }
 static ssize_t wakeup_boost_duration_us_store(struct gov_attr_set *attr_set, const char *buf, size_t count)
 {
