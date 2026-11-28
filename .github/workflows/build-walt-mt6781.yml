@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - meys-v12-build62-walt-full
+      - meys-v116-eevdf-cleanup
     paths:
       - '.github/workflows/build-walt-mt6781.yml'
       - 'scripts/build_kernel.sh'
