@@ -100,7 +100,8 @@ The dedicated WALT CPUFreq governor (separate from schedutil) exposes a per-poli
 | Attribute | Default | Range | Effect |
 |---|---:|---:|---|
 | `hispeed_load` | 90 | 0–100 | Load percentage that activates the hispeed floor. |
-| `hispeed_freq` | 0 | 0–policy max (kHz) | Minimum requested frequency after the hispeed threshold is reached; 0 disables the floor until configured. |
+| `hispeed_freq` | 0 | 0 or an exact frequency from the active policy table (kHz) | Minimum requested frequency after the hispeed threshold is reached; 0 disables the floor. Values not present in the policy table are rejected. |
+| `hispeed_freq_table` | — | RO | Lists the exact available frequencies for that policy in kHz; choose one of these values for `hispeed_freq`. LITTLE and big policies expose their own lists. |
 | `boost` | 0 | -100–1000 | Percentage adjustment to WALT utilization before frequency mapping; positive values increase requested frequency and negative values reduce it. |
 
 These are applied in the WALT governor's frequency-selection path, not just registered as sysfs files. `hispeed_freq` is clamped to the active policy maximum when consumed. The existing per-policy LITTLE and big frequency domains remain independent. Qualcomm-specific `rtg_boost_freq`, predictive-load (`pl`), and adaptive-frequency controls are not exposed because the corresponding RTG/predicted-load/adaptive backing paths are not part of this MT6781 port.
