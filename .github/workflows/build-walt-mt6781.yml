@@ -1,3 +1,4 @@
+# WALT-default Build 123 validation branch; Build 116/123 baseline layers remain intact.
 name: Build 123 Base — WALT Default MT6781
 run-name: MEYS Build ${{ github.run_number }} — WALT Default (base 123)
 on:
