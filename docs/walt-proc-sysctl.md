@@ -117,3 +117,15 @@ The MT6781 profile backports the Fleur 4.14 HMP policy into Fleux V12. WALT task
 Runtime mode control remains `/proc/sys/kernel/sched_cpu_mode`: `0` selects HMP, `1` selects the existing Fleux EAS path, and `2` uses EAS until the root domain is overutilized, then HMP. The existing MTK core-control path is retained. Qualcomm-specific RTG and Qualcomm core_ctl are not part of the Fleur MTK 4.14 reference and are not represented as ported.
 
 CI verifies source integration and compilation only; it cannot establish device boot, radio, thermal, or benchmark correctness.
+
+
+## EEVDF legacy CFS timing controls
+
+The Build 62 EEVDF layer removes the obsolete runtime sysctl/debugfs aliases for:
+- `sched_latency_ns`
+- `sched_min_granularity_ns`
+- `sched_wakeup_granularity_ns`
+
+The active EEVDF request-size control is `/proc/sys/kernel/sched_base_slice` (default 700000 ns; bounded to 0..100000000 ns). The generic scheduler-limit pass explicitly preserves this range and the 0..1 bounds of all EEVDF feature switches. Internal 4.19 scheduler state and helper arithmetic are retained where other legacy scheduler code may still reference them; only the obsolete user-facing controls are removed. `sched_migration_cost_ns`, `sched_nr_migrate`, `sched_tunable_scaling`, and `sched_child_runs_first` are retained because this EEVDF backport has not replaced their independent 4.19 behavior.
+
+The read-only runtime diagnostic reports whether the three legacy timing controls are absent and whether `sched_base_slice` is exposed.
